@@ -1,4 +1,4 @@
-#include "viewerwindow.h"
+#include "ViewerWindow.h"
 
 #include <QApplication>
 #include <QLocale>

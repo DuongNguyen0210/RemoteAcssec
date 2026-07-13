@@ -5,10 +5,7 @@
 
 class QPushButton;
 class QLabel;
-
-class QTcpServer;
-class QTcpSocket;
-class QTimer;
+class HostServer;
 
 class HostWindow : public QWidget
 {
@@ -21,14 +18,10 @@ public:
 private:
     QPushButton *startButton;
     QLabel *statusLabel;
-
-    QTcpServer *server;
-    QTcpSocket *clientSocket;
-    QTimer *captureTimer;
+    HostServer *server;
 
 private slots:
     void onStartSharingClicked();
-    void onNewConnection();
-    void sendScreenFrame();
 };
+
 #endif

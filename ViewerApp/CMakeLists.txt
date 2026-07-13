@@ -8,8 +8,10 @@ qt_standard_project_setup()
 qt_add_executable(ViewerApp
     WIN32 MACOSX_BUNDLE
     main.cpp
-    viewerwindow.cpp
-    viewerwindow.h
+    src/viewer/network/ViewerClient.cpp
+    src/viewer/network/ViewerClient.h
+    src/viewer/ui/ViewerWindow.cpp
+    src/viewer/ui/ViewerWindow.h
 )
 
 qt_add_translations(
@@ -22,6 +24,12 @@ target_link_libraries(ViewerApp
         Qt::Core
         Qt::Widgets
         Qt::Network
+)
+
+target_include_directories(ViewerApp
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/viewer/network
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/viewer/ui
 )
 
 include(GNUInstallDirs)

@@ -1,4 +1,4 @@
-#include "hostwindow.h"
+#include "HostWindow.h"
 
 #include <QApplication>
 #include <QLocale>

@@ -8,8 +8,10 @@ qt_standard_project_setup()
 qt_add_executable(HostApp
     WIN32 MACOSX_BUNDLE
     main.cpp
-    hostwindow.cpp
-    hostwindow.h
+    src/host/network/HostServer.cpp
+    src/host/network/HostServer.h
+    src/host/ui/HostWindow.cpp
+    src/host/ui/HostWindow.h
 )
 
 qt_add_translations(
@@ -22,6 +24,12 @@ target_link_libraries(HostApp
         Qt::Core
         Qt::Widgets
         Qt::Network
+)
+
+target_include_directories(HostApp
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/host/network
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/host/ui
 )
 
 include(GNUInstallDirs)

@@ -1,21 +1,17 @@
-#include "viewerwindow.h"
+#include "ViewerWindow.h"
 
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include "ViewerClient.h"
+
 #include <QFormLayout>
-
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
-#include <QPushButton>
 #include <QLineEdit>
+#include <QPixmap>
+#include <QPushButton>
 #include <QString>
 #include <QTextEdit>
-
-#include <QTcpSocket>
-#include <QDataStream>
-#include <QPixmap>
 #include <QVBoxLayout>
-
 
 ViewerWindow::ViewerWindow(QWidget *parent)
     : QWidget(parent)
@@ -62,12 +58,11 @@ ViewerWindow::ViewerWindow(QWidget *parent)
 
     setLayout(layout);
 
-    socket = new QTcpSocket(this);
-    expectedImageSize = 0;
+    client = new ViewerClient(this);
 
-    connect(socket, &QTcpSocket::connected, this, &ViewerWindow::onSocketConnected);
-    connect(socket, &QTcpSocket::disconnected, this, &ViewerWindow::onSocketDisconnected);
-    connect(socket, &QTcpSocket::readyRead, this, &ViewerWindow::onReadyRead);
+    connect(client, &ViewerClient::connected, this, &ViewerWindow::onSocketConnected);
+    connect(client, &ViewerClient::disconnected, this, &ViewerWindow::onSocketDisconnected);
+    connect(client, &ViewerClient::frameReceived, this, &ViewerWindow::onFrameReceived);
 
     connect(bttConnect, &QPushButton::clicked, this, &ViewerWindow::onConnectClicked);
 }
@@ -97,7 +92,7 @@ void ViewerWindow::onConnectClicked()
     statusLabel->setText(message);
     logText->append(message);
 
-    socket->connectToHost(ip, port);
+    client->connectToHost(ip, port);
 }
 
 void ViewerWindow::onSocketConnected()
@@ -112,49 +107,21 @@ void ViewerWindow::onSocketDisconnected()
     logText->append("Disconnected from Host");
 }
 
-void ViewerWindow::onReadyRead()
+void ViewerWindow::onFrameReceived(const QByteArray &imageBuffer)
 {
-    while (socket->bytesAvailable() > 0)
+    QPixmap pixmap;
+    bool loaded = pixmap.loadFromData(imageBuffer, "JPG");
+
+    if (loaded)
     {
-        if (expectedImageSize == 0)
-        {
-            if (socket->bytesAvailable() < static_cast<int>(sizeof(quint32)))
-                return;
+        QPixmap scaled = pixmap.scaled(
+            screenLabel->size(),
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation
+            );
 
-            QDataStream in(socket);
-            in.setVersion(QDataStream::Qt_6_0);
-            in >> expectedImageSize;
-        }
-
-        if (socket->bytesAvailable() < expectedImageSize)
-            return;
-
-        imageBuffer = socket->read(expectedImageSize);
-
-        QPixmap pixmap;
-        bool loaded = pixmap.loadFromData(imageBuffer, "JPG");
-
-        if (loaded)
-        {
-            QPixmap scaled = pixmap.scaled(
-                screenLabel->size(),
-                Qt::KeepAspectRatio,
-                Qt::SmoothTransformation
-                );
-
-            screenLabel->setPixmap(scaled);
-        }
-        else
-            logText->append("Failed to load image frame");
-
-        expectedImageSize = 0;
-        imageBuffer.clear();
+        screenLabel->setPixmap(scaled);
     }
+    else
+        logText->append("Failed to load image frame");
 }
-
-
-
-
-
-
-

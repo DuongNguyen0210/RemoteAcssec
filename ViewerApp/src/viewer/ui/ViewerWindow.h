@@ -1,6 +1,7 @@
 #ifndef VIEWERWINDOW_H
 #define VIEWERWINDOW_H
 
+#include <QByteArray>
 #include <QWidget>
 
 class QLineEdit;
@@ -8,8 +9,7 @@ class QPushButton;
 class QLabel;
 class QFrame;
 class QTextEdit;
-
-class QTcpSocket;
+class ViewerClient;
 
 class ViewerWindow : public QWidget
 {
@@ -27,16 +27,13 @@ private:
     QFrame *screenFrame;
     QTextEdit *logText;
     QLabel *screenLabel;
-
-    QTcpSocket *socket;
-    quint32 expectedImageSize;
-    QByteArray imageBuffer;
+    ViewerClient *client;
 
 private slots:
     void onConnectClicked();
     void onSocketConnected();
     void onSocketDisconnected();
-    void onReadyRead();
-
+    void onFrameReceived(const QByteArray &imageBuffer);
 };
+
 #endif
