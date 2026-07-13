@@ -1,0 +1,13 @@
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/HostApp.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/HostApp_lupdate.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/update_translations.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/HostApp_lrelease.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/release_translations.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/edit_cache.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/rebuild_cache.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/list_install_components.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/install.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/install/local.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/install/strip.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/HostApp_autogen_timestamp_deps.dir
+D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/HostApp_autogen.dir

@@ -1,0 +1,115 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-b825b8fa33f19c822dfb.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "ViewerApp",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ViewerApp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ViewerApp-Debug-3b6e45301f591dc4623a.json",
+					"name" : "ViewerApp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ViewerApp_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ViewerApp_autogen-Debug-227f32c33f8ce5ee3f43.json",
+					"name" : "ViewerApp_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ViewerApp_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ViewerApp_autogen_timestamp_deps-Debug-65b23bf4697db66d6631.json",
+					"name" : "ViewerApp_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ViewerApp_lrelease::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ViewerApp_lrelease-Debug-a10707f19f364158e864.json",
+					"name" : "ViewerApp_lrelease",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ViewerApp_lupdate::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ViewerApp_lupdate-Debug-e1ca6c8bab13015d6c96.json",
+					"name" : "ViewerApp_lupdate",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "release_translations::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-release_translations-Debug-085d0b57558fc6b0b6eb.json",
+					"name" : "release_translations",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "update_translations::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-update_translations-Debug-a1f2d606e63b4f31bf3a.json",
+					"name" : "update_translations",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug",
+		"source" : "D:/CloneCpp/ViewerApp"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}

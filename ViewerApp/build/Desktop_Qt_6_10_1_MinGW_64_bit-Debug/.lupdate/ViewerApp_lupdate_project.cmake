@@ -1,0 +1,11 @@
+set(lupdate_project_file "D:/CloneCpp/ViewerApp/CMakeLists.txt")
+set(lupdate_translations "D:/CloneCpp/ViewerApp/ViewerApp_vi_VN.ts")
+set(lupdate_include_paths "")
+set(lupdate_sources "")
+set(lupdate_subproject_count 1)
+
+set(lupdate_subproject1_source_dir "D:/CloneCpp/ViewerApp")
+set(lupdate_subproject1_include_paths "D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/ViewerApp_autogen/include;D:/QT/6.10.1/mingw_64/include/QtCore;D:/QT/6.10.1/mingw_64/include;D:/QT/6.10.1/mingw_64/mkspecs/win32-g++;D:/QT/6.10.1/mingw_64/include;D:/QT/6.10.1/mingw_64/include/QtWidgets;D:/QT/6.10.1/mingw_64/include;D:/QT/6.10.1/mingw_64/include/QtGui;D:/QT/6.10.1/mingw_64/include;D:/QT/6.10.1/mingw_64/include/QtNetwork;D:/QT/6.10.1/mingw_64/include")
+set(lupdate_subproject1_sources "D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/ViewerApp_autogen/mocs_compilation.cpp;main.cpp;viewerwindow.cpp;viewerwindow.h;D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/.qt/rcc/ViewerApp_translations.qrc;D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/ViewerApp_vi_VN.qm;D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/.qt/rcc/qrc_ViewerApp_translations.cpp;D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/ViewerApp_autogen/timestamp;D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/ViewerApp_vi_VN.qm.rule;D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/.qt/rcc/qrc_ViewerApp_translations.cpp.rule;D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/ViewerApp_autogen/timestamp.rule")
+set(lupdate_subproject1_excluded "")
+set(lupdate_subproject1_autogen_dir "D:/CloneCpp/ViewerApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/ViewerApp_autogen")

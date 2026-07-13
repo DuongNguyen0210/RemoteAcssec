@@ -1,0 +1,115 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-26f157eea3be14e5b197.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "HostApp",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "HostApp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-HostApp-Debug-826bb00ca765749e4221.json",
+					"name" : "HostApp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "HostApp_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-HostApp_autogen-Debug-394e0a1dfaf618bb535e.json",
+					"name" : "HostApp_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "HostApp_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-HostApp_autogen_timestamp_deps-Debug-8b87b0c335315c06c4e1.json",
+					"name" : "HostApp_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "HostApp_lrelease::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-HostApp_lrelease-Debug-60f0f774891105b4356a.json",
+					"name" : "HostApp_lrelease",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "HostApp_lupdate::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-HostApp_lupdate-Debug-5582e225ced0acd1bf6e.json",
+					"name" : "HostApp_lupdate",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "release_translations::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-release_translations-Debug-cbba40c5c05dc8f222e6.json",
+					"name" : "release_translations",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "update_translations::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-update_translations-Debug-458c79adc2697c35f142.json",
+					"name" : "update_translations",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "D:/CloneCpp/HostApp/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug",
+		"source" : "D:/CloneCpp/HostApp"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}
