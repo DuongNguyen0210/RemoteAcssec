@@ -1,0 +1,45 @@
+# CMake and Qt build outputs
+build/
+**/build/
+cmake-build-*/
+out/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+CMakeCache.txt.prev
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Ninja / Make generated files
+.ninja_deps
+.ninja_log
+.ninja_log.*
+build.ninja
+rules.ninja
+
+# Qt generated files
+*_autogen/
+*.qm
+
+# Qt Creator local files
+*.user
+*.user.*
+.qtcreator/
+
+# C++ build artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.exe
+*.pdb
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
