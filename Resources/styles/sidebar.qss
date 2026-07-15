@@ -1,0 +1,65 @@
+#sidebar {
+    background-color: #ffffff;
+    border-right: 1px solid #e5e7eb;
+}
+
+#separatorLine {
+    background-color: #e5e7eb;
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
+}
+
+#lblName{
+    font-size: 16px;
+    font-weight: 700;
+    color : #006399;
+}
+
+#menuRow {
+    background-color: transparent;
+}
+
+#menuButton {
+    text-align: left;
+    padding-left: 16px;
+    border: none;
+    border-radius: 8px;
+    background-color: transparent;
+    color: #374151;
+    font-size: 14px;
+}
+#menuButton:hover {
+    background-color: #f3f4f6;
+}
+#menuButton:checked {
+    background-color: #f3f4f6;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+#activeIndicator {
+    background-color: transparent;
+    border: none;
+}
+#activeIndicator[active="true"] {
+    background-color: #1d4ed8;
+    border-radius: 2px;
+    margin: 6px 0px;
+}
+
+#newConnButton {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 0;
+    font-weight: 600;
+    font-size: 13px;
+}
+#newConnButton:hover {
+    background-color: #1d4ed8;
+}
+#newConnButton:pressed {
+    background-color: #1e40af;
+}

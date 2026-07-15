@@ -32,8 +32,6 @@ void DevicesPage::setupUi()
 
     FlowLayout *flowLayout = new FlowLayout(scrollContent, 0, 15, 15);
 
-    QList<DeviceCardWidget*> cardList;
-
     for (int i = 0; i < 6; ++i)
     {
         QString deviceName = QString("WKSTN-DEV-%1").arg(i + 1);
