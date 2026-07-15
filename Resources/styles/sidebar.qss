@@ -1,0 +1,72 @@
+QWidget#sidebar {
+    background-color: #ffffff;
+    border: none;
+}
+
+QLabel#brandBlock {
+    color: #005d90;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QFrame#sidebarSeparator {
+    color: #bfc7d1;
+    background-color: #bfc7d1;
+    border: none;
+}
+
+QWidget#sidebar QPushButton {
+    min-height: 40px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0 16px;
+    text-align: left;
+    font-size: 16px;
+    font-weight: 400;
+}
+
+QWidget#sidebar QPushButton[role="nav"] {
+    background-color: transparent;
+    color: #404850;
+}
+
+QWidget#sidebar QPushButton[role="nav"]:hover {
+    background-color: #e6e8ea;
+    color: #191c1e;
+}
+
+QWidget#sidebar QPushButton[role="nav"]:checked {
+    background-color: #edf7ff;
+    color: #005d90;
+    font-weight: 700;
+}
+
+QWidget#sidebar QPushButton[role="nav"]:pressed {
+    background-color: #dff0ff;
+}
+
+QPushButton#newConnectionButton {
+    background-color: #005d90;
+    color: #ffffff;
+    border: 1px solid #005d90;
+    border-radius: 8px;
+    min-height: 44px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QPushButton#newConnectionButton:hover {
+    background-color: #0077b6;
+    border-color: #0077b6;
+}
+
+QPushButton#newConnectionButton:pressed {
+    background-color: #004b74;
+    border-color: #004b74;
+}
+
+QPushButton#newConnectionButton:focus,
+QWidget#sidebar QPushButton[role="nav"]:focus {
+    border: 2px solid #94ccff;
+}

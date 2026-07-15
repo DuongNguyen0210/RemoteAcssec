@@ -8,6 +8,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
+    setObjectName("mainWindow");
     resize(1200, 800);
     setWindowTitle("Remote Access App");
     setupUi();
@@ -18,6 +19,7 @@ MainWindow::~MainWindow() {}
 void MainWindow::setupUi()
 {
     QWidget *centralWidget = new QWidget(this);
+    centralWidget->setObjectName("appRoot");
     setCentralWidget(centralWidget);
 
     QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
@@ -25,17 +27,21 @@ void MainWindow::setupUi()
     mainLayout->setSpacing(0);
 
     sidebar = new SidebarWidget(this);
+    sidebar->setObjectName("sidebar");
     sidebar->setFixedWidth(250);
 
     topbar = new TopBarWidget(this);
+    topbar->setObjectName("topbar");
     topbar->setFixedHeight(100);
 
     QWidget *rightContentWidget = new QWidget(this);
+    rightContentWidget->setObjectName("contentShell");
     QVBoxLayout *rightLayout = new QVBoxLayout(rightContentWidget);
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->setSpacing(0);
 
     stackedWidget = new QStackedWidget(this);
+    stackedWidget->setObjectName("contentStack");
 
     DevicesPage *pageDevices = new DevicesPage(this);
     QLabel *pageSessions = new QLabel("ĐÂY LÀ TRANG PHIÊN KẾT NỐI (SESSIONS)", this);
@@ -53,8 +59,10 @@ void MainWindow::setupUi()
     stackedWidget->addWidget(pageLogs);
 
     QFrame *lineH = new QFrame(rightContentWidget);
+    lineH->setObjectName("contentDivider");
     lineH->setFrameShape(QFrame::HLine);
     QFrame *lineV = new QFrame(centralWidget);
+    lineV->setObjectName("sidebarDivider");
     lineV->setFrameShape(QFrame::VLine);
 
     rightLayout->addWidget(topbar);

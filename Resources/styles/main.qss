@@ -1,0 +1,65 @@
+* {
+    font-family: "Inter", "Segoe UI", Arial, sans-serif;
+    color: #191c1e;
+    selection-background-color: #005d90;
+    selection-color: #ffffff;
+}
+
+QMainWindow#mainWindow,
+QWidget#appRoot,
+QWidget#contentShell,
+QStackedWidget#contentStack,
+QWidget#devicesPage {
+    background-color: #f7f9fb;
+}
+
+QFrame#contentDivider,
+QFrame#sidebarDivider {
+    color: #bfc7d1;
+    background-color: #bfc7d1;
+    border: none;
+}
+
+QLabel {
+    background-color: transparent;
+}
+
+QLabel#pageTitle {
+    color: #191c1e;
+    font-size: 32px;
+    font-weight: 700;
+}
+
+QScrollArea#devicesScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea#devicesScrollArea > QWidget > QWidget,
+QWidget#devicesScrollContent {
+    background-color: transparent;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 4px 0 4px 0;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #e0e3e5;
+    border-radius: 4px;
+    min-height: 32px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #bfc7d1;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    height: 0;
+    background: transparent;
+}

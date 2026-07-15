@@ -3,11 +3,13 @@
         <file>Resources/styles/main.qss</file>
         <file>Resources/styles/sidebar.qss</file>
         <file>Resources/styles/topbar.qss</file>
+        <file>Resources/styles/devicecard.qss</file>
     </qresource>
     <qresource prefix="/icons">
-        <file>Resources/icons/cast.png</file>
-        <file>Resources/icons/computer.png</file>
-        <file>Resources/icons/log-in.png</file>
-        <file>Resources/icons/log-out.png</file>
+        <file>Resources/icons/bell.svg</file>
+        <file>Resources/icons/circle-question-mark.svg</file>
+        <file>Resources/icons/circle-user.svg</file>
+        <file>Resources/icons/computer.svg</file>
+        <file>Resources/icons/x.svg</file>
     </qresource>
 </RCC>

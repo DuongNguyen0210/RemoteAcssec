@@ -1,0 +1,48 @@
+QWidget#topbar {
+    background-color: #f7f9fb;
+    border: none;
+}
+
+QLineEdit#globalSearch {
+    background-color: #ffffff;
+    color: #191c1e;
+    border: 1px solid #bfc7d1;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+QLineEdit#globalSearch:hover {
+    border-color: #707881;
+}
+
+QLineEdit#globalSearch:focus {
+    border: 2px solid #005d90;
+    padding: 7px 11px;
+}
+
+QPushButton[role="iconButton"] {
+    background-color: #005d90;
+    border: 1px solid #005d90;
+    border-radius: 20px;
+    min-width: 40px;
+    max-width: 40px;
+    min-height: 40px;
+    max-height: 40px;
+    padding: 0;
+}
+
+QPushButton[role="iconButton"]:hover {
+    background-color: #0077b6;
+    border-color: #0077b6;
+}
+
+QPushButton[role="iconButton"]:pressed {
+    background-color: #004b74;
+    border-color: #004b74;
+}
+
+QPushButton[role="iconButton"]:focus {
+    border: 2px solid #94ccff;
+}

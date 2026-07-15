@@ -1,0 +1,114 @@
+QWidget#deviceCard {
+    background: qradialgradient(
+        cx: 1, cy: 0,
+        radius: 1.15,
+        fx: 1, fy: 0,
+        stop: 0 #e3f2fd,
+        stop: 0.30 #ffffff,
+        stop: 1 #ffffff
+    );
+    background-color: #ffffff;
+    border: 1px solid #eef0f2;
+    border-radius: 16px;
+}
+
+QWidget#deviceCard:hover {
+    border-color: #d7e8f4;
+    background-color: #ffffff;
+}
+
+QWidget#deviceCard QFrame {
+    color: #f3f4f6;
+    background-color: #f3f4f6;
+    border: none;
+}
+
+QLabel#deviceIcon {
+    background-color: #e9ecef;
+    border-radius: 10px;
+    min-width: 48px;
+    min-height: 48px;
+}
+
+QLabel#deviceName {
+    color: #111827;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+QLabel[role="muted"] {
+    color: #4b5563;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+QLabel[role="metaLabel"] {
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QLabel[role="strongValue"] {
+    color: #111827;
+    font-size: 15px;
+    font-weight: 400;
+}
+
+QLabel#statusChip {
+    background-color: #e0f0fa;
+    color: #00609a;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QLabel#statusChip[status="online"],
+QLabel#statusChip[status="inuse"] {
+    background-color: #e0f0fa;
+    color: #00609a;
+}
+
+QLabel#statusChip[status="offline"] {
+    background-color: #f3f4f6;
+    color: #4b5563;
+}
+
+QPushButton#connectButton {
+    background-color: #f3f4f6;
+    color: #111827;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QPushButton#connectButton:hover {
+    background-color: #e5e7eb;
+}
+
+QPushButton#connectButton:pressed {
+    background-color: #d1d5db;
+}
+
+QPushButton#connectButton:focus {
+    border: 2px solid #93c5fd;
+}
+
+QPushButton#removeDeviceButton {
+    background-color: #ffffff;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+}
+
+QPushButton#removeDeviceButton:hover {
+    background-color: #fef2f2;
+    border-color: #fca5a5;
+}
+
+QPushButton#removeDeviceButton:pressed {
+    background-color: #fee2e2;
+    border-color: #ef4444;
+}
