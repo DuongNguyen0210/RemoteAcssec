@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/styles">
+        <file>Resources/styles/main.qss</file>
+        <file>Resources/styles/sidebar.qss</file>
+        <file>Resources/styles/topbar.qss</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file>Resources/icons/cast.png</file>
+        <file>Resources/icons/computer.png</file>
+        <file>Resources/icons/log-in.png</file>
+        <file>Resources/icons/log-out.png</file>
+    </qresource>
+</RCC>

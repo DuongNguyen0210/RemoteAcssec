@@ -1,20 +1,34 @@
-# Bật các công cụ biên dịch tự động của Qt cho UI
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-# Khai báo các file source, header và UI cho module GUI
-set(GUI_SOURCES dummy.cpp
-    # Thêm file vào đây sau, ví dụ:
-    # MainWindow.cpp MainWindow.h MainWindow.ui
+set(GUI_SOURCES
+    mainwindow.cpp
+    mainwindow.h
+
+    Components/SidebarWidget.cpp
+    Components/SidebarWidget.h
+    Components/TopBarWidget.cpp
+    Components/TopBarWidget.h
+    Components/DeviceCardWidget.cpp
+    Components/DeviceCardWidget.h
+
+    Pages/DevicesPage.cpp
+    Pages/DevicesPage.h
+    Pages/SettingsPage.cpp
+    Pages/SettingsPage.h
 )
+
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
 add_library(GUI STATIC ${GUI_SOURCES})
 
-# GUI chắc chắn cần Widgets và Gui module của Qt
 target_link_libraries(GUI PRIVATE 
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Gui
 )
+target_link_libraries(GUI PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(GUI PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 
 target_include_directories(GUI PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
