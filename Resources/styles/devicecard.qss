@@ -1,114 +1,104 @@
-QWidget#deviceCard {
-    background: qradialgradient(
-        cx: 1, cy: 0,
-        radius: 1.15,
-        fx: 1, fy: 0,
-        stop: 0 #e3f2fd,
-        stop: 0.30 #ffffff,
-        stop: 1 #ffffff
-    );
-    background-color: #ffffff;
-    border: 1px solid #eef0f2;
-    border-radius: 16px;
-}
-
-QWidget#deviceCard:hover {
-    border-color: #d7e8f4;
-    background-color: #ffffff;
-}
-
-QWidget#deviceCard QFrame {
-    color: #f3f4f6;
-    background-color: #f3f4f6;
-    border: none;
-}
-
-QLabel#deviceIcon {
-    background-color: #e9ecef;
+#deviceCard {
+    border: 1px solid #747779;
     border-radius: 10px;
-    min-width: 48px;
-    min-height: 48px;
+    background-color: #ffffff;
 }
 
-QLabel#deviceName {
+#deviceCard:hover {
+    border: 1px solid #747779;
+    background: qradialgradient(
+            cx: 1, cy: 0,
+            radius: 1.2,
+            fx: 1, fy: 0,
+            stop: 0 #94CCFF,
+            stop: 0.3 #ffffff,
+            stop: 1 #ffffff
+        );
+}
+
+#deviceIcon {
+    background-color: #E0E3E5;
+    border-radius: 10px;
+}
+
+#removeDeviceButton {
+    background-color: transparent;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    padding: 0px;
+    margin: 0px;
+}
+#removeDeviceButton:hover {
+    background-color: #fee2e2;
+    border: 1px solid #ef4444;
+}
+#removeDeviceButton:pressed {
+    background-color: #fca5a5;
+    border: 1px solid #dc2626;
+}
+
+#deviceName {
+    font-size: 16px;
+    font-weight: 700;
     color: #111827;
-    font-size: 18px;
-    font-weight: 600;
 }
 
 QLabel[role="muted"] {
-    color: #4b5563;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-QLabel[role="metaLabel"] {
     color: #6b7280;
     font-size: 12px;
     font-weight: 600;
 }
 
+QLabel[role="metaLabel"] {
+    color: #6b7280;
+    font-size: 13px;
+}
+
 QLabel[role="strongValue"] {
     color: #111827;
-    font-size: 15px;
-    font-weight: 400;
-}
-
-QLabel#statusChip {
-    background-color: #e0f0fa;
-    color: #00609a;
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
 }
 
-QLabel#statusChip[status="online"],
-QLabel#statusChip[status="inuse"] {
-    background-color: #e0f0fa;
-    color: #00609a;
+#separatorLine {
+    background-color: #e5e7eb;
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
 }
 
-QLabel#statusChip[status="offline"] {
-    background-color: #f3f4f6;
-    color: #4b5563;
+#statusChip {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #ffffff;
+    border-radius: 10px;
+}
+#statusChip[status="online"] {
+    background-color: #2A828F;
+}
+#statusChip[status="offline"] {
+    background-color: #9ca3af;
+}
+#statusChip[status="warning"] {
+    background-color: #d97706;
+}
+#statusChip[status="error"] {
+    background-color: #dc2626;
 }
 
-QPushButton#connectButton {
-    background-color: #f3f4f6;
-    color: #111827;
+#connectButton {
+    background-color: #2563eb;
+    color: #ffffff;
     border: none;
     border-radius: 8px;
-    padding: 10px 16px;
-    font-size: 14px;
+    padding: 8px 0;
     font-weight: 600;
+    font-size: 13px;
 }
-
-QPushButton#connectButton:hover {
-    background-color: #e5e7eb;
+#connectButton:hover {
+    background-color: #1d4ed8;
 }
-
-QPushButton#connectButton:pressed {
-    background-color: #d1d5db;
-}
-
-QPushButton#connectButton:focus {
-    border: 2px solid #93c5fd;
-}
-
-QPushButton#removeDeviceButton {
-    background-color: #ffffff;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-}
-
-QPushButton#removeDeviceButton:hover {
-    background-color: #fef2f2;
-    border-color: #fca5a5;
-}
-
-QPushButton#removeDeviceButton:pressed {
-    background-color: #fee2e2;
-    border-color: #ef4444;
+#connectButton:pressed {
+    background-color: #1e40af;
 }

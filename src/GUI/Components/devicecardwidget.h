@@ -8,7 +8,7 @@ class DeviceCardWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit DeviceCardWidget(const QString& name, const QString& OS, const QString& ip, const QString& status, QWidget *parent = nullptr);
+    explicit DeviceCardWidget(const QString& name, const QString& OS, const QString& ip, const QString& status, const QString& uptime, QWidget *parent = nullptr);
 };
 
 #endif

@@ -10,7 +10,7 @@ public:
     explicit DevicesPage(QWidget *parent = nullptr);
 private:
     void setupUi();
-    void loadDummyDevices();
+
 };
 
 #endif

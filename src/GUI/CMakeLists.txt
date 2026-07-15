@@ -17,9 +17,11 @@ set(GUI_SOURCES
     Pages/DevicesPage.h
     Pages/SettingsPage.cpp
     Pages/SettingsPage.h
+
+    Layouts/flowlayout.cpp
+    Layouts/flowlayout.h
 )
 
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
 add_library(GUI STATIC ${GUI_SOURCES})
@@ -28,7 +30,6 @@ target_link_libraries(GUI PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Gui
 )
-target_link_libraries(GUI PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(GUI PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 
 target_include_directories(GUI PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -1,4 +1,5 @@
 #include "devicespage.h"
+#include "Layouts/flowlayout.h"
 #include "Components/devicecardwidget.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -29,23 +30,23 @@ void DevicesPage::setupUi()
     QWidget *scrollContent = new QWidget(scrollArea);
     scrollContent->setStyleSheet("background-color: transparent;");
 
-    QGridLayout *gridLayout = new QGridLayout(scrollContent);
-    gridLayout->setSpacing(15);
-    gridLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    FlowLayout *flowLayout = new FlowLayout(scrollContent, 0, 15, 15);
 
-    for (int i = 0; i < 6; ++i) {
+    QList<DeviceCardWidget*> cardList;
+
+    for (int i = 0; i < 6; ++i)
+    {
         QString deviceName = QString("WKSTN-DEV-%1").arg(i + 1);
         QString ipAddress = QString("192.168.1.%1").arg(100 + i);
         QString Os = QString("Window 11");
-        QString Status = QString("Offline");
+        QString Status = QString("Online");
+        QString Uptime = QString("Now");
 
-        DeviceCardWidget *card = new DeviceCardWidget(deviceName, Os, ipAddress, Status, this);
-
-        int row = i / 3;
-        int col = i % 3;
-        gridLayout->addWidget(card, row, col);
+        DeviceCardWidget *card = new DeviceCardWidget(deviceName, Os, ipAddress, Status, Uptime,  this);
+        flowLayout->addWidget(card);
     }
 
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea);
 }
+

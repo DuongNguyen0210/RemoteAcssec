@@ -48,10 +48,9 @@ void MainWindow::setupUi()
     QLabel *pageSettings = new QLabel("ĐÂY LÀ TRANG CÀI ĐẶT (SETTINGS)", this);
     QLabel *pageLogs = new QLabel("ĐÂY LÀ TRANG NHẬT KÝ (LOGS)", this);
 
-    // pageDevices->setAlignment(Qt::AlignCenter);
-    // pageSessions->setAlignment(Qt::AlignCenter);
-    // pageSettings->setAlignment(Qt::AlignCenter);
-    // pageLogs->setAlignment(Qt::AlignCenter);
+    pageSessions->setAlignment(Qt::AlignCenter);
+    pageSettings->setAlignment(Qt::AlignCenter);
+    pageLogs->setAlignment(Qt::AlignCenter);
 
     stackedWidget->addWidget(pageDevices);
     stackedWidget->addWidget(pageSessions);
