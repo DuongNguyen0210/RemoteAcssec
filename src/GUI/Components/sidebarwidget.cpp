@@ -34,19 +34,20 @@ void SidebarWidget::setupUi()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    QHBoxLayout *LogoLayout = new QHBoxLayout();
+    QWidget *logoContainer = new QWidget(this);
+    logoContainer->setObjectName("logoContainer");
+    logoContainer->setAttribute(Qt::WA_StyledBackground, true);
+
+    QHBoxLayout *LogoLayout = new QHBoxLayout(logoContainer);
+    LogoLayout->setObjectName("layoutName");
     LogoLayout->addStretch();
     QLabel *logoLabel = new QLabel("<b>RemoteAccess</b>", this);
     logoLabel->setObjectName("lblName");
-    logoLabel->setFixedHeight(100);
+    logoLabel->setFixedHeight(85);
     LogoLayout->addWidget(logoLabel);
     LogoLayout->addStretch();
-    layout->addLayout(LogoLayout);
 
-    QFrame *lineTop = new QFrame(this);
-    lineTop->setFrameShape(QFrame::HLine);
-    lineTop->setObjectName("separatorLine");
-    layout->addWidget(lineTop);
+    layout->addWidget(logoContainer);
 
     QVBoxLayout *MenuLayout = new QVBoxLayout();
     MenuLayout->setContentsMargins(8, 10, 8, 10);
@@ -100,11 +101,6 @@ void SidebarWidget::setupUi()
     createMenuItem("Logs",     ":/icons/Resources/icons/logs.svg",     3);
 
     layout->addLayout(MenuLayout);
-
-    QFrame *lineBottom = new QFrame(this);
-    lineBottom->setFrameShape(QFrame::HLine);
-    lineBottom->setObjectName("separatorLine");
-    layout->addWidget(lineBottom);
 
     QVBoxLayout *ConnLayout = new QVBoxLayout();
     ConnLayout->setContentsMargins(8, 10, 8, 0);

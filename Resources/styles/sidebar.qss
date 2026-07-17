@@ -3,22 +3,21 @@
     border-right: 1px solid #e5e7eb;
 }
 
-#separatorLine {
-    background-color: #e5e7eb;
-    max-height: 1px;
-    min-height: 1px;
-    border: none;
-}
-
 #lblName{
     font-size: 16px;
     font-weight: 700;
     color : #006399;
 }
 
+#logoContainer{
+    border-bottom: 1px solid #e5e7eb;
+}
+
 #menuRow {
     background-color: transparent;
 }
+
+
 
 #menuButton {
     text-align: left;

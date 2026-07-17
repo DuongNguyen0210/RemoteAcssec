@@ -57,20 +57,11 @@ void MainWindow::setupUi()
     stackedWidget->addWidget(pageSettings);
     stackedWidget->addWidget(pageLogs);
 
-    QFrame *lineH = new QFrame(rightContentWidget);
-    lineH->setObjectName("contentDivider");
-    lineH->setFrameShape(QFrame::HLine);
-    QFrame *lineV = new QFrame(centralWidget);
-    lineV->setObjectName("sidebarDivider");
-    lineV->setFrameShape(QFrame::VLine);
-
     rightLayout->addWidget(topbar);
-    rightLayout->addWidget(lineH);
     rightLayout->addWidget(stackedWidget);
 
 
     mainLayout->addWidget(sidebar);
-    mainLayout->addWidget(lineV);
     mainLayout->addWidget(rightContentWidget);
 
     connect(sidebar, &SidebarWidget::pageChanged, stackedWidget, &QStackedWidget::setCurrentIndex);
