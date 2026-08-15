@@ -1,0 +1,259 @@
+#mainWindow,
+#appRoot,
+#contentShell,
+#contentStack {
+    background-color: #f7f9fb;
+}
+
+#devicesPage {
+    background-color: #f7f9fb;
+}
+
+#sessionsPage,
+#logsPage,
+#settingsPage {
+    background-color: #f7f9fb;
+}
+
+#pageTitle {
+    font-size: 32px;
+    font-weight: 700;
+    color: #191c1e;
+}
+
+#pageSubtitle {
+    color: #404850;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+#pagePlaceholder {
+    color: #404850;
+    font-size: 14px;
+    font-weight: 600;
+    background-color: transparent;
+}
+
+#deviceScrollArea {
+    border: none;
+    background-color: transparent;
+}
+
+#contentScrollArea {
+    border: none;
+    background-color: transparent;
+}
+
+#deviceScrollArea > QWidget > QWidget,
+#deviceScrollContent,
+#contentScrollArea > QWidget > QWidget,
+#contentScrollContent {
+    background-color: transparent;
+}
+
+#deviceScrollArea QScrollBar:vertical,
+#contentScrollArea QScrollBar:vertical {
+    background-color: transparent;
+    width: 10px;
+    margin: 0px;
+}
+
+#deviceScrollArea QScrollBar::handle:vertical,
+#contentScrollArea QScrollBar::handle:vertical {
+    background-color: #bfc7d1;
+    border-radius: 5px;
+    min-height: 24px;
+}
+
+#deviceScrollArea QScrollBar::handle:vertical:hover,
+#contentScrollArea QScrollBar::handle:vertical:hover {
+    background-color: #707881;
+}
+
+#deviceScrollArea QScrollBar::add-line:vertical,
+#deviceScrollArea QScrollBar::sub-line:vertical,
+#contentScrollArea QScrollBar::add-line:vertical,
+#contentScrollArea QScrollBar::sub-line:vertical {
+    height: 0px;
+    background-color: transparent;
+}
+
+#deviceScrollArea QScrollBar::add-page:vertical,
+#deviceScrollArea QScrollBar::sub-page:vertical,
+#contentScrollArea QScrollBar::add-page:vertical,
+#contentScrollArea QScrollBar::sub-page:vertical {
+    background-color: transparent;
+}
+
+#metricCard,
+#sessionCard,
+#toolbarCard,
+#logRow,
+#settingsCard {
+    background-color: #ffffff;
+    border: 1px solid #dfe4ea;
+    border-radius: 12px;
+}
+
+#metricCard:hover,
+#sessionCard:hover,
+#logRow:hover,
+#settingsCard:hover {
+    border: 1px solid #bfc7d1;
+    background-color: #ffffff;
+}
+
+#metricValue {
+    color: #005d90;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+#metricTitle,
+#sectionTitle {
+    color: #191c1e;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+#metricDetail,
+#sectionSubtitle,
+#cardSubtitle {
+    color: #404850;
+    font-size: 13px;
+    font-weight: 400;
+}
+
+#cardIcon {
+    background-color: #eceef0;
+    border-radius: 8px;
+    color: #005d90;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+#cardTitle {
+    color: #191c1e;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+#metaLabel,
+#fieldLabel {
+    color: #707881;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+#strongText {
+    color: #191c1e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+#thinDivider {
+    background-color: #dfe4ea;
+    border: none;
+    max-height: 1px;
+    min-height: 1px;
+}
+
+#stateChip {
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    min-width: 72px;
+}
+
+#stateChip[state="active"] {
+    background-color: #e8f3fb;
+    color: #005d90;
+}
+
+#stateChip[state="warning"] {
+    background-color: #fff3cd;
+    color: #6f5200;
+}
+
+#stateChip[state="error"] {
+    background-color: #ffdad6;
+    color: #93000a;
+}
+
+#stateChip[state="neutral"] {
+    background-color: #e0e3e5;
+    color: #404850;
+}
+
+#secondaryActionButton,
+#filterButton,
+#panelSearchInput,
+#settingsInput {
+    background-color: #ffffff;
+    border: 1px solid #bfc7d1;
+    border-radius: 8px;
+    color: #191c1e;
+    font-size: 14px;
+    padding: 0px 12px;
+}
+
+#secondaryActionButton:hover,
+#filterButton:hover,
+#panelSearchInput:hover,
+#settingsInput:hover {
+    background-color: #eceef0;
+    border-color: #707881;
+}
+
+#filterButton:checked {
+    background-color: #e8f3fb;
+    border-color: #005d90;
+    color: #005d90;
+    font-weight: 700;
+}
+
+#primaryActionButton {
+    background-color: #005d90;
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 0px 14px;
+}
+
+#primaryActionButton:hover {
+    background-color: #004b74;
+}
+
+#secondaryActionButton {
+    font-weight: 700;
+}
+
+#dangerActionButton {
+    background-color: #ffffff;
+    border: 1px solid #e8aaa4;
+    border-radius: 8px;
+    color: #ba1a1a;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 0px 12px;
+}
+
+#dangerActionButton:hover {
+    background-color: #ffdad6;
+    border-color: #ba1a1a;
+}
+
+#logTime {
+    color: #707881;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#settingsCheckBox {
+    color: #191c1e;
+    font-size: 14px;
+    spacing: 8px;
+}

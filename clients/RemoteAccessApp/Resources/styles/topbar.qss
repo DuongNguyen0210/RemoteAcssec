@@ -1,0 +1,54 @@
+#topbar {
+    background-color: #f7f9fb;
+    border-bottom: 1px solid #bfc7d1;
+}
+
+#topbarSearchInput {
+    background-color: #ffffff;
+    border: 1px solid #bfc7d1;
+    border-radius: 8px;
+    color: #191c1e;
+    font-size: 14px;
+    padding: 0px 12px;
+    selection-background-color: #94ccff;
+}
+
+#topbarSearchInput:hover {
+    border-color: #707881;
+}
+
+#topbarSearchInput:focus {
+    border: 1px solid #005d90;
+}
+
+#topbarSearchInput::placeholder {
+    color: #707881;
+}
+
+#topbarIconButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 18px;
+    padding: 8px;
+    min-width: 36px;
+    max-width: 36px;
+    min-height: 36px;
+    max-height: 36px;
+}
+
+#topbarIconButton:hover {
+    background-color: #e6e8ea;
+}
+
+#topbarIconButton:pressed {
+    background-color: #e0e3e5;
+}
+
+#topbar QPushButton #notificationDot {
+    background-color: #ef4444;
+    border-radius: 4px;
+    min-width: 8px;
+    max-width: 8px;
+    min-height: 8px;
+    max-height: 8px;
+}

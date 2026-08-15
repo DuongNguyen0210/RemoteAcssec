@@ -1,0 +1,108 @@
+#deviceCard {
+    border: 1px solid #dfe4ea;
+    border-radius: 12px;
+    background-color: #ffffff;
+}
+
+#deviceCard:hover {
+    border: 1px solid #bfc7d1;
+    background: qradialgradient(
+            cx: 1, cy: 0,
+            radius: 1.2,
+            fx: 1, fy: 0,
+            stop: 0 #e8f3fb,
+            stop: 0.3 #ffffff,
+            stop: 1 #ffffff
+        );
+}
+
+#deviceIcon {
+    background-color: #eceef0;
+    border-radius: 8px;
+}
+
+#removeDeviceButton {
+    background-color: transparent;
+    border: 1px solid #e8aaa4;
+    border-radius: 8px;
+    padding: 0px;
+    margin: 0px;
+}
+#removeDeviceButton:hover {
+    background-color: #ffdad6;
+    border: 1px solid #ba1a1a;
+}
+#removeDeviceButton:pressed {
+    background-color: #f4c8c3;
+    border: 1px solid #93000a;
+}
+
+#deviceName {
+    font-size: 16px;
+    font-weight: 600;
+    color: #191c1e;
+}
+
+QLabel[role="muted"] {
+    color: #404850;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QLabel[role="metaLabel"] {
+    color: #707881;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QLabel[role="strongValue"] {
+    color: #191c1e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+#separatorLine {
+    background-color: #dfe4ea;
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
+}
+
+#statusChip {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #005d90;
+    border-radius: 10px;
+}
+#statusChip[status="online"] {
+    background-color: #e8f3fb;
+}
+#statusChip[status="offline"] {
+    background-color: #e0e3e5;
+    color: #404850;
+}
+#statusChip[status="warning"] {
+    background-color: #fff3cd;
+    color: #6f5200;
+}
+#statusChip[status="error"] {
+    background-color: #ffdad6;
+    color: #93000a;
+}
+
+#connectButton {
+    background-color: #005d90;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 0;
+    font-weight: 600;
+    font-size: 14px;
+}
+#connectButton:hover {
+    background-color: #004b74;
+}
+#connectButton:pressed {
+    background-color: #001d32;
+}

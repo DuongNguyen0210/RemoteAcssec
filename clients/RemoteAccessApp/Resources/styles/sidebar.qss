@@ -1,0 +1,79 @@
+#sidebar {
+    background-color: #ffffff;
+    border-right: 1px solid #bfc7d1;
+}
+
+#brandAvatar {
+    background-color: #e6e8ea;
+    border-radius: 20px;
+    color: #005d90;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+#lblName {
+    font-size: 20px;
+    font-weight: 700;
+    color: #005d90;
+}
+
+#lblRole {
+    color: #404850;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#logoContainer {
+    border-bottom: 1px solid #bfc7d1;
+}
+
+#menuRow {
+    background-color: transparent;
+}
+
+
+
+#menuButton {
+    text-align: left;
+    padding-left: 14px;
+    border: none;
+    border-radius: 8px;
+    background-color: transparent;
+    color: #404850;
+    font-size: 16px;
+    font-weight: 400;
+}
+#menuButton:hover {
+    background-color: #e6e8ea;
+}
+#menuButton:checked {
+    background-color: #e8f3fb;
+    color: #005d90;
+    font-weight: 700;
+}
+
+#activeIndicator {
+    background-color: transparent;
+    border: none;
+}
+#activeIndicator[active="true"] {
+    background-color: #005d90;
+    border-radius: 2px;
+    margin: 6px 0px;
+}
+
+#newConnButton {
+    background-color: #005d90;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-weight: 600;
+    font-size: 14px;
+}
+#newConnButton:hover {
+    background-color: #004b74;
+}
+#newConnButton:pressed {
+    background-color: #001d32;
+}
