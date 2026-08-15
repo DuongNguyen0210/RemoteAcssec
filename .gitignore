@@ -1,0 +1,77 @@
+# =========================
+# Java / Maven (Server)
+# =========================
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.log
+.mtj.tmp/
+
+# =========================
+# C++ / Qt (Client)
+# =========================
+# Compilation outputs
+*.o
+*.obj
+*.out
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# Qt specific
+Makefile*
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+*.stash
+.qmake.stash
+
+# Qt Creator / Build directories
+build-*/
+build/
+release/
+debug/
+
+# =========================
+# IDEs & Editors
+# =========================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio Code
+.vscode/
+
+# Visual Studio
+.vs/
+*.sln
+*.suo
+*.user
+
+# =========================
+# OS generated files
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
