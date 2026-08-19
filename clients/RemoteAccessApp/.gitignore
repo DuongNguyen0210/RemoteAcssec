@@ -43,3 +43,6 @@ rules.ninja
 Thumbs.db
 *.swp
 *.swo
+
+# QT
+/.qt/
