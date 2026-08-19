@@ -43,8 +43,18 @@ ui_*.h
 # Qt Creator / Build directories
 build-*/
 build/
+build_cli/
 release/
 debug/
+
+# In-source CMake artifacts (prevent accidental cmake . from root)
+/CMakeCache.txt
+/CMakeFiles/
+/Makefile
+/cmake_install.cmake
+
+# Root-level build output directories (legacy, not source)
+/RemoteAccessApp/
 
 # =========================
 # IDEs & Editors
