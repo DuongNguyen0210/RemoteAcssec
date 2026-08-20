@@ -1,7 +1,7 @@
 # RDTP Protocol Documentation
 
 > Tai lieu ky thuat cho RemoteAccessApp - RDTP (Remote Desktop Transfer Protocol)
-> Pham vi: Phase 1A.1, Phase 1A.2A, Phase 1A.2B
+> Pham vi: Phase 1A.1, Phase 1A.2A, Phase 1A.2B, Phase 1A.2C
 
 ---
 
@@ -18,6 +18,7 @@
 | [07_BYTE_ORDER_BIG_ENDIAN.md](07_BYTE_ORDER_BIG_ENDIAN.md) | Big Endian / Network Byte Order: ly thuyet, cac helper appendUIntXXBE |
 | [08_CMAKE_INTEGRATION.md](08_CMAKE_INTEGRATION.md) | CMakeLists.txt: NETWORK_SOURCES, target_include_directories |
 | [09_IMPLEMENTATION_STATUS.md](09_IMPLEMENTATION_STATUS.md) | Trang thai implementation: da hoan thanh va chua lam |
+| [10_HEADER_DESERIALIZATION.md](10_HEADER_DESERIALIZATION.md) | Giai thich Phase 1A.2C: chuyen 24-byte RDTP wire header thanh ProtocolHeader object. |
 
 ---
 
@@ -37,6 +38,15 @@
         |
         v
 [TCP send - chua implement]
+
+Va chieu nguoc lai:
+[TCP receive - chua implement]
+        |
+        v
+10_HEADER_DESERIALIZATION.md  (ProtocolSerializer)
+        |
+        v
+ProtocolHeader object
 ```
 
 Ly thuyet byte-order xem: [07_BYTE_ORDER_BIG_ENDIAN.md](07_BYTE_ORDER_BIG_ENDIAN.md)
@@ -45,4 +55,4 @@ CMake build xem: [08_CMAKE_INTEGRATION.md](08_CMAKE_INTEGRATION.md)
 
 ---
 
-*Cap nhat lan cuoi: Phase 1A.2B hoan thanh.*
+*Cap nhat lan cuoi: Phase 1A.2C hoan thanh.*

@@ -1,6 +1,6 @@
 # 09 - Implementation Status
 
-> Cap nhat lan cuoi: Phase 1A.2B hoan thanh
+> Cap nhat lan cuoi: Phase 1A.2C hoan thanh
 > Xem them: [README.md](README.md)
 
 ---
@@ -39,6 +39,18 @@
 - [x] App launch PASS (kiem tra regression)
 - [x] Test vector PASS (xac nhan bang Python struct.pack)
 
+### Phase 1A.2C - Header Deserialization
+
+- [x] `static std::optional<ProtocolHeader> deserializeHeader(const QByteArray &data)`
+- [x] Validate size `data.size() == HEADER_SIZE`
+- [x] Decode MessageType bang uint8_t raw value (offset 5)
+- [x] Helper: `readUInt8`, `readUInt16BE`, `readUInt32BE`, `readUInt64BE`
+- [x] Xu ly ép kieu `uint8_t` de tranh sign extension tu `char`
+- [x] Khoi tao `ProtocolHeader` tu constructor voi `MessageType`
+- [x] Round-trip verification PASS
+- [x] Khong su dung raw memory (memcpy, pragma pack, sizeof)
+
+
 ---
 
 ## Chua lam
@@ -47,7 +59,6 @@ Danh sach duoi day la nhung phan **chua ton tai** trong codebase. Khong duoc hie
 
 | Phan chua implement | Ghi chu |
 |---|---|
-| **Header deserialization** | Doc 24 bytes tu mang, tao lai `ProtocolHeader` object |
 | **Packet parser** | Doc va phan tich packet tu TCP byte stream |
 | **Payload models** | Struct cho payload cua tung `MessageType` |
 | **Payload serialization** | Serialize payload cua tung loai message |
@@ -68,7 +79,7 @@ Danh sach duoi day la nhung phan **chua ton tai** trong codebase. Khong duoc hie
 [DONE] ProtocolConstants.h  (constants + MessageType)
 [DONE] ProtocolHeader.h     (data model)
 [DONE] ProtocolSerializer   (serializeHeader -> 24 bytes)
-[ ]    Header deserializer
+[DONE] Header deserializer   (deserializeHeader <- 24 bytes)
 [ ]    Packet framing/parser
 [ ]    Payload models
 [ ]    TCP connection layer
@@ -84,3 +95,4 @@ Danh sach duoi day la nhung phan **chua ton tai** trong codebase. Khong duoc hie
 - [02_PROTOCOL_CONSTANTS.md](02_PROTOCOL_CONSTANTS.md) - Chi tiet Phase 1A.1 constants
 - [04_PROTOCOL_HEADER_MODEL.md](04_PROTOCOL_HEADER_MODEL.md) - Chi tiet Phase 1A.2A
 - [06_HEADER_SERIALIZATION.md](06_HEADER_SERIALIZATION.md) - Chi tiet Phase 1A.2B
+- [10_HEADER_DESERIALIZATION.md](10_HEADER_DESERIALIZATION.md) - Chi tiet Phase 1A.2C
