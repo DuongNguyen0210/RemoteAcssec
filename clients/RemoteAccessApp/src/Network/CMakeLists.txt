@@ -2,6 +2,8 @@
 set(NETWORK_SOURCES dummy.cpp
     # Phase 1A.1 – wire-protocol foundation (header-only, listed for IDE indexing)
     Protocol/ProtocolConstants.h
+    # Phase 1A.2A – wire-protocol header model (header-only, listed for IDE indexing)
+    Protocol/ProtocolHeader.h
 )
 
 add_library(Network STATIC ${NETWORK_SOURCES})
