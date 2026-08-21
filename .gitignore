@@ -30,6 +30,12 @@ Makefile*
 *.pro.user.*
 *.qbs.user
 *.qbs.user.*
+CMakeLists.txt.user*
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+*.cmake
+cmake_install.cmake
 *.moc
 moc_*.cpp
 moc_*.h
