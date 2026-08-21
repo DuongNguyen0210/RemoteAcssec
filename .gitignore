@@ -61,6 +61,7 @@ debug/
 
 # Root-level build output directories (legacy, not source)
 /RemoteAccessApp/
+.qt/
 
 # =========================
 # IDEs & Editors
@@ -91,3 +92,7 @@ out/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Build
+build_tests/
+build-test/

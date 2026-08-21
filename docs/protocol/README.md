@@ -1,7 +1,7 @@
 # RDTP Protocol Documentation
 
 > Tai lieu ky thuat cho RemoteAccessApp - RDTP (Remote Desktop Transfer Protocol)
-> Pham vi: Phase 1A.1, Phase 1A.2A, Phase 1A.2B, Phase 1A.2C
+> Pham vi: Phase 1A.1, Phase 1A.2A, Phase 1A.2B, Phase 1A.2C, Phase 1A.2D
 
 ---
 
@@ -19,6 +19,7 @@
 | [08_CMAKE_INTEGRATION.md](08_CMAKE_INTEGRATION.md) | CMakeLists.txt: NETWORK_SOURCES, target_include_directories |
 | [09_IMPLEMENTATION_STATUS.md](09_IMPLEMENTATION_STATUS.md) | Trang thai implementation: da hoan thanh va chua lam |
 | [10_HEADER_DESERIALIZATION.md](10_HEADER_DESERIALIZATION.md) | Giai thich Phase 1A.2C: chuyen 24-byte RDTP wire header thanh ProtocolHeader object. |
+| [11_PROTOCOL_HEADER_TESTS.md](11_PROTOCOL_HEADER_TESTS.md) | Phase 1A.2D: automated tests cho serializeHeader() va deserializeHeader() bang Qt Test / CTest. |
 
 ---
 
@@ -53,6 +54,29 @@ Ly thuyet byte-order xem: [07_BYTE_ORDER_BIG_ENDIAN.md](07_BYTE_ORDER_BIG_ENDIAN
 
 CMake build xem: [08_CMAKE_INTEGRATION.md](08_CMAKE_INTEGRATION.md)
 
+## Huong dan Clean Build (Portability)
+
+De dam bao mot teammate khi clone source ve co the build va test tu dau, repo su dung cau truc canonical:
+- **Source root:** `clients/`
+- **Production build directory:** `build/`
+- **Test build directory:** `build_tests/`
+
+**Cac buoc thuc hien (Yeu cau cai dat san Qt, CMake, Compiler):**
+
+1. **Clean configure (Test build):**
+   ```bash
+   cmake -S clients -B build_tests
+   ```
+2. **Build:**
+   ```bash
+   cmake --build build_tests
+   ```
+3. **Test:**
+   ```bash
+   ctest --test-dir build_tests --output-on-failure
+   ```
+   *(Tren Windows, dam bao them duong dan thu muc chua file thuc thi Qt/MinGW vao PATH de CTest khong bi loi thieu DLL).*
+
 ---
 
-*Cap nhat lan cuoi: Phase 1A.2C hoan thanh.*
+*Cap nhat lan cuoi: Phase 1A.2D hoan thanh.*

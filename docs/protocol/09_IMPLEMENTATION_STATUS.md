@@ -1,6 +1,6 @@
 # 09 - Implementation Status
 
-> Cap nhat lan cuoi: Phase 1A.2C hoan thanh
+> Cap nhat lan cuoi: Phase 1A.2D hoan thanh
 > Xem them: [README.md](README.md)
 
 ---
@@ -50,6 +50,20 @@
 - [x] Round-trip verification PASS
 - [x] Khong su dung raw memory (memcpy, pragma pack, sizeof)
 
+### Phase 1A.2D - ProtocolHeader Automated Tests
+
+- [x] 6 test cases cho `serializeHeader()` va `deserializeHeader()`
+- [x] `testDefaults()` - kiem tra 7 field mac dinh cua constructor
+- [x] `testExactSerialization()` - so sanh byte-by-byte 24-byte output
+- [x] `testDeserialization()` - 24 bytes thu cong → ProtocolHeader, 7 field
+- [x] `testRoundTrip()` - serialize → deserialize → tat ca field giu nguyen
+- [x] `testInvalidSizes()` - 0 / 23 / 25 bytes phai tra std::nullopt
+- [x] `testHighBytes()` - phat hien loi sign extension voi gia tri bit cao
+- [x] Qt Test framework: QTEST_APPLESS_MAIN, QCOMPARE, QVERIFY
+- [x] CMake: enable_testing(), add_subdirectory(tests), add_test()
+- [x] Test executable rieng: `ProtocolSerializerTests`
+- [x] CTest: 6/6 PASS, 0 FAIL
+- [x] Build production PASS, App launch PASS (kiem tra regression)
 
 ---
 
@@ -80,6 +94,7 @@ Danh sach duoi day la nhung phan **chua ton tai** trong codebase. Khong duoc hie
 [DONE] ProtocolHeader.h     (data model)
 [DONE] ProtocolSerializer   (serializeHeader -> 24 bytes)
 [DONE] Header deserializer   (deserializeHeader <- 24 bytes)
+[DONE] Automated tests      (6/6 PASS: serialize, deserialize, round-trip, invalid, high bytes)
 [ ]    Packet framing/parser
 [ ]    Payload models
 [ ]    TCP connection layer
@@ -96,3 +111,4 @@ Danh sach duoi day la nhung phan **chua ton tai** trong codebase. Khong duoc hie
 - [04_PROTOCOL_HEADER_MODEL.md](04_PROTOCOL_HEADER_MODEL.md) - Chi tiet Phase 1A.2A
 - [06_HEADER_SERIALIZATION.md](06_HEADER_SERIALIZATION.md) - Chi tiet Phase 1A.2B
 - [10_HEADER_DESERIALIZATION.md](10_HEADER_DESERIALIZATION.md) - Chi tiet Phase 1A.2C
+- [11_PROTOCOL_HEADER_TESTS.md](11_PROTOCOL_HEADER_TESTS.md) - Chi tiet Phase 1A.2D
