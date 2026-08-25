@@ -25,24 +25,20 @@ public class DeviceService {
 
     @Transactional
     public void processHeartbeat(HeartbeatRequest request) {
-        // 1. Tìm hoặc tạo User (Tạm thời tự động tạo để dễ test)
         User owner = userRepository.findByUsername(request.getUsername())
                 .orElseGet(() -> {
                     User newUser = User.builder()
                             .username(request.getUsername())
-                            .password("dummy_password") // Sau này sẽ có API Register thật
+                            .password("dummy_password")
                             .build();
                     return userRepository.save(newUser);
                 });
-
-        // 2. Tìm hoặc tạo Device
         Device device = deviceRepository.findByDeviceUid(request.getDeviceUid())
                 .orElseGet(() -> Device.builder()
                         .deviceUid(request.getDeviceUid())
                         .owner(owner)
                         .build());
 
-        // 3. Cập nhật thông tin
         device.setName(request.getName());
         device.setIpAddress(request.getIpAddress());
         device.setStatus("ONLINE");
@@ -50,7 +46,6 @@ public class DeviceService {
         
         deviceRepository.save(device);
 
-        // 4. Lưu trạng thái vào Redis (Hết hạn sau 30 giây nếu mất mạng)
         String redisKey = "device_status:" + request.getDeviceUid();
         redisTemplate.opsForValue().set(redisKey, "ONLINE", 30, TimeUnit.SECONDS);
 
