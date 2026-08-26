@@ -21,7 +21,7 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false)
+    @Column(name = "max_children", nullable = false)
     @Builder.Default
-    private String role = "USER";
+    private Integer maxChildren = 5;
 }

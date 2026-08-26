@@ -6,19 +6,22 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "devices")
+@Table(name = "child")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Device {
+public class Child {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "device_uid", nullable = false, unique = true, length = 100)
-    private String deviceUid; // Unique identifier from hardware (MAC, UUID, etc.)
+    @Column(name = "child_username", nullable = false, unique = true, length = 50)
+    private String childUsername;
+
+    @Column(nullable = false)
+    private String password;
 
     @Column(nullable = false, length = 100)
     private String name;

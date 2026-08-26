@@ -4,6 +4,7 @@
 #include "Pages/sessionspage.h"
 #include "Pages/settingspage.h"
 
+
 #include <QHBoxLayout>
 #include <QStringList>
 #include <QVBoxLayout>
@@ -15,6 +16,8 @@ MainWindow::MainWindow(QWidget *parent)
     resize(1200, 800);
     setWindowTitle("Remote Access App");
     setupUi();
+
+
 }
 
 MainWindow::~MainWindow() {}

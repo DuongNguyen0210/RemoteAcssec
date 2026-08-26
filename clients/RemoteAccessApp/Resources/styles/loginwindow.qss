@@ -1,0 +1,55 @@
+#loginWindow {
+    background-color: #f7f9fb;
+}
+
+#loginBox {
+    background-color: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #dfe4ea;
+}
+
+#loginTitle {
+    font-size: 28px;
+    font-weight: 700;
+    color: #191c1e;
+}
+
+QLineEdit#usernameInput, QLineEdit#passwordInput {
+    background-color: #ffffff;
+    border: 1px solid #bfc7d1;
+    border-radius: 8px;
+    padding: 0 12px;
+    color: #191c1e;
+    font-size: 14px;
+}
+
+QLineEdit#usernameInput:hover, QLineEdit#passwordInput:hover {
+    border-color: #707881;
+}
+
+QLineEdit#usernameInput:focus, QLineEdit#passwordInput:focus {
+    border: 1px solid #005d90;
+}
+
+QPushButton#loginButton {
+    background-color: #005d90;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+QPushButton#loginButton:hover {
+    background-color: #004b74;
+}
+
+QPushButton#loginButton:pressed {
+    background-color: #001d32;
+}
+
+#errorLabel {
+    color: #ba1a1a;
+    font-size: 13px;
+    font-weight: 600;
+}

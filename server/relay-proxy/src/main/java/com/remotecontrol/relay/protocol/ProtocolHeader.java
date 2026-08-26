@@ -1,5 +1,7 @@
 package com.remotecontrol.relay.protocol;
 
+import com.remotecontrol.relay.protocol.ProtocolConstants;
+
 public class ProtocolHeader {
 
     private int magic;          // 4 bytes (uint32)
@@ -9,9 +11,6 @@ public class ProtocolHeader {
     private int payloadLength;  // 4 bytes (uint32)
     private long sessionId;     // 8 bytes (uint64)
     private int sequenceNumber; // 4 bytes (uint32)
-
-    public static final int HEADER_LENGTH = 24;
-    public static final int MAGIC = 0x52445450;
     
     public ProtocolHeader(int magic, byte version, byte type, short flags, 
                           int payloadLength, long sessionId, int sequenceNumber) {

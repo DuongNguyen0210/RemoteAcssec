@@ -1,5 +1,5 @@
 # Khai báo các file source cho module Network
-set(NETWORK_SOURCES dummy.cpp
+set(NETWORK_SOURCES
     # Phase 1A.1 – wire-protocol foundation (header-only, listed for IDE indexing)
     Protocol/ProtocolConstants.h
     # Phase 1A.2A – wire-protocol header model (header-only, listed for IDE indexing)
@@ -9,13 +9,16 @@ set(NETWORK_SOURCES dummy.cpp
     Protocol/ProtocolSerializer.cpp
 )
 
-add_library(Network STATIC ${NETWORK_SOURCES})
+add_library(Network STATIC ${NETWORK_SOURCES}
+    relayclient.h relayclient.cpp
+    Authservice.h Authservice.cpp
+)
 
 # Tìm package Qt Network (bắt buộc cho module này)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Network)
 
 # Link module Network với thư viện Qt Network
-target_link_libraries(Network PRIVATE Qt${QT_VERSION_MAJOR}::Network)
+target_link_libraries(Network PUBLIC Qt${QT_VERSION_MAJOR}::Network)
 
 # Cho phép các target khác include header của Network dễ dàng
 # Bao gồm cả thư mục con Protocol (ví dụ: #include "Protocol/ProtocolConstants.h")

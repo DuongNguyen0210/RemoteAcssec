@@ -2,6 +2,7 @@ package com.remotecontrol.relay.handler;
 
 import com.remotecontrol.relay.protocol.ProtocolHeader;
 import com.remotecontrol.relay.protocol.Protocol;
+import com.remotecontrol.relay.protocol.ProtocolConstants;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.buffer.ByteBuf;
@@ -13,12 +14,12 @@ public class ProtocolDecoder extends ByteToMessageDecoder{
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
 
-        if(in.readableBytes() < ProtocolHeader.HEADER_LENGTH) {
+        if(in.readableBytes() < ProtocolConstants.HEADER_SIZE) {
             return;
         }
 
         int pLen = in.getInt(in.readerIndex() + 8);
-        int total = ProtocolHeader.HEADER_LENGTH + pLen;
+        int total = ProtocolConstants.HEADER_SIZE + pLen;
 
         if(in.readableBytes() < total) {
             return;
@@ -27,7 +28,7 @@ public class ProtocolDecoder extends ByteToMessageDecoder{
         in.markReaderIndex();
 
         int magic = in.readInt();
-        if(magic != ProtocolHeader.MAGIC) {
+        if(magic != ProtocolConstants.PROTOCOL_MAGIC) {
             ctx.close();
             throw new RuntimeException("Invalid magic number");
         }

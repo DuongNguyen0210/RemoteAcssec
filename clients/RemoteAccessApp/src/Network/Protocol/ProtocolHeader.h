@@ -1,14 +1,4 @@
-﻿// ============================================================
-// ProtocolHeader.h
-// Phase 1A.2A – Wire-protocol header model
-// ============================================================
-// C++17 · fixed-width integer types (cstdint)
-//
-// NOTE: HEADER_SIZE = 24 is the wire-format size.
-//       sizeof(ProtocolHeader) is NOT required to equal 24.
-// ============================================================
-
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include "ProtocolConstants.h"
@@ -35,4 +25,4 @@ struct ProtocolHeader {
     {}
 };
 
-} // namespace Protocol
+}
