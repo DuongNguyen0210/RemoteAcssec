@@ -1,0 +1,35 @@
+#include <QObject>
+#include <QVBoxLayout>
+#include <QFrame>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QLabel>
+#include "registerwindow.h"
+
+RegisterWindow::RegisterWindow(QWidget * parent) : QWidget(parent) {}
+
+
+void RegisterWindow::setupUI()
+{
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+
+    QFrame *RegisterBox = new QFrame(this);
+
+    QVBoxLayout *RegisterBoxLayout = new QVBoxLayout(RegisterBox);
+    QLabel *RegisterBoxTitle = new QLabel("Đăng ký tài khoản", RegisterBox);
+    RegisterBoxTitle->setAlignment(Qt::AlignCenter);
+    QLineEdit *Username = new QLineEdit(RegisterBox);
+    
+    
+QLineEdit *Password = new QLineEdit(RegisterBox);
+    QPushButton *RegisterBtt = new QPushButton("Đăng ký", RegisterBox);
+    RegisterBtt->setCursor(Qt::PointingHandCursor);
+    RegisterBoxLayout->addWidget(RegisterBoxTitle);
+    RegisterBoxLayout->addSpacing(20);
+    RegisterBoxLayout->addWidget(Username);
+    RegisterBoxLayout->addWidget(Password);
+    RegisterBoxLayout->addWidget(RegisterBtt);
+
+    
+
+}

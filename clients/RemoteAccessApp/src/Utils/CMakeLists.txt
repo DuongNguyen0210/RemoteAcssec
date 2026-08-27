@@ -1,9 +1,15 @@
-# Khai báo các file source cho module Utils
-set(UTILS_SOURCES dummy.cpp
-    # Thêm file vào đây sau, ví dụ:
-    # Logger.cpp Logger.h
-    # PlatformUtils.h
+# Tự động quét toàn bộ .cpp và .h trong thư mục Utils và các thư mục con
+# CONFIGURE_DEPENDS: CMake tự chạy lại configure khi có file mới
+file(GLOB_RECURSE UTILS_SOURCES
+    CONFIGURE_DEPENDS
+    "*.cpp"
+    "*.h"
 )
+
+# Nếu chưa có file nào, thêm dummy.cpp để tránh lỗi "no source files"
+if(NOT UTILS_SOURCES)
+    list(APPEND UTILS_SOURCES dummy.cpp)
+endif()
 
 add_library(Utils STATIC ${UTILS_SOURCES})
 
