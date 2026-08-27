@@ -11,7 +11,8 @@
 
 #sessionsPage,
 #logsPage,
-#settingsPage {
+#settingsPage,
+#accountPage {
     background-color: #f7f9fb;
 }
 

@@ -24,6 +24,8 @@ set(GUI_SOURCES
     Pages/settingspage.h
     Pages/logspage.cpp
     Pages/logspage.h
+    Pages/accountpage.cpp
+    Pages/accountpage.h
 
     Layouts/flowlayout.cpp
     Layouts/flowlayout.h

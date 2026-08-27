@@ -33,16 +33,19 @@ int main(int argc, char *argv[])
     app.setStyleSheet(loadStyleSheet());
 
     LoginWindow* loginWin = new LoginWindow();
-    loginWin->setAttribute(Qt::WA_QuitOnClose, false);
-    MainWindow* mainWin = new MainWindow();
 
-    QObject::connect(loginWin, &LoginWindow::loginSuccessful, [loginWin, mainWin](bool Success, bool isAdmin, const QString &Message){
-        loginWin->close();
+    QObject::connect(loginWin, &LoginWindow::loginSuccessful, [loginWin](bool Success, bool isAdmin, const QString &Message){
         if(isAdmin)
+        {
+            MainWindow* mainWin = new MainWindow();
             mainWin->show();
+            loginWin->close();
+        }
         else
         {
             //TODO: mo mot app chay ngam cho sub accout
+            // Tạm thời nếu là sub account mà chưa có app thì cứ hiện thông báo hoặc giữ nguyên
+            loginWin->close(); 
         }
     });
 

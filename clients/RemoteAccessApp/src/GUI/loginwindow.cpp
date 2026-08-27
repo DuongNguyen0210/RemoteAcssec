@@ -1,5 +1,5 @@
 #include "loginwindow.h"
-#include "../Network/relayclient.h"
+//#include "../Network/relayclient.h"
 #include <QFrame>
 
 #include <QDebug>
@@ -7,13 +7,14 @@
 LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent)
 {
     setObjectName("loginWindow");
-    setFixedSize(400, 500);
+    setFixedSize(1080, 600);
     setWindowTitle("Remote Access - Đăng Nhập");
     
-    RelayClient* client = new RelayClient(this);
-    client->ConnectToServer("0.tcp.ap.ngrok.io", 29856);
+    // RelayClient* client = new RelayClient(this);
+    // client->ConnectToServer("0.tcp.ap.ngrok.io", 29856);
 
     auth = new Authservice(this);
+    connect(auth, &Authservice::loginResult, this, &LoginWindow::handleLoginResult);
 
     setupUi();
 }
@@ -86,5 +87,4 @@ void LoginWindow::onLoginClicked()
     QString username = usernameInput->text();
     QString password = passwordInput->text();
     auth->login(username, password);
-    connect(auth, &Authservice::loginResult, this, &LoginWindow::handleLoginResult);
 }
