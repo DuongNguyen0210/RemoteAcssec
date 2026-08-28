@@ -1,8 +1,8 @@
 #include "relayclient.h"
 #include <QDebug>
-#include "Protocol/ProtocolHeader.h"
-#include "Protocol/ProtocolSerializer.h"
-#include "Protocol/ProtocolConstants.h"
+#include "protocol/protocolheader.h"
+#include "protocol/protocolserializer.h"
+#include "protocol/protocolconstants.h"
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
     m_socket = new QTcpSocket(this);
@@ -23,7 +23,6 @@ void RelayClient::DisconnectFromServer()
 {
     m_socket->disconnectFromHost();
 }
-
 
 void RelayClient::onConnected() {
     qDebug() << "Đã kết nối thành công tới Relay Server!";

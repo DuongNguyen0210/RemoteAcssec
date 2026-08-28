@@ -9,6 +9,9 @@ class AccountPage : public QWidget
 public:
     explicit AccountPage(QWidget *parent = nullptr);
 
+signals:
+    void requestAddAccount();
+
 private:
     void setupUi();
 };

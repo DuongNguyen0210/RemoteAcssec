@@ -14,32 +14,30 @@ namespace {
 QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 {
     QLabel *lbl = new QLabel(text, parent);
-    lbl->setObjectName(objectName);
+    lbl->setProperty("role", objectName);
     return lbl;
 }
 
 QPushButton *actionButton(const QString &text, const QString &objectName, QWidget *parent)
 {
     QPushButton *button = new QPushButton(text, parent);
-    button->setObjectName(objectName);
+    button->setProperty("role", objectName);
     button->setCursor(Qt::PointingHandCursor);
     button->setFixedHeight(36);
     return button;
 }
 
-// Tạo một card đại diện cho một tài khoản con
 QFrame *accountCard(const QString &username, const QString &email, const QString &role,
                     const QString &status, const QString &statusState, QWidget *parent)
 {
     QFrame *card = new QFrame(parent);
-    card->setObjectName("sessionCard");
+    card->setProperty("role", "sessionCard");
     card->setAttribute(Qt::WA_StyledBackground, true);
 
     QVBoxLayout *layout = new QVBoxLayout(card);
     layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(14);
 
-    // ── Header: avatar + tên + email + chip trạng thái ──────────────────
     QHBoxLayout *header = new QHBoxLayout();
     header->setSpacing(12);
 
@@ -61,7 +59,6 @@ QFrame *accountCard(const QString &username, const QString &email, const QString
 
     layout->addLayout(header);
 
-    // ── Metadata: role ───────────────────────────────────────────────────
     QGridLayout *details = new QGridLayout();
     details->setHorizontalSpacing(24);
     details->setVerticalSpacing(4);
@@ -71,13 +68,11 @@ QFrame *accountCard(const QString &username, const QString &email, const QString
     details->addWidget(label(status,   "strongText", card), 1, 1);
     layout->addLayout(details);
 
-    // ── Divider ──────────────────────────────────────────────────────────
     QFrame *divider = new QFrame(card);
-    divider->setObjectName("thinDivider");
+    divider->setProperty("role", "thinDivider");
     divider->setFrameShape(QFrame::HLine);
     layout->addWidget(divider);
 
-    // ── Actions ──────────────────────────────────────────────────────────
     QHBoxLayout *actions = new QHBoxLayout();
     actions->setSpacing(10);
     actions->addWidget(actionButton("Edit",   "secondaryActionButton", card));
@@ -88,7 +83,7 @@ QFrame *accountCard(const QString &username, const QString &email, const QString
     return card;
 }
 
-} // namespace
+}
 
 AccountPage::AccountPage(QWidget *parent)
     : QWidget{parent}
@@ -105,7 +100,6 @@ void AccountPage::setupUi()
     mainLayout->setContentsMargins(24, 24, 24, 24);
     mainLayout->setSpacing(16);
 
-    // ── Page Header ──────────────────────────────────────────────────────
     QVBoxLayout *header = new QVBoxLayout();
     header->setContentsMargins(0, 0, 0, 8);
     header->setSpacing(4);
@@ -114,7 +108,6 @@ void AccountPage::setupUi()
                             "pageSubtitle", this));
     mainLayout->addLayout(header);
 
-    // ── Metric Cards ─────────────────────────────────────────────────────
     QGridLayout *metrics = new QGridLayout();
     metrics->setHorizontalSpacing(16);
     metrics->setVerticalSpacing(16);
@@ -123,14 +116,14 @@ void AccountPage::setupUi()
                          const QString &detail, QWidget *parent) -> QFrame *
     {
         QFrame *card = new QFrame(parent);
-        card->setObjectName("metricCard");
+        card->setProperty("role", "metricCard");
         card->setAttribute(Qt::WA_StyledBackground, true);
         QVBoxLayout *l = new QVBoxLayout(card);
         l->setContentsMargins(16, 14, 16, 14);
         l->setSpacing(4);
         auto mk = [](const QString &t, const QString &n, QWidget *p) -> QLabel * {
             QLabel *lb = new QLabel(t, p);
-            lb->setObjectName(n);
+            lb->setProperty("role", n);
             return lb;
         };
         l->addWidget(mk(value,  "metricValue",  card));
@@ -144,43 +137,44 @@ void AccountPage::setupUi()
     metrics->addWidget(metricCard("1",  "Inactive accounts",   "Disabled or suspended",            this), 0, 2);
     mainLayout->addLayout(metrics);
 
-    // ── Toolbar: Search + Add button ─────────────────────────────────────
     QFrame *toolbar = new QFrame(this);
-    toolbar->setObjectName("toolbarCard");
+    toolbar->setProperty("role", "toolbarCard");
     toolbar->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *toolbarLayout = new QHBoxLayout(toolbar);
     toolbarLayout->setContentsMargins(12, 12, 12, 12);
     toolbarLayout->setSpacing(8);
 
     QLineEdit *search = new QLineEdit(toolbar);
-    search->setObjectName("panelSearchInput");
+    search->setProperty("role", "panelSearchInput");
     search->setPlaceholderText("Search accounts...");
     search->setClearButtonEnabled(true);
     search->setFixedHeight(38);
     toolbarLayout->addWidget(search, 1);
 
     QPushButton *addButton = new QPushButton("Add Account", toolbar);
-    addButton->setObjectName("primaryActionButton");
+    addButton->setProperty("role", "primaryActionButton");
     addButton->setCursor(Qt::PointingHandCursor);
     addButton->setFixedHeight(38);
     toolbarLayout->addWidget(addButton);
+    
+    connect(addButton, &QPushButton::clicked, this, [this](){
+        emit requestAddAccount();
+    });
 
     mainLayout->addWidget(toolbar);
 
-    // ── Account List (scrollable) ─────────────────────────────────────────
     QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setObjectName("contentScrollArea");
+    scrollArea->setProperty("role", "scrollArea");
     scrollArea->setWidgetResizable(true);
 
     QWidget *scrollContent = new QWidget(scrollArea);
-    scrollContent->setObjectName("contentScrollContent");
+    scrollContent->setProperty("role", "scrollContent");
     scrollContent->setAttribute(Qt::WA_StyledBackground, true);
 
     QVBoxLayout *listLayout = new QVBoxLayout(scrollContent);
     listLayout->setContentsMargins(0, 0, 0, 0);
     listLayout->setSpacing(14);
 
-    // Dữ liệu mẫu — sẽ được thay bằng dữ liệu thực khi bạn code logic
     listLayout->addWidget(accountCard("nguyen.van.a",  "nguyen.van.a@company.com",  "Viewer",    "Active",   "active",  scrollContent));
     listLayout->addWidget(accountCard("tran.thi.b",    "tran.thi.b@company.com",    "Operator",  "Active",   "active",  scrollContent));
     listLayout->addWidget(accountCard("le.minh.c",     "le.minh.c@company.com",     "Viewer",    "Inactive", "neutral", scrollContent));

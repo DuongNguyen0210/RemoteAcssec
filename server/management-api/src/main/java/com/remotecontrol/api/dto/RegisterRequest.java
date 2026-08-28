@@ -11,6 +11,4 @@ public class RegisterRequest {
     private String childUsername;
     @NotBlank
     private String password;
-    @NotNull
-    private String token;
 }

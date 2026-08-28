@@ -13,8 +13,14 @@ endif()
 
 add_library(Core STATIC ${CORE_SOURCES})
 
-# Link với Qt (nếu Core có dùng QString, QObject...)
-target_link_libraries(Core PRIVATE Qt${QT_VERSION_MAJOR}::Core)
+# Link với Qt và các module nội bộ
+target_link_libraries(Core PRIVATE 
+    Qt${QT_VERSION_MAJOR}::Core 
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Network
+    GUI 
+    Network
+)
 
 # Cho phép các module khác (như GUI) include file .h của Core mà không cần gõ đường dẫn dài
 target_include_directories(Core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -3,14 +3,13 @@
 
 #include <QObject>
 #include <QString>
-#include <QNetworkAccessManager>
 #include <QNetworkReply>
 
-class Authservice : public QObject
+class AuthService : public QObject
 {
     Q_OBJECT
 public:
-    explicit Authservice(QObject *parent = nullptr);
+    explicit AuthService(QObject *parent = nullptr);
     void login(const QString &username, const QString &password);
 
 signals:
@@ -20,8 +19,6 @@ private slots:
     void onLoginReply(QNetworkReply *reply);
 
 private:
-    QNetworkAccessManager * networkManager;
-    const QString API_URL = "http://cornball-ibuprofen-polygraph.ngrok-free.dev/api/v1/auth/login";
 };
 
 #endif

@@ -1,13 +1,13 @@
 #include "devicespage.h"
-#include "Layouts/flowlayout.h"
-#include "Components/devicecardwidget.h"
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QGridLayout>
+
 #include <QLabel>
 #include <QScrollArea>
+#include <QVBoxLayout>
+#include "../Components/devicecardwidget.h"
+#include "../Layouts/flowlayout.h"
 
-DevicesPage::DevicesPage(QWidget *parent) : QWidget(parent)
+DevicesPage::DevicesPage(QWidget *parent)
+    : QWidget{parent}
 {
     setupUi();
 }
@@ -21,40 +21,29 @@ void DevicesPage::setupUi()
     mainLayout->setContentsMargins(24, 24, 24, 24);
     mainLayout->setSpacing(16);
 
-    QVBoxLayout *headerLayout = new QVBoxLayout();
-    headerLayout->setContentsMargins(0, 0, 0, 8);
-    headerLayout->setSpacing(4);
-    QLabel *lblTitle = new QLabel("Managed Devices", this);
-    lblTitle->setObjectName("pageTitle");
-    QLabel *lblSubtitle = new QLabel("Monitor and connect to managed remote desktop devices.", this);
-    lblSubtitle->setObjectName("pageSubtitle");
-    headerLayout->addWidget(lblTitle);
-    headerLayout->addWidget(lblSubtitle);
-    mainLayout->addLayout(headerLayout);
+    QLabel *lblTitle = new QLabel("Devices", this);
+    lblTitle->setProperty("role", "pageTitle");
+
+    QLabel *lblSubtitle = new QLabel("Monitor and manage all registered remote devices.", this);
+    lblSubtitle->setProperty("role", "pageSubtitle");
+
+    mainLayout->addWidget(lblTitle);
+    mainLayout->addWidget(lblSubtitle);
 
     QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setObjectName("deviceScrollArea");
+    scrollArea->setProperty("role", "scrollArea");
     scrollArea->setWidgetResizable(true);
 
     QWidget *scrollContent = new QWidget(scrollArea);
-    scrollContent->setObjectName("deviceScrollContent");
+    scrollContent->setProperty("role", "scrollContent");
     scrollContent->setAttribute(Qt::WA_StyledBackground, true);
 
-    FlowLayout *flowLayout = new FlowLayout(scrollContent, 0, 16, 16);
-
-    for (int i = 0; i < 6; ++i)
-    {
-        QString deviceName = QString("WKSTN-DEV-%1").arg(i + 1);
-        QString ipAddress = QString("192.168.1.%1").arg(100 + i);
-        QString Os = QString("Window 11");
-        QString Status = QString("Online");
-        QString Uptime = QString("Now");
-
-        DeviceCardWidget *card = new DeviceCardWidget(deviceName, Os, ipAddress, Status, Uptime,  this);
-        flowLayout->addWidget(card);
-    }
+    FlowLayout *flowLayout = new FlowLayout(scrollContent, 16, 16, 16);
+    flowLayout->addWidget(new DeviceCardWidget("SRV-APOLLO-01", "Windows Server 2022", "192.168.1.105", "Online", "14d 6h 23m", scrollContent));
+    flowLayout->addWidget(new DeviceCardWidget("MBP-SARAH-DESIGN", "macOS Sonoma", "10.0.0.42", "Online", "2d 11h 05m", scrollContent));
+    flowLayout->addWidget(new DeviceCardWidget("WKSTN-DEV-04", "Ubuntu 22.04 LTS", "192.168.1.104", "Offline", "—", scrollContent));
+    flowLayout->addWidget(new DeviceCardWidget("LAPTOP-MIKE-SALES", "Windows 11 Pro", "10.0.0.55", "Warning", "0d 4h 12m", scrollContent));
 
     scrollArea->setWidget(scrollContent);
-    mainLayout->addWidget(scrollArea);
+    mainLayout->addWidget(scrollArea, 1);
 }
-

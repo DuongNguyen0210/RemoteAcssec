@@ -13,14 +13,13 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update # Tự động tạo hoặc cập nhật bảng trong Database dựa theo Code Java
-    show-sql: true     # In ra console các câu lệnh SQL để dễ debug
+      ddl-auto: create
+    show-sql: true
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # Cấu hình kết nối Redis
   data:
     redis:
       host: localhost
