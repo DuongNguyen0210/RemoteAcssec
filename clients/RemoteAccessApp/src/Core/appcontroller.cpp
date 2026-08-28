@@ -3,14 +3,17 @@
 #include "authcontroller.h"
 #include "../GUI/Windows/mainwindow.h"
 #include "registercontroller.h"
+#include "../Network/HeartbeatReporter.h"
 
 #include <QDebug>
+#include <QGuiApplication>
 
 AppController::AppController(QObject *parent)
     : QObject(parent),
       m_authController(nullptr),
       m_mainWindow(nullptr),
-      m_registerController(nullptr)
+      m_registerController(nullptr),
+      m_heartbeatReporter(nullptr)
 {
 }
 
@@ -19,6 +22,7 @@ AppController::~AppController()
     if (m_authController) m_authController->deleteLater();
     if (m_mainWindow) m_mainWindow->deleteLater();
     if (m_registerController) m_registerController->deleteLater();
+    if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
 }
 
 void AppController::start()
@@ -38,8 +42,18 @@ void AppController::handleLoginSuccess(const QString &role)
         m_mainWindow->show();
     }
     else
-        qDebug() << "Sub-account logged in";
+    {
+        qDebug() << "CHILD account logged in";
+        
+        // Ensure application doesn't exit when AuthController windows are closed
+        QGuiApplication::setQuitOnLastWindowClosed(false);
 
+        // Start heartbeat reporter owned by AppController
+        if (!m_heartbeatReporter) {
+            m_heartbeatReporter = new HeartbeatReporter(this);
+            m_heartbeatReporter->start();
+        }
+    }
 
     if (m_authController)
         m_authController->deleteLater();

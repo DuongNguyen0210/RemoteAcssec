@@ -2,7 +2,9 @@ package com.remotecontrol.api.controller;
 
 import com.remotecontrol.api.dto.RegisterRequest;
 import com.remotecontrol.api.dto.RegisterResponse;
+import com.remotecontrol.api.dto.HeartbeatRequest;
 import com.remotecontrol.api.service.ChildService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -35,5 +37,26 @@ public class ChildController {
             return ResponseEntity.ok(r);
         else
             return ResponseEntity.status(HttpStatus.CONFLICT).body(r);
+    }
+
+    @PostMapping("/heartbeat")
+    public ResponseEntity<String> heartbeat(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody HeartbeatRequest heartbeatRequest,
+            HttpServletRequest request) {
+        
+        String token = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        }
+        
+        String remoteIp = request.getRemoteAddr();
+        
+        boolean success = childService.handleHeartbeat(token, heartbeatRequest, remoteIp);
+        if (success) {
+            return ResponseEntity.ok("Heartbeat OK");
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Heartbeat failed");
+        }
     }
 }

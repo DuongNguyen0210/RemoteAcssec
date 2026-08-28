@@ -7,6 +7,7 @@
 class AuthController;
 class MainWindow;
 class RegisterController;
+class HeartbeatReporter;
 
 class AppController : public QObject
 {
@@ -25,6 +26,7 @@ private:
     QPointer<AuthController> m_authController;
     QPointer<MainWindow> m_mainWindow;
     QPointer<RegisterController> m_registerController;
+    HeartbeatReporter *m_heartbeatReporter;
 };
 
 #endif

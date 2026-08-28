@@ -2,6 +2,7 @@ package com.remotecontrol.api.service;
 
 import com.remotecontrol.api.dto.RegisterRequest;
 import com.remotecontrol.api.dto.RegisterResponse;
+import com.remotecontrol.api.dto.HeartbeatRequest;
 import com.remotecontrol.api.entity.Child;
 import com.remotecontrol.api.entity.User;
 import com.remotecontrol.api.repository.ChildRepository;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -64,6 +66,34 @@ public class ChildService {
                     .owner(user)
                     .build();
             childRepository.save(newChild);
+    }
+
+    public boolean handleHeartbeat(String token, HeartbeatRequest request, String remoteIp) {
+        if (token == null || token.isEmpty()) {
+            return false;
+        }
+
+        try {
+            if (jwtUtil.isTokenExpired(token)) {
+                return false;
+            }
+
+            if (!"CHILD".equals(jwtUtil.extractRole(token))) {
+                return false;
+            }
+
+            String childUsername = jwtUtil.extractUsername(token);
+            Optional<Child> childOpt = childRepository.findByChildUsername(childUsername);
+            
+            if (!childOpt.isPresent()) {
+                return false;
+            }
+
+            return true;
+        } catch (Exception e) {
+            log.error("Invalid token in heartbeat: {}", e.getMessage());
+            return false;
+        }
     }
 }
 
