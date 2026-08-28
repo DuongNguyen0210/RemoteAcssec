@@ -13,14 +13,14 @@ namespace {
 QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 {
     QLabel *lbl = new QLabel(text, parent);
-    lbl->setObjectName(objectName);
+    lbl->setProperty("role", objectName);
     return lbl;
 }
 
 QFrame *metricCard(const QString &value, const QString &title, const QString &detail, QWidget *parent)
 {
     QFrame *card = new QFrame(parent);
-    card->setObjectName("metricCard");
+    card->setProperty("role", "metricCard");
     card->setAttribute(Qt::WA_StyledBackground, true);
 
     QVBoxLayout *layout = new QVBoxLayout(card);
@@ -35,7 +35,7 @@ QFrame *metricCard(const QString &value, const QString &title, const QString &de
 QPushButton *actionButton(const QString &text, const QString &objectName, QWidget *parent)
 {
     QPushButton *button = new QPushButton(text, parent);
-    button->setObjectName(objectName);
+    button->setProperty("role", objectName);
     button->setCursor(Qt::PointingHandCursor);
     button->setFixedHeight(38);
     return button;
@@ -45,7 +45,7 @@ QFrame *sessionCard(const QString &device, const QString &address, const QString
                     const QString &duration, const QString &quality, QWidget *parent)
 {
     QFrame *card = new QFrame(parent);
-    card->setObjectName("sessionCard");
+    card->setProperty("role", "sessionCard");
     card->setAttribute(Qt::WA_StyledBackground, true);
     card->setMinimumHeight(190);
 
@@ -85,7 +85,7 @@ QFrame *sessionCard(const QString &device, const QString &address, const QString
     layout->addLayout(details);
 
     QFrame *line = new QFrame(card);
-    line->setObjectName("thinDivider");
+    line->setProperty("role", "thinDivider");
     line->setFrameShape(QFrame::HLine);
     layout->addWidget(line);
 
@@ -131,11 +131,11 @@ void SessionsPage::setupUi()
     mainLayout->addLayout(metrics);
 
     QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setObjectName("contentScrollArea");
+    scrollArea->setProperty("role", "scrollArea");
     scrollArea->setWidgetResizable(true);
 
     QWidget *scrollContent = new QWidget(scrollArea);
-    scrollContent->setObjectName("contentScrollContent");
+    scrollContent->setProperty("role", "scrollContent");
     scrollContent->setAttribute(Qt::WA_StyledBackground, true);
     QVBoxLayout *sessions = new QVBoxLayout(scrollContent);
     sessions->setContentsMargins(0, 0, 0, 0);

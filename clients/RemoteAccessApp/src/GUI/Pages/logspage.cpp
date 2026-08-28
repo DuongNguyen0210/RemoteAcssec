@@ -13,14 +13,14 @@ namespace {
 QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 {
     QLabel *lbl = new QLabel(text, parent);
-    lbl->setObjectName(objectName);
+    lbl->setProperty("role", objectName);
     return lbl;
 }
 
 QPushButton *filterButton(const QString &text, bool active, QWidget *parent)
 {
     QPushButton *button = new QPushButton(text, parent);
-    button->setObjectName("filterButton");
+    button->setProperty("role", "filterButton");
     button->setCheckable(true);
     button->setChecked(active);
     button->setCursor(Qt::PointingHandCursor);
@@ -32,7 +32,7 @@ QFrame *logRow(const QString &time, const QString &event, const QString &source,
                const QString &severity, const QString &state, QWidget *parent)
 {
     QFrame *row = new QFrame(parent);
-    row->setObjectName("logRow");
+    row->setProperty("role", "logRow");
     row->setAttribute(Qt::WA_StyledBackground, true);
 
     QHBoxLayout *layout = new QHBoxLayout(row);
@@ -82,14 +82,14 @@ void LogsPage::setupUi()
     mainLayout->addLayout(header);
 
     QFrame *toolbar = new QFrame(this);
-    toolbar->setObjectName("toolbarCard");
+    toolbar->setProperty("role", "toolbarCard");
     toolbar->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *toolbarLayout = new QHBoxLayout(toolbar);
     toolbarLayout->setContentsMargins(12, 12, 12, 12);
     toolbarLayout->setSpacing(8);
 
     QLineEdit *search = new QLineEdit(toolbar);
-    search->setObjectName("panelSearchInput");
+    search->setProperty("role", "panelSearchInput");
     search->setPlaceholderText("Search logs...");
     search->setClearButtonEnabled(true);
     search->setFixedHeight(38);
@@ -100,11 +100,11 @@ void LogsPage::setupUi()
     mainLayout->addWidget(toolbar);
 
     QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setObjectName("contentScrollArea");
+    scrollArea->setProperty("role", "scrollArea");
     scrollArea->setWidgetResizable(true);
 
     QWidget *scrollContent = new QWidget(scrollArea);
-    scrollContent->setObjectName("contentScrollContent");
+    scrollContent->setProperty("role", "scrollContent");
     scrollContent->setAttribute(Qt::WA_StyledBackground, true);
     QVBoxLayout *logs = new QVBoxLayout(scrollContent);
     logs->setContentsMargins(0, 0, 0, 0);

@@ -17,14 +17,14 @@ namespace {
 QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 {
     QLabel *lbl = new QLabel(text, parent);
-    lbl->setObjectName(objectName);
+    lbl->setProperty("role", objectName);
     return lbl;
 }
 
 QLineEdit *lineEdit(const QString &text, QWidget *parent)
 {
     QLineEdit *input = new QLineEdit(text, parent);
-    input->setObjectName("settingsInput");
+    input->setProperty("role", "settingsInput");
     input->setFixedHeight(38);
     return input;
 }
@@ -32,7 +32,7 @@ QLineEdit *lineEdit(const QString &text, QWidget *parent)
 QFrame *settingsCard(const QString &title, const QString &subtitle, QWidget *parent)
 {
     QFrame *card = new QFrame(parent);
-    card->setObjectName("settingsCard");
+    card->setProperty("role", "settingsCard");
     card->setAttribute(Qt::WA_StyledBackground, true);
 
     QVBoxLayout *layout = new QVBoxLayout(card);
@@ -53,7 +53,7 @@ void addField(QGridLayout *grid, int row, const QString &caption, QWidget *field
 QCheckBox *checkBox(const QString &text, bool checked, QWidget *parent)
 {
     QCheckBox *box = new QCheckBox(text, parent);
-    box->setObjectName("settingsCheckBox");
+    box->setProperty("role", "settingsCheckBox");
     box->setChecked(checked);
     box->setCursor(Qt::PointingHandCursor);
     return box;
@@ -84,11 +84,11 @@ void SettingsPage::setupUi()
     mainLayout->addLayout(header);
 
     QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setObjectName("contentScrollArea");
+    scrollArea->setProperty("role", "scrollArea");
     scrollArea->setWidgetResizable(true);
 
     QWidget *scrollContent = new QWidget(scrollArea);
-    scrollContent->setObjectName("contentScrollContent");
+    scrollContent->setProperty("role", "scrollContent");
     scrollContent->setAttribute(Qt::WA_StyledBackground, true);
     QVBoxLayout *content = new QVBoxLayout(scrollContent);
     content->setContentsMargins(0, 0, 0, 0);
@@ -110,7 +110,7 @@ void SettingsPage::setupUi()
     securityGrid->setVerticalSpacing(12);
 
     QSpinBox *timeout = new QSpinBox(securityCard);
-    timeout->setObjectName("settingsInput");
+    timeout->setProperty("role", "settingsInput");
     timeout->setRange(5, 240);
     timeout->setSuffix(" min");
     timeout->setValue(30);
@@ -118,7 +118,7 @@ void SettingsPage::setupUi()
     addField(securityGrid, 0, "Idle timeout", timeout, securityCard);
 
     QComboBox *approval = new QComboBox(securityCard);
-    approval->setObjectName("settingsInput");
+    approval->setProperty("role", "settingsInput");
     approval->addItems({"Ask before control", "Allow view only", "Allow full control"});
     approval->setFixedHeight(38);
     addField(securityGrid, 1, "Session approval", approval, securityCard);
@@ -134,7 +134,7 @@ void SettingsPage::setupUi()
     connectionGrid->setHorizontalSpacing(16);
     connectionGrid->setVerticalSpacing(12);
     QComboBox *quality = new QComboBox(connectionCard);
-    quality->setObjectName("settingsInput");
+    quality->setProperty("role", "settingsInput");
     quality->addItems({"Balanced", "High quality", "Low bandwidth"});
     quality->setFixedHeight(38);
     addField(connectionGrid, 0, "Stream quality", quality, connectionCard);
@@ -142,7 +142,7 @@ void SettingsPage::setupUi()
     qobject_cast<QVBoxLayout *>(connectionCard->layout())->addLayout(connectionGrid);
 
     QPushButton *saveButton = new QPushButton("Save Changes", connectionCard);
-    saveButton->setObjectName("primaryActionButton");
+    saveButton->setProperty("role", "primaryActionButton");
     saveButton->setCursor(Qt::PointingHandCursor);
     saveButton->setFixedHeight(40);
     qobject_cast<QVBoxLayout *>(connectionCard->layout())->addWidget(saveButton);

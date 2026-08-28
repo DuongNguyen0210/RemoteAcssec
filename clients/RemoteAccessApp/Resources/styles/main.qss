@@ -1,3 +1,4 @@
+/* ─── Page containers (unique per page, keep #id) ───────────────────────── */
 #mainWindow,
 #appRoot,
 #contentShell,
@@ -11,120 +12,126 @@
 
 #sessionsPage,
 #logsPage,
-#settingsPage {
+#settingsPage,
+#accountPage {
     background-color: #f7f9fb;
 }
 
-#pageTitle {
+/* ─── Page header labels ─────────────────────────────────────────────────── */
+QLabel[role="pageTitle"] {
     font-size: 32px;
     font-weight: 700;
     color: #191c1e;
 }
 
-#pageSubtitle {
+QLabel[role="pageSubtitle"] {
     color: #404850;
     font-size: 14px;
     font-weight: 400;
 }
 
-#pagePlaceholder {
+QLabel[role="pagePlaceholder"] {
     color: #404850;
     font-size: 14px;
     font-weight: 600;
     background-color: transparent;
 }
 
+/* ─── Scroll areas ───────────────────────────────────────────────────────── */
 #deviceScrollArea {
     border: none;
     background-color: transparent;
 }
 
-#contentScrollArea {
+QScrollArea[role="scrollArea"] {
     border: none;
     background-color: transparent;
 }
 
 #deviceScrollArea > QWidget > QWidget,
 #deviceScrollContent,
-#contentScrollArea > QWidget > QWidget,
-#contentScrollContent {
+QScrollArea[role="scrollArea"] > QWidget > QWidget,
+QWidget[role="scrollContent"] {
     background-color: transparent;
 }
 
 #deviceScrollArea QScrollBar:vertical,
-#contentScrollArea QScrollBar:vertical {
+QScrollArea[role="scrollArea"] QScrollBar:vertical {
     background-color: transparent;
     width: 10px;
     margin: 0px;
 }
 
 #deviceScrollArea QScrollBar::handle:vertical,
-#contentScrollArea QScrollBar::handle:vertical {
+QScrollArea[role="scrollArea"] QScrollBar::handle:vertical {
     background-color: #bfc7d1;
     border-radius: 5px;
     min-height: 24px;
 }
 
 #deviceScrollArea QScrollBar::handle:vertical:hover,
-#contentScrollArea QScrollBar::handle:vertical:hover {
+QScrollArea[role="scrollArea"] QScrollBar::handle:vertical:hover {
     background-color: #707881;
 }
 
 #deviceScrollArea QScrollBar::add-line:vertical,
 #deviceScrollArea QScrollBar::sub-line:vertical,
-#contentScrollArea QScrollBar::add-line:vertical,
-#contentScrollArea QScrollBar::sub-line:vertical {
+QScrollArea[role="scrollArea"] QScrollBar::add-line:vertical,
+QScrollArea[role="scrollArea"] QScrollBar::sub-line:vertical {
     height: 0px;
     background-color: transparent;
 }
 
 #deviceScrollArea QScrollBar::add-page:vertical,
 #deviceScrollArea QScrollBar::sub-page:vertical,
-#contentScrollArea QScrollBar::add-page:vertical,
-#contentScrollArea QScrollBar::sub-page:vertical {
+QScrollArea[role="scrollArea"] QScrollBar::add-page:vertical,
+QScrollArea[role="scrollArea"] QScrollBar::sub-page:vertical {
     background-color: transparent;
 }
 
-#metricCard,
-#sessionCard,
-#toolbarCard,
-#logRow,
-#settingsCard {
+/* ─── Cards ──────────────────────────────────────────────────────────────── */
+QFrame[role="metricCard"],
+QFrame[role="sessionCard"],
+QFrame[role="toolbarCard"],
+QFrame[role="logRow"],
+QFrame[role="settingsCard"] {
     background-color: #ffffff;
     border: 1px solid #dfe4ea;
     border-radius: 12px;
 }
 
-#metricCard:hover,
-#sessionCard:hover,
-#logRow:hover,
-#settingsCard:hover {
+QFrame[role="metricCard"]:hover,
+QFrame[role="sessionCard"]:hover,
+QFrame[role="logRow"]:hover,
+QFrame[role="settingsCard"]:hover {
     border: 1px solid #bfc7d1;
     background-color: #ffffff;
 }
 
-#metricValue {
+/* ─── Metric card labels ─────────────────────────────────────────────────── */
+QLabel[role="metricValue"] {
     color: #005d90;
     font-size: 28px;
     font-weight: 700;
 }
 
-#metricTitle,
-#sectionTitle {
+QLabel[role="metricTitle"],
+QLabel[role="sectionTitle"] {
     color: #191c1e;
     font-size: 16px;
     font-weight: 700;
 }
 
-#metricDetail,
-#sectionSubtitle,
-#cardSubtitle {
+QLabel[role="metricDetail"],
+QLabel[role="sectionSubtitle"],
+QLabel[role="cardSubtitle"] {
     color: #404850;
     font-size: 13px;
     font-weight: 400;
 }
 
-#cardIcon {
+/* ─── Card content labels ────────────────────────────────────────────────── */
+QLabel[role="cardIcon"] {
     background-color: #eceef0;
     border-radius: 8px;
     color: #005d90;
@@ -132,33 +139,35 @@
     font-weight: 700;
 }
 
-#cardTitle {
+QLabel[role="cardTitle"] {
     color: #191c1e;
     font-size: 15px;
     font-weight: 700;
 }
 
-#metaLabel,
-#fieldLabel {
+QLabel[role="metaLabel"],
+QLabel[role="fieldLabel"] {
     color: #707881;
     font-size: 12px;
     font-weight: 700;
 }
 
-#strongText {
+QLabel[role="strongText"] {
     color: #191c1e;
     font-size: 14px;
     font-weight: 600;
 }
 
-#thinDivider {
+/* ─── Thin divider ───────────────────────────────────────────────────────── */
+QFrame[role="thinDivider"] {
     background-color: #dfe4ea;
     border: none;
     max-height: 1px;
     min-height: 1px;
 }
 
-#stateChip {
+/* ─── State chip ─────────────────────────────────────────────────────────── */
+QLabel[role="stateChip"] {
     border-radius: 10px;
     font-size: 12px;
     font-weight: 700;
@@ -166,30 +175,31 @@
     min-width: 72px;
 }
 
-#stateChip[state="active"] {
+QLabel[role="stateChip"][state="active"] {
     background-color: #e8f3fb;
     color: #005d90;
 }
 
-#stateChip[state="warning"] {
+QLabel[role="stateChip"][state="warning"] {
     background-color: #fff3cd;
     color: #6f5200;
 }
 
-#stateChip[state="error"] {
+QLabel[role="stateChip"][state="error"] {
     background-color: #ffdad6;
     color: #93000a;
 }
 
-#stateChip[state="neutral"] {
+QLabel[role="stateChip"][state="neutral"] {
     background-color: #e0e3e5;
     color: #404850;
 }
 
-#secondaryActionButton,
-#filterButton,
-#panelSearchInput,
-#settingsInput {
+/* ─── Action buttons & inputs ────────────────────────────────────────────── */
+QPushButton[role="secondaryActionButton"],
+QPushButton[role="filterButton"],
+QLineEdit[role="panelSearchInput"],
+*[role="settingsInput"] {
     background-color: #ffffff;
     border: 1px solid #bfc7d1;
     border-radius: 8px;
@@ -198,22 +208,22 @@
     padding: 0px 12px;
 }
 
-#secondaryActionButton:hover,
-#filterButton:hover,
-#panelSearchInput:hover,
-#settingsInput:hover {
+QPushButton[role="secondaryActionButton"]:hover,
+QPushButton[role="filterButton"]:hover,
+QLineEdit[role="panelSearchInput"]:hover,
+*[role="settingsInput"]:hover {
     background-color: #eceef0;
     border-color: #707881;
 }
 
-#filterButton:checked {
+QPushButton[role="filterButton"]:checked {
     background-color: #e8f3fb;
     border-color: #005d90;
     color: #005d90;
     font-weight: 700;
 }
 
-#primaryActionButton {
+QPushButton[role="primaryActionButton"] {
     background-color: #005d90;
     border: none;
     border-radius: 8px;
@@ -223,15 +233,15 @@
     padding: 0px 14px;
 }
 
-#primaryActionButton:hover {
+QPushButton[role="primaryActionButton"]:hover {
     background-color: #004b74;
 }
 
-#secondaryActionButton {
+QPushButton[role="secondaryActionButton"] {
     font-weight: 700;
 }
 
-#dangerActionButton {
+QPushButton[role="dangerActionButton"] {
     background-color: #ffffff;
     border: 1px solid #e8aaa4;
     border-radius: 8px;
@@ -241,18 +251,20 @@
     padding: 0px 12px;
 }
 
-#dangerActionButton:hover {
+QPushButton[role="dangerActionButton"]:hover {
     background-color: #ffdad6;
     border-color: #ba1a1a;
 }
 
-#logTime {
+/* ─── Log labels ─────────────────────────────────────────────────────────── */
+QLabel[role="logTime"] {
     color: #707881;
     font-size: 13px;
     font-weight: 600;
 }
 
-#settingsCheckBox {
+/* ─── Settings checkbox ──────────────────────────────────────────────────── */
+QCheckBox[role="settingsCheckBox"] {
     color: #191c1e;
     font-size: 14px;
     spacing: 8px;

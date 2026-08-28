@@ -3,8 +3,8 @@
 
 #include <QMainWindow>
 #include <QStackedWidget>
-#include "Components/sidebarwidget.h"
-#include "Components/topbarwidget.h"
+#include "../Components/sidebarwidget.h"
+#include "../Components/topbarwidget.h"
 
 class MainWindow : public QMainWindow
 {
@@ -13,6 +13,9 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+signals:
+    void requestAddAccount();
 
 private:
     SidebarWidget *sidebar;

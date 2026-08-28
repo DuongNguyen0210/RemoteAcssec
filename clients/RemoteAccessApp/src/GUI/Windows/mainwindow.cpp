@@ -1,9 +1,9 @@
 #include "mainwindow.h"
-#include "Pages/devicespage.h"
-#include "Pages/logspage.h"
-#include "Pages/sessionspage.h"
-#include "Pages/settingspage.h"
-
+#include "../Pages/devicespage.h"
+#include "../Pages/logspage.h"
+#include "../Pages/sessionspage.h"
+#include "../Pages/settingspage.h"
+#include "../Pages/accountpage.h"
 
 #include <QHBoxLayout>
 #include <QStringList>
@@ -16,8 +16,6 @@ MainWindow::MainWindow(QWidget *parent)
     resize(1200, 800);
     setWindowTitle("Remote Access App");
     setupUi();
-
-
 }
 
 MainWindow::~MainWindow() {}
@@ -55,11 +53,15 @@ void MainWindow::setupUi()
     SessionsPage *pageSessions = new SessionsPage(this);
     SettingsPage *pageSettings = new SettingsPage(this);
     LogsPage *pageLogs = new LogsPage(this);
+    AccountPage *pageAccount = new AccountPage(this);
 
-    stackedWidget->addWidget(pageDevices);
-    stackedWidget->addWidget(pageSessions);
-    stackedWidget->addWidget(pageSettings);
-    stackedWidget->addWidget(pageLogs);
+    stackedWidget->addWidget(pageDevices);   // index 0
+    stackedWidget->addWidget(pageSessions);  // index 1
+    stackedWidget->addWidget(pageSettings);  // index 2
+    stackedWidget->addWidget(pageLogs);      // index 3
+    stackedWidget->addWidget(pageAccount);   // index 4
+
+    connect(pageAccount, &AccountPage::requestAddAccount, this, &MainWindow::requestAddAccount);
 
     rightLayout->addWidget(topbar);
     rightLayout->addWidget(stackedWidget);
@@ -73,7 +75,8 @@ void MainWindow::setupUi()
             "Search devices...",
             "Search sessions...",
             "Search settings...",
-            "Search logs..."
+            "Search logs...",
+            "Search accounts..."
         };
         if (pageIndex >= 0 && pageIndex < placeholders.size()) {
             topbar->setSearchPlaceholder(placeholders.at(pageIndex));

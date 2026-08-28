@@ -2,7 +2,7 @@
 
 #include <optional>
 #include <QByteArray>
-#include "ProtocolHeader.h"
+#include "protocolheader.h"
 
 namespace Protocol {
 
