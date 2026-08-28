@@ -21,6 +21,12 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent)
 
 LoginWindow::~LoginWindow() {}
 
+QString LoginWindow::username() const
+{
+    return usernameInput->text();
+}
+
+
 void LoginWindow::setupUi()
 {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);

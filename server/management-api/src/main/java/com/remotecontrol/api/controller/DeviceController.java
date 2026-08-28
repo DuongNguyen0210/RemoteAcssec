@@ -5,6 +5,7 @@ import com.remotecontrol.api.service.DeviceService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,8 +23,12 @@ public class DeviceController {
             request.setIpAddress(httpRequest.getRemoteAddr());
         }
 
-        deviceService.processHeartbeat(request);
-        
+        boolean updated = deviceService.processHeartbeat(request);
+
+        if (!updated) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DEVICE_NOT_FOUND");
+        }
+
         return ResponseEntity.ok("OK");
     }
 }

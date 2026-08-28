@@ -12,6 +12,7 @@ set(NETWORK_SOURCES
 add_library(Network STATIC ${NETWORK_SOURCES}
     relayclient.h relayclient.cpp
     Authservice.h Authservice.cpp
+    HeartbeatReporter.h HeartbeatReporter.cpp
 )
 
 # Tìm package Qt Network (bắt buộc cho module này)

@@ -21,7 +21,7 @@ private slots:
 
 private:
     QNetworkAccessManager * networkManager;
-    const QString API_URL = "http://cornball-ibuprofen-polygraph.ngrok-free.dev/api/v1/auth/login";
+    const QString API_URL = "http://localhost:9090/api/v1/auth/login";
 };
 
 #endif

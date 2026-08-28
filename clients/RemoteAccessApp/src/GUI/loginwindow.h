@@ -17,6 +17,12 @@ public:
     explicit LoginWindow(QWidget *parent = nullptr);
     ~LoginWindow();
 
+    // Returns the username that was entered at login time.
+    // Used by main.cpp to pass the authenticated CHILD username to
+    // HeartbeatReporter after loginSuccessful is emitted.
+    QString username() const;
+
+
 signals:
     void loginSuccessful(bool Success, bool isAdmin, const QString &Message);
 
