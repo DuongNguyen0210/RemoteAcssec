@@ -8,8 +8,6 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 
-#include <Authservice.h>
-
 class LoginWindow : public QWidget
 {
     Q_OBJECT
@@ -17,23 +15,16 @@ public:
     explicit LoginWindow(QWidget *parent = nullptr);
     ~LoginWindow();
 
-    // Returns the username that was entered at login time.
-    // Used by main.cpp to pass the authenticated CHILD username to
-    // HeartbeatReporter after loginSuccessful is emitted.
-    QString username() const;
-
+    void showError(const QString &errorMessage);
 
 signals:
-    void loginSuccessful(bool Success, bool isAdmin, const QString &Message);
+    void loginRequested(const QString &username, const QString &password);
 
 private slots:
     void onLoginClicked();
-    void handleLoginResult(bool Success, const QString &Role, const QString &Message);
 
 private:
     void setupUi();
-
-    Authservice *auth;
 
     QLineEdit* usernameInput;
     QLineEdit* passwordInput;

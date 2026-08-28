@@ -13,5 +13,4 @@ public interface ChildRepository extends JpaRepository<Child, Long> {
     Optional<Child> findByChildUsername(String childUsername);
     List<Child> findByOwner(User owner);
     List<Child> findByOwnerId(Long ownerId);
-    List<Child> findByStatus(String status);
 }

@@ -23,21 +23,9 @@ public class Child {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false, length = 100)
-    private String name;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @ToString.Exclude
     private User owner;
 
-    @Column(length = 45)
-    private String ipAddress;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private String status = "OFFLINE";
-
-    @Column(name = "last_seen")
-    private LocalDateTime lastSeen;
 }

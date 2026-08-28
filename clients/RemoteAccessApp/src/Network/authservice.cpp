@@ -1,37 +1,26 @@
-#include "Authservice.h"
+#include "authservice.h"
+#include "apiclient.h"
 #include <QJsonObject>
 #include <QJsonDocument>
-#include <QNetworkRequest>
-#include <QNetworkAccessManager>
 
 #include <QDebug>
 
-Authservice::Authservice(QObject *parent) : QObject(parent) {
-    this->networkManager = new QNetworkAccessManager(this);
-}
+AuthService::AuthService(QObject *parent) : QObject(parent) {}
 
-void Authservice::login(const QString &username, const QString &password)
+void AuthService::login(const QString &username, const QString &password)
 {
     QJsonObject json;
     json["username"] = username;
     json["password"] = password;
-    QJsonDocument doc(json);
-    QByteArray data = doc.toJson();
 
-    QUrl url(API_URL);
-    QNetworkRequest request(url);
-
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
-    QNetworkReply *reply = networkManager->post(request, data);
+    QNetworkReply *reply = ApiClient::instance().post("/api/v1/auth/login", json);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
         onLoginReply(reply);
     });
-
 }
 
-void Authservice::onLoginReply(QNetworkReply *reply)
+void AuthService::onLoginReply(QNetworkReply *reply)
 {
     reply->deleteLater();
 
@@ -49,12 +38,18 @@ void Authservice::onLoginReply(QNetworkReply *reply)
     {
         QString Role = doc.object()["role"].toString();
         QString Message = doc.object()["message"].toString();
+        
+        if (doc.object().contains("token")) {
+            QString token = doc.object()["token"].toString();
+            qDebug() << "Token: " + token << '\n';
+            ApiClient::instance().setToken(token);
+        }
+
         emit loginResult(true, Role, Message);
     }
     else if(statusCode == 401 || statusCode == 400)
     {
         QString Message = doc.object()["message"].toString();
-        qDebug() << "Network/Authservice.cpp: " + Message << '\n';
         emit loginResult(false, "", Message);
     }
 

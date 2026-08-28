@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include <cstdint>
-#include "ProtocolConstants.h"
+#include "protocolconstants.h"
 
 namespace Protocol {
 

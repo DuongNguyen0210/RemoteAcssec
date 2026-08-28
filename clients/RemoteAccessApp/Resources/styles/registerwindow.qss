@@ -1,0 +1,57 @@
+#registerWindow {
+    background-color: #f7f9fb;
+}
+
+#registerBox {
+    background-color: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #dfe4ea;
+}
+
+#registerTitle {
+    font-size: 24px;
+    font-weight: 700;
+    color: #191c1e;
+}
+
+QLineEdit#registerUsernameInput, QLineEdit#registerPasswordInput {
+    background-color: #ffffff;
+    border: 1px solid #bfc7d1;
+    border-radius: 8px;
+    padding: 0 12px;
+    color: #191c1e;
+    font-size: 14px;
+    height: 40px;
+}
+
+QLineEdit#registerUsernameInput:hover, QLineEdit#registerPasswordInput:hover {
+    border-color: #707881;
+}
+
+QLineEdit#registerUsernameInput:focus, QLineEdit#registerPasswordInput:focus {
+    border: 1px solid #005d90;
+}
+
+QPushButton#registerBtt {
+    background-color: #005d90;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    height: 45px;
+}
+
+QPushButton#registerBtt:hover {
+    background-color: #004b74;
+}
+
+QPushButton#registerBtt:pressed {
+    background-color: #001d32;
+}
+
+#registerErrorLabel {
+    color: #ba1a1a;
+    font-size: 13px;
+    font-weight: 600;
+}

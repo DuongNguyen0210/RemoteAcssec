@@ -7,14 +7,8 @@
 LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent)
 {
     setObjectName("loginWindow");
-    setFixedSize(1080, 600);
+    setFixedSize(800, 600);
     setWindowTitle("Remote Access - Đăng Nhập");
-    
-    // RelayClient* client = new RelayClient(this);
-    // client->ConnectToServer("0.tcp.ap.ngrok.io", 29856);
-
-    auth = new Authservice(this);
-    connect(auth, &Authservice::loginResult, this, &LoginWindow::handleLoginResult);
 
     setupUi();
 }
@@ -75,22 +69,17 @@ void LoginWindow::setupUi()
     connect(loginButton, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
 }
 
-void LoginWindow::handleLoginResult(bool Success, const QString &Role, const QString &Message)
+void LoginWindow::showError(const QString &errorMessage)
 {
-    if(Success)
-        emit loginSuccessful(true, (Role == "ADMIN"), Message);
-    else
-    {
-        errorLabel->setText(Message);
-        errorLabel->show();
-    }
-
+    errorLabel->setText(errorMessage);
+    errorLabel->show();
 }
-
 
 void LoginWindow::onLoginClicked()
 {
+    errorLabel->hide();
+
     QString username = usernameInput->text();
     QString password = passwordInput->text();
-    auth->login(username, password);
+    emit loginRequested(username, password);
 }
