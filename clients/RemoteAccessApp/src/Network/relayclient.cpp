@@ -54,3 +54,17 @@ void RelayClient::sendRegisterHostRequest(uint64_t mySessionId)
     else
         qDebug() << "Lỗi: Không thể mã hoá Header!";
 }
+
+qint64 RelayClient::sendRawPacket(const QByteArray &data)
+{
+    if (m_socket->state() != QAbstractSocket::ConnectedState)
+        return -1;
+    if (data.isEmpty())
+        return -1;
+    return m_socket->write(data);
+}
+
+qint64 RelayClient::pendingBytes() const
+{
+    return m_socket->bytesToWrite();
+}

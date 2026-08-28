@@ -4,6 +4,7 @@
 #include "../GUI/Windows/mainwindow.h"
 #include "registercontroller.h"
 #include "../Network/HeartbeatReporter.h"
+#include "Screen/ScreenStreamSender.h"
 
 #include <QDebug>
 #include <QGuiApplication>
@@ -13,7 +14,8 @@ AppController::AppController(QObject *parent)
       m_authController(nullptr),
       m_mainWindow(nullptr),
       m_registerController(nullptr),
-      m_heartbeatReporter(nullptr)
+      m_heartbeatReporter(nullptr),
+      m_screenStreamSender(nullptr)
 {
 }
 
@@ -23,6 +25,7 @@ AppController::~AppController()
     if (m_mainWindow) m_mainWindow->deleteLater();
     if (m_registerController) m_registerController->deleteLater();
     if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
+    if (m_screenStreamSender) m_screenStreamSender->deleteLater();
 }
 
 void AppController::start()
@@ -52,6 +55,12 @@ void AppController::handleLoginSuccess(const QString &role)
         if (!m_heartbeatReporter) {
             m_heartbeatReporter = new HeartbeatReporter(this);
             m_heartbeatReporter->start();
+        }
+
+        // Start screen stream sender owned by AppController
+        if (!m_screenStreamSender) {
+            m_screenStreamSender = new ScreenStreamSender(this);
+            m_screenStreamSender->start();
         }
     }
 

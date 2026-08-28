@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QTcpSocket>
 #include <QString>
+#include <QByteArray>
 
 class RelayClient : public QObject
 {
@@ -18,6 +19,14 @@ public:
     void ConnectToServer(const QString& host, quint16 port);
     void DisconnectFromServer();
     void sendRegisterHostRequest(uint64_t mySessionId);
+
+    // Write a pre-built RDTP packet to the relay socket.
+    // Returns bytes written (>= 0) on success, or -1 if not connected or data empty.
+    qint64 sendRawPacket(const QByteArray &data);
+
+    // Returns QTcpSocket::bytesToWrite() — bytes queued but not yet sent.
+    // Used by ScreenStreamSender for backpressure decisions.
+    qint64 pendingBytes() const;
 
 private slots:
     void onConnected();
