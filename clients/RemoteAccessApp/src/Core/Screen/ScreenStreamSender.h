@@ -2,8 +2,11 @@
 #define SCREENSTSTREAMSENDER_H
 
 #include <QObject>
+#include <QString>
 #include <QTimer>
 #include <cstdint>
+
+#include "../../Network/protocol/RdtpStreamParser.h"
 
 class RelayClient;
 
@@ -22,7 +25,8 @@ class RelayClient;
 //     → RelayClient::sendRawPacket() for each RDTP packet
 //
 // Does NOT implement capture, encoding, packetization, or networking.
-// Owns only: timer, frameId counter, RelayClient instance, backpressure policy.
+// Owns the CHILD registration state/parser in addition to the streaming timer,
+// frameId counter, RelayClient instance, and backpressure policy.
 // ---------------------------------------------------------------------------
 
 class ScreenStreamSender : public QObject
@@ -41,7 +45,7 @@ public:
     // Relay host / port — must match the running Relay Proxy.
     static constexpr quint16 RELAY_PORT = 8080;
 
-    explicit ScreenStreamSender(QObject *parent = nullptr);
+    explicit ScreenStreamSender(const QString &childUsername, QObject *parent = nullptr);
     ~ScreenStreamSender();
 
     // Connect to the relay and start the 200 ms timer.
@@ -52,11 +56,19 @@ public:
 
 private slots:
     void onTick();
+    void onRelayConnected();
+    void onRelayDisconnected();
+    void onRelayBytesReceived(const QByteArray &data);
 
 private:
+    void sendRegisterHost();
+
     QTimer      *m_timer;
     RelayClient *m_relayClient;
     uint32_t     m_frameId;
+    QString      m_childUsername;
+    bool         m_registered;
+    Protocol::RdtpStreamParser m_streamParser;
 };
 
 #endif // SCREENSTSTREAMSENDER_H

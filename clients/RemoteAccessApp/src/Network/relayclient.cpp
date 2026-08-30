@@ -1,8 +1,5 @@
 #include "relayclient.h"
 #include <QDebug>
-#include "protocol/protocolheader.h"
-#include "protocol/protocolserializer.h"
-#include "protocol/protocolconstants.h"
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
     m_socket = new QTcpSocket(this);
@@ -26,33 +23,18 @@ void RelayClient::DisconnectFromServer()
 
 void RelayClient::onConnected() {
     qDebug() << "Đã kết nối thành công tới Relay Server!";
-    sendRegisterHostRequest(9999);
+    emit connected();
 }
 
 void RelayClient::onDisconnected() {
+    emit disconnected();
 }
 
 void RelayClient::onReadyRead() {
-    QByteArray data = m_socket->readAll();
+    const QByteArray data = m_socket->readAll();
     qDebug() << "Nhận được" << data.size() << "bytes từ Server!";
-}
-
-void RelayClient::sendRegisterHostRequest(uint64_t mySessionId)
-{
-    Protocol::ProtocolHeader header(Protocol::MessageType::MOUSE_MOVE);
-    
-    header.sessionId = mySessionId;
-    header.sequenceNumber = 1;
-
-    QByteArray dataToSend = Protocol::ProtocolSerializer::serializeHeader(header);
-    
-    if (!dataToSend.isEmpty())
-    {
-        m_socket->write(dataToSend);
-        m_socket->flush();
-    }
-    else
-        qDebug() << "Lỗi: Không thể mã hoá Header!";
+    if (!data.isEmpty())
+        emit bytesReceived(data);
 }
 
 qint64 RelayClient::sendRawPacket(const QByteArray &data)

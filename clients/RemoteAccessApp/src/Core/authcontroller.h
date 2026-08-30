@@ -17,11 +17,12 @@ public:
     void start();
 
 signals:
-    void loginSuccess(const QString &role);
+    void loginSuccess(const QString &role, const QString &username);
 
 private slots:
     void handleLoginRequested(const QString &username, const QString &password);
-    void handleAuthResult(bool success, const QString &role, const QString &message);
+    void handleAuthResult(bool success, const QString &role, const QString &message,
+                          const QString &username);
 
 private:
     LoginWindow *m_loginWindow;

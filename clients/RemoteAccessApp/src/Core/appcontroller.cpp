@@ -35,7 +35,7 @@ void AppController::start()
     m_authController->start();
 }
 
-void AppController::handleLoginSuccess(const QString &role)
+void AppController::handleLoginSuccess(const QString &role, const QString &username)
 {
     if (role == "ADMIN")
     {
@@ -59,7 +59,7 @@ void AppController::handleLoginSuccess(const QString &role)
 
         // Start screen stream sender owned by AppController
         if (!m_screenStreamSender) {
-            m_screenStreamSender = new ScreenStreamSender(this);
+            m_screenStreamSender = new ScreenStreamSender(username, this);
             m_screenStreamSender->start();
         }
     }

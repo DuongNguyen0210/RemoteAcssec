@@ -24,14 +24,67 @@ enum class MessageType : uint8_t { ... };
 
 ---
 
-## Nhom: Host Registration
+## Nhóm: Đăng ký CHILD với Relay
 
-| Ten | Hex | Y nghia du kien |
+| Tên | Hex | Ý nghĩa hiện tại |
 |---|---|---|
-| `REGISTER_HOST` | `0x01` | Host gui packet nay den Relay de dang ky su hien dien cua minh. |
-| `REGISTER_ACK` | `0x02` | Relay tra loi xac nhan dang ky thanh cong. |
+| `REGISTER_HOST` | `0x01` | CHILD gửi tên đăng nhập đã được xác thực để đăng ký kênh TCP đang kết nối với Relay. |
+| `REGISTER_ACK` | `0x02` | Relay trả kết quả chấp nhận hoặc từ chối đăng ký. |
 
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
+Mục đích của đăng ký là cho phép Relay biết kênh TCP nào đang thuộc về một
+`childUsername`. Phạm vi hiện tại chỉ thiết lập ánh xạ CHILD với kênh; chưa tạo
+phiên điều khiển và chưa kết nối ADMIN với Relay.
+
+### Luồng đăng ký hiện tại
+
+```text
+CHILD đăng nhập
+→ childUsername đã xác thực được truyền qua AuthService, AuthController và AppController
+→ ScreenStreamSender mở kết nối TCP đến Relay
+→ CHILD gửi REGISTER_HOST
+→ RelayServerHandler kiểm tra gói và yêu cầu RelayRegistry đăng ký
+→ Relay gửi REGISTER_ACK
+→ ScreenStreamSender xác nhận đăng ký được chấp nhận hoặc bị từ chối
+```
+
+### Hợp đồng wire của REGISTER_HOST
+
+Loại RDTP: `0x01`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | `0` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `2 + usernameLength` |
+
+Payload dùng thứ tự byte **Big Endian**:
+
+| Offset | Kiểu/kích thước | Nội dung |
+|---|---|---|
+| `0..1` | `uint16`, Big Endian | `usernameLength` |
+| `2..` | `usernameLength` byte | `childUsername` mã hóa UTF-8 |
+
+`usernameLength` phải nằm trong khoảng từ **1 đến 200 byte UTF-8**. Kích thước
+payload phải đúng bằng `2 + usernameLength`.
+
+### Hợp đồng wire của REGISTER_ACK
+
+Loại RDTP: `0x02`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | `0` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `1` |
+
+Payload có đúng một byte:
+
+| Giá trị | Kết quả |
+|---:|---|
+| `0` | Đăng ký bị từ chối |
+| `1` | Đăng ký được chấp nhận |
 
 ---
 

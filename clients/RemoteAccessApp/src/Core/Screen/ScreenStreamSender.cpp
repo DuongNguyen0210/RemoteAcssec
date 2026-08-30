@@ -4,20 +4,29 @@
 #include "ScreenEncoder.h"
 #include "../../Network/relayclient.h"
 #include "../../Network/protocol/ScreenFramePacketizer.h"
+#include "../../Network/protocol/protocolserializer.h"
 
 #include <QDebug>
 
 // Relay host for local / LAN testing.
 static const QString RELAY_HOST = QStringLiteral("localhost");
 
-ScreenStreamSender::ScreenStreamSender(QObject *parent)
+ScreenStreamSender::ScreenStreamSender(const QString &childUsername, QObject *parent)
     : QObject(parent)
     , m_timer(new QTimer(this))
     , m_relayClient(new RelayClient(this))
     , m_frameId(1)
+    , m_childUsername(childUsername)
+    , m_registered(false)
 {
     m_timer->setInterval(STREAM_INTERVAL_MS);
     connect(m_timer, &QTimer::timeout, this, &ScreenStreamSender::onTick);
+    connect(m_relayClient, &RelayClient::connected,
+            this, &ScreenStreamSender::onRelayConnected);
+    connect(m_relayClient, &RelayClient::disconnected,
+            this, &ScreenStreamSender::onRelayDisconnected);
+    connect(m_relayClient, &RelayClient::bytesReceived,
+            this, &ScreenStreamSender::onRelayBytesReceived);
 }
 
 ScreenStreamSender::~ScreenStreamSender()
@@ -45,6 +54,79 @@ void ScreenStreamSender::stop()
     if (m_timer->isActive()) {
         m_timer->stop();
         qDebug() << "[ScreenStreamSender] Stopped.";
+    }
+}
+
+void ScreenStreamSender::onRelayConnected()
+{
+    m_registered = false;
+    m_streamParser = Protocol::RdtpStreamParser{};
+    sendRegisterHost();
+}
+
+void ScreenStreamSender::onRelayDisconnected()
+{
+    m_registered = false;
+    m_streamParser = Protocol::RdtpStreamParser{};
+}
+
+void ScreenStreamSender::sendRegisterHost()
+{
+    const QByteArray usernameBytes = m_childUsername.toUtf8();
+    if (usernameBytes.isEmpty() || usernameBytes.size() > 200) {
+        qWarning() << "[ScreenStreamSender] Cannot register: username UTF-8 length must be 1..200 bytes.";
+        return;
+    }
+
+    QByteArray payload;
+    payload.reserve(2 + usernameBytes.size());
+    const quint16 usernameLength = static_cast<quint16>(usernameBytes.size());
+    payload.append(static_cast<char>((usernameLength >> 8) & 0xFF));
+    payload.append(static_cast<char>(usernameLength & 0xFF));
+    payload.append(usernameBytes);
+
+    Protocol::ProtocolHeader header(Protocol::MessageType::REGISTER_HOST);
+    header.payloadLength = static_cast<uint32_t>(payload.size());
+
+    QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
+    packet.append(payload);
+
+    if (m_relayClient->sendRawPacket(packet) < 0) {
+        qWarning() << "[ScreenStreamSender] Failed to send REGISTER_HOST.";
+        return;
+    }
+
+    qDebug() << "[ScreenStreamSender] REGISTER_HOST sent for" << m_childUsername;
+}
+
+void ScreenStreamSender::onRelayBytesReceived(const QByteArray &data)
+{
+    const Protocol::RdtpStreamParser::FeedResult result = m_streamParser.feed(data);
+    if (result.error != Protocol::RdtpStreamParser::Error::None) {
+        qWarning() << "[ScreenStreamSender] Invalid RDTP data received from Relay.";
+        return;
+    }
+
+    for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
+        if (message.header.type != Protocol::MessageType::REGISTER_ACK)
+            continue;
+
+        const bool validAck = message.header.flags == 0
+                && message.header.sessionId == 0
+                && message.header.sequenceNumber == 0
+                && message.header.payloadLength == 1
+                && message.payload.size() == 1
+                && (message.payload.at(0) == 0 || message.payload.at(0) == 1);
+
+        if (!validAck) {
+            m_registered = false;
+            qWarning() << "[ScreenStreamSender] Malformed REGISTER_ACK.";
+            continue;
+        }
+
+        m_registered = message.payload.at(0) == 1;
+        qDebug() << "[ScreenStreamSender] Registration"
+                 << (m_registered ? "accepted." : "rejected.");
     }
 }
 

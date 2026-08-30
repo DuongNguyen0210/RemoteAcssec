@@ -20,7 +20,7 @@ public:
     void start();
 
 private slots:
-    void handleLoginSuccess(const QString &role);
+    void handleLoginSuccess(const QString &role, const QString &username);
     void handleRequestAddAccount();
 
 private:
