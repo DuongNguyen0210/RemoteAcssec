@@ -1,8 +1,8 @@
 # 03 - MessageType
 
-> Dinh nghia trong: `clients/RemoteAccessApp/src/Network/Protocol/ProtocolConstants.h`
+> Định nghĩa trong: `clients/RemoteAccessApp/src/Network/protocol/protocolconstants.h`
 > Namespace: `Protocol`
-> Xem them: [README.md](README.md)
+> Xem thêm: [README.md](README.md)
 
 ---
 
@@ -32,8 +32,8 @@ enum class MessageType : uint8_t { ... };
 | `REGISTER_ACK` | `0x02` | Relay trả kết quả chấp nhận hoặc từ chối đăng ký. |
 
 Mục đích của đăng ký là cho phép Relay biết kênh TCP nào đang thuộc về một
-`childUsername`. Phạm vi hiện tại chỉ thiết lập ánh xạ CHILD với kênh; chưa tạo
-phiên điều khiển và chưa kết nối ADMIN với Relay.
+`childUsername`. Ánh xạ này hiện được Giai đoạn 3B dùng để tìm CHILD đích khi
+ADMIN yêu cầu tạo phiên; bản thân `REGISTER_HOST` không tạo phiên.
 
 ### Luồng đăng ký hiện tại
 
@@ -88,17 +88,116 @@ Payload có đúng một byte:
 
 ---
 
-## Nhom: Session Establishment
+## Nhóm: Thiết lập phiên
 
-| Ten | Hex | Y nghia du kien |
+| Tên | Hex | Ý nghĩa hiện tại |
 |---|---|---|
-| `CONNECT_REQUEST` | `0x03` | Client (viewer) gui den Relay de yeu cau ket noi voi mot Host cu the. |
-| `SESSION_REQUEST` | `0x04` | Relay chuyen tiep yeu cau ket noi tu Client den Host. |
-| `SESSION_ACCEPT` | `0x05` | Host chap nhan session duoc yeu cau. |
-| `SESSION_REJECT` | `0x06` | Host tu choi session. |
-| `CONNECT_RESULT` | `0x07` | Relay tra ket qua cuoi cung (accept/reject) ve cho Client. |
+| `CONNECT_REQUEST` | `0x03` | ADMIN yêu cầu Relay tạo phiên với một `childUsername` cụ thể. |
+| `SESSION_REQUEST` | `0x04` | Relay chuyển yêu cầu cùng `sessionId` do Relay cấp đến CHILD đã đăng ký. |
+| `SESSION_ACCEPT` | `0x05` | CHILD chấp nhận phiên đang chờ. |
+| `SESSION_REJECT` | `0x06` | CHILD từ chối phiên đang chờ. |
+| `CONNECT_RESULT` | `0x07` | Relay trả kết quả cuối cùng cho ADMIN. |
 
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
+### Luồng thiết lập phiên hiện tại
+
+```text
+ADMIN chọn childUsername thật
+→ AdminSessionController kết nối hoặc tái sử dụng RelayClient
+→ CONNECT_REQUEST(childUsername)
+→ RelayRegistry tìm CHILD đã đăng ký và cấp sessionId khác 0
+→ Relay tạo phiên PENDING
+→ Relay gửi SESSION_REQUEST(sessionId) đến CHILD
+→ CHILD kiểm tra và gửi SESSION_ACCEPT(sessionId)
+→ Relay kiểm tra đúng nguồn CHILD và đúng phiên
+→ Relay chuyển phiên thành ACTIVE
+→ Relay gửi CONNECT_RESULT(thành công, sessionId) đến ADMIN
+→ ADMIN kiểm tra kết quả và lưu active sessionId
+```
+
+### Hợp đồng wire của CONNECT_REQUEST
+
+Loại RDTP: `0x03`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | `0` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `2 + targetUsernameLength` |
+
+Payload dùng thứ tự byte **Big Endian**:
+
+| Offset | Kiểu/kích thước | Nội dung |
+|---|---|---|
+| `0..1` | `uint16`, Big Endian | `targetUsernameLength` |
+| `2..` | `targetUsernameLength` byte | `targetChildUsername` mã hóa UTF-8 |
+
+`targetUsernameLength` phải nằm trong khoảng **1 đến 200 byte UTF-8** và kích
+thước payload phải đúng bằng `2 + targetUsernameLength`.
+
+Relay trả kết quả thất bại nếu header hoặc payload không đúng hợp đồng, kênh
+gửi đã đăng ký là CHILD, CHILD đích chưa đăng ký, hoặc ADMIN/CHILD đang có một
+phiên `PENDING` hay `ACTIVE`.
+
+### Hợp đồng wire của SESSION_REQUEST
+
+Loại RDTP: `0x04`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | Giá trị khác `0` do Relay cấp |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `0` |
+
+Thông điệp không có payload. Relay tạo trạng thái `PENDING` trước khi gửi
+`SESSION_REQUEST` đến CHILD.
+
+### Hợp đồng wire của SESSION_ACCEPT và SESSION_REJECT
+
+- `SESSION_ACCEPT`: loại RDTP `0x05`.
+- `SESSION_REJECT`: loại RDTP `0x06`.
+
+Cả hai dùng cùng hợp đồng header:
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | Cùng giá trị khác `0` trong `SESSION_REQUEST` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `0` |
+
+Thông điệp không có payload. Relay chỉ xử lý khi phiên tồn tại, đang ở trạng
+thái `PENDING`, nguồn là chính xác channel CHILD của phiên và `sessionId` khớp.
+
+- Với `SESSION_ACCEPT`, Relay chuyển phiên sang `ACTIVE`.
+- Với `SESSION_REJECT`, Relay xóa phiên đang chờ và trả thất bại cho ADMIN.
+- Thông điệp không hợp lệ không bao giờ kích hoạt phiên.
+
+### Hợp đồng wire của CONNECT_RESULT
+
+Loại RDTP: `0x07`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `1` |
+
+| Kết quả | `sessionId` | `payload[0]` |
+|---|---:|---:|
+| Thành công | Giá trị khác `0` đã được Relay cấp | `1` |
+| Thất bại | `0` | `0` |
+
+`AdminSessionController` kiểm tra đầy đủ header, byte kết quả và quan hệ giữa
+kết quả với `sessionId` trước khi lưu phiên đang hoạt động.
+
+### Giới hạn sau Giai đoạn 3B
+
+Handshake phiên đã được triển khai, nhưng việc gắn `sessionId` vào
+`SCREEN_FRAME`, định tuyến hoặc chuyển tiếp khung hình đến ADMIN vẫn **chưa được
+triển khai**. CHILD có thể tiếp tục tạo `SCREEN_FRAME` theo hành vi có trước
+Giai đoạn 4; điều này không đồng nghĩa với truyền màn hình theo phiên.
 
 ---
 

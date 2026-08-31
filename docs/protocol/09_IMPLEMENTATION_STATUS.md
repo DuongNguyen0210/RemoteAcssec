@@ -1,7 +1,7 @@
 # 09 - Trạng thái triển khai
 
-> Cập nhật lần cuối: Giai đoạn 3A khám phá CHILD của ADMIN đã hoàn thành và kiểm tra runtime thành công
-> Xem them: [README.md](README.md)
+> Cập nhật lần cuối: Giai đoạn 3B handshake phiên MVP đã hoàn thành và kiểm tra runtime thành công
+> Xem thêm: [README.md](README.md)
 
 ---
 
@@ -157,7 +157,7 @@ database id, OS, IP, status, uptime hoặc `deviceUid`.
 | `DevicesPage` | Xóa các thẻ nhận dạng máy mẫu cũ và tạo thẻ từ danh sách username thật. |
 | `DeviceCardWidget` | Lưu riêng `childUsername` thật và phát `connectRequested(const QString &childUsername)` khi nhấn Connect. |
 | `MainWindow` | Chuyển tiếp lựa chọn từ trang thiết bị đến ranh giới ứng dụng. |
-| `AppController` | Nhận và ghi log chính xác `childUsername` được ADMIN chọn. Chưa mở kết nối Relay. |
+| `AppController` | Nhận chính xác `childUsername` được ADMIN chọn và chuyển lựa chọn đến `AdminSessionController`. |
 
 Trạng thái dữ liệu hiển thị:
 
@@ -166,8 +166,8 @@ Trạng thái dữ liệu hiển thị:
   loại bỏ khỏi `DevicesPage`.
 - OS, IP, trạng thái online và uptime hiện chưa có dữ liệu backend; UI hiển thị
   rõ là chưa được cung cấp hoặc không xác định.
-- Nút Connect hiện chỉ chuyển tiếp `childUsername` đến `AppController`; chưa gửi
-  thông điệp RDTP hoặc thiết lập phiên.
+- Nút Connect chuyển tiếp `childUsername` thật đến `AppController`; Giai đoạn 3B
+  tiếp tục luồng này bằng handshake phiên với Relay.
 
 #### Kết quả xác minh Giai đoạn 3A
 
@@ -177,6 +177,85 @@ Trạng thái dữ liệu hiển thị:
 - [x] Chuỗi Qt UI và comment tiếng Việt dùng đầy đủ dấu.
 - [x] Chuỗi tiếng Việt ghi ra console/log dùng dạng không dấu.
 
+### Giai đoạn 3B - Handshake phiên MVP
+
+Mục đích hiện tại là thiết lập một phiên tạm thời giữa đúng kênh ADMIN và đúng
+kênh CHILD đã đăng ký. Luồng runtime đã triển khai:
+
+```text
+ADMIN chọn childUsername thật
+→ AdminSessionController kết nối hoặc tái sử dụng RelayClient
+→ CONNECT_REQUEST(childUsername)
+→ RelayRegistry tìm kênh CHILD đã đăng ký
+→ Relay cấp sessionId khác 0 và tạo phiên PENDING
+→ Relay gửi SESSION_REQUEST(sessionId) đến CHILD
+→ ScreenStreamSender kiểm tra yêu cầu
+→ CHILD gửi SESSION_ACCEPT(sessionId)
+→ Relay kiểm tra đúng phiên và đúng nguồn CHILD
+→ phiên chuyển thành ACTIVE
+→ Relay gửi CONNECT_RESULT(thành công, sessionId) đến ADMIN
+→ AdminSessionController kiểm tra và lưu active sessionId
+```
+
+Hợp đồng wire chi tiết của `CONNECT_REQUEST`, `SESSION_REQUEST`,
+`SESSION_ACCEPT`, `SESSION_REJECT` và `CONNECT_RESULT` được mô tả tại
+[03_MESSAGE_TYPES.md](03_MESSAGE_TYPES.md).
+
+#### Luồng C++ hiện tại
+
+```text
+DeviceCardWidget
+→ DevicesPage
+→ MainWindow
+→ AppController
+→ AdminSessionController
+→ RelayClient
+→ RdtpStreamParser
+```
+
+`AdminSessionController` nhận chính xác `childUsername` thật được ADMIN chọn,
+sở hữu và tái sử dụng kết nối Relay phía ADMIN, tạo `CONNECT_REQUEST`, phân tích
+`CONNECT_RESULT`, lưu `active sessionId` và báo thành công hoặc thất bại cho
+`AppController`.
+
+Ở phía CHILD, `ScreenStreamSender` nhận và kiểm tra `SESSION_REQUEST`, lưu
+`sessionId` hiện tại rồi gửi `SESSION_ACCEPT` với cùng ID. Nếu CHILD đã giữ một
+phiên khác, thành phần này có thể gửi `SESSION_REJECT`.
+
+#### Trạng thái tạm thời trong RelayRegistry
+
+- `childUsername → Channel` cho đăng ký CHILD.
+- `sessionId → SessionRecord` cho phiên đang tồn tại.
+- `ADMIN ChannelId → sessionId` và `CHILD ChannelId → sessionId` để tra cứu ngược.
+- Trạng thái phiên gồm `PENDING` và `ACTIVE`.
+- Bộ cấp phát `sessionId` tăng đơn điệu, khác `0`, chỉ tồn tại trong tiến trình Relay.
+- Mỗi channel ADMIN có tối đa một phiên đang chờ hoặc hoạt động.
+- Mỗi channel CHILD có tối đa một phiên đang chờ hoặc hoạt động.
+- Phiên không được ghi vào cơ sở dữ liệu; khởi động lại Relay làm mất đăng ký và
+  trạng thái phiên hiện có.
+
+#### Dọn dẹp khi channel đóng
+
+- Khi channel ADMIN hoặc CHILD đóng, Relay chỉ xóa phiên có liên quan đến channel đó.
+- Các phiên không liên quan được giữ nguyên.
+- Đăng ký CHILD chỉ bị xóa khi chính channel CHILD tương ứng đóng.
+- Chưa có phục hồi phiên hoặc tự động kết nối lại bền vững.
+
+#### Bằng chứng runtime
+
+- [x] CLIENT build thành công bằng cơ chế CMake hiện có.
+- [x] Java Relay runtime thành công.
+- [x] Handshake phiên cục bộ thành công.
+- [x] Relay ghi nhận cùng một `sessionId` khác `0` khi phiên chuyển từ `PENDING`
+  sang `ACTIVE`.
+- [x] CHILD gửi `SESSION_ACCEPT` với chính `sessionId` đó.
+- [x] ADMIN nhận `CONNECT_RESULT` thành công và lưu chính `sessionId` đó.
+- [x] Bionic source review thành công.
+
+Lần kiểm tra runtime quan sát giá trị `sessionId=1`, nhưng giá trị `1` không phải
+hằng số giao thức. Điều kiện có ý nghĩa là cùng một ID **khác `0`** xuất hiện ở
+Relay `PENDING`, CHILD `SESSION_ACCEPT`, Relay `ACTIVE` và ADMIN `ACTIVE`.
+
 
 ---
 
@@ -184,18 +263,19 @@ Trạng thái dữ liệu hiển thị:
 
 Các chức năng dưới đây **chưa được triển khai** trong phạm vi hiện tại:
 
-- Kết nối TCP từ ADMIN đến Relay.
-- `CONNECT_REQUEST`.
-- Relay cấp phát `sessionId` và quản lý phiên.
-- `SESSION_REQUEST`, `SESSION_ACCEPT`, `SESSION_REJECT`.
-- `CONNECT_RESULT`.
-- Chuyển tiếp `SCREEN_FRAME` từ CHILD đến ADMIN.
-- ADMIN nhận, ghép lại và hiển thị màn hình.
-- Các trường telemetry trực tiếp cho OS, IP, trạng thái online và uptime.
+- Đưa `active sessionId` vào `SCREEN_FRAME`.
+- Định tuyến `SCREEN_FRAME` theo phiên.
+- Relay chuyển tiếp trực tiếp các chunk màn hình đến ADMIN.
+- ADMIN nhận và ghép lại các chunk màn hình.
+- ADMIN giải mã JPEG và hiển thị màn hình.
+- Chuyển tiếp chuột và bàn phím.
+- Luồng giao thức `DISCONNECT` tường minh.
+- Tự động kết nối lại và phục hồi phiên.
 - Xác thực JWT trên kết nối Relay.
+- Triển khai qua Internet từ xa.
 
-Việc các loại thông điệp tương ứng đã có giá trị trong `MessageType` không có
-nghĩa là hành vi phiên hoặc ADMIN đã được triển khai.
+CHILD hiện vẫn có thể tạo `SCREEN_FRAME` theo hành vi trước Giai đoạn 4. Điều đó
+không có nghĩa là `SCREEN_FRAME` đã gắn với phiên hoặc đã được chuyển đến ADMIN.
 
 ---
 
@@ -212,10 +292,10 @@ nghĩa là hành vi phiên hoặc ADMIN đã được triển khai.
 [DONE] RelayRegistry cho đăng ký CHILD
 [DONE] ADMIN GET /api/v1/child
 [DONE] UI sử dụng childUsername thật và chuyển lựa chọn đến AppController
-[ ]    Kết nối ADMIN đến Relay
-[ ]    CONNECT_REQUEST / CONNECT_RESULT
-[ ]    Cấp phát và quản lý phiên
-[ ]    SESSION_REQUEST / SESSION_ACCEPT / SESSION_REJECT
+[DONE] Kết nối ADMIN đến Relay
+[DONE] CONNECT_REQUEST / CONNECT_RESULT
+[DONE] Cấp phát và quản lý phiên PENDING / ACTIVE trong bộ nhớ
+[DONE] SESSION_REQUEST / SESSION_ACCEPT / SESSION_REJECT
 [ ]    Chuyển tiếp SCREEN_FRAME đến ADMIN
 [ ]    ADMIN nhận, ghép lại và hiển thị màn hình
 [ ]    Các trường telemetry trực tiếp
@@ -231,4 +311,4 @@ nghĩa là hành vi phiên hoặc ADMIN đã được triển khai.
 - [04_PROTOCOL_HEADER_MODEL.md](04_PROTOCOL_HEADER_MODEL.md) - Chi tiet Phase 1A.2A
 - [06_HEADER_SERIALIZATION.md](06_HEADER_SERIALIZATION.md) - Chi tiet Phase 1A.2B
 - [10_HEADER_DESERIALIZATION.md](10_HEADER_DESERIALIZATION.md) - Chi tiet Phase 1A.2C
-- [03_MESSAGE_TYPES.md](03_MESSAGE_TYPES.md) - Hợp đồng wire của REGISTER_HOST và REGISTER_ACK
+- [03_MESSAGE_TYPES.md](03_MESSAGE_TYPES.md) - Hợp đồng wire của đăng ký CHILD và handshake phiên MVP

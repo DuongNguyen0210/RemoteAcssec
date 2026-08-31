@@ -31,11 +31,13 @@ signals:
     void connected();
     void disconnected();
     void bytesReceived(const QByteArray &data);
+    void transportError(const QString &message);
 
 private slots:
     void onConnected();
     void onDisconnected();
     void onReadyRead();
+    void onErrorOccurred(QAbstractSocket::SocketError socketError);
 };
 
 #endif

@@ -18,6 +18,7 @@ ScreenStreamSender::ScreenStreamSender(const QString &childUsername, QObject *pa
     , m_frameId(1)
     , m_childUsername(childUsername)
     , m_registered(false)
+    , m_currentSessionId(0)
 {
     m_timer->setInterval(STREAM_INTERVAL_MS);
     connect(m_timer, &QTimer::timeout, this, &ScreenStreamSender::onTick);
@@ -67,6 +68,7 @@ void ScreenStreamSender::onRelayConnected()
 void ScreenStreamSender::onRelayDisconnected()
 {
     m_registered = false;
+    m_currentSessionId = 0;
     m_streamParser = Protocol::RdtpStreamParser{};
 }
 
@@ -108,6 +110,11 @@ void ScreenStreamSender::onRelayBytesReceived(const QByteArray &data)
     }
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
+        if (message.header.type == Protocol::MessageType::SESSION_REQUEST) {
+            handleSessionRequest(message);
+            continue;
+        }
+
         if (message.header.type != Protocol::MessageType::REGISTER_ACK)
             continue;
 
@@ -128,6 +135,49 @@ void ScreenStreamSender::onRelayBytesReceived(const QByteArray &data)
         qDebug() << "[ScreenStreamSender] Registration"
                  << (m_registered ? "accepted." : "rejected.");
     }
+}
+
+void ScreenStreamSender::handleSessionRequest(
+        const Protocol::RdtpStreamParser::Message &message)
+{
+    const bool validRequest = message.header.flags == 0
+            && message.header.sessionId != 0
+            && message.header.sequenceNumber == 0
+            && message.header.payloadLength == 0
+            && message.payload.isEmpty();
+
+    if (!validRequest) {
+        qWarning() << "[ScreenStreamSender] SESSION_REQUEST khong hop le.";
+        return;
+    }
+
+    if (m_currentSessionId != 0) {
+        sendSessionResponse(Protocol::MessageType::SESSION_REJECT,
+                            message.header.sessionId);
+        qWarning() << "[ScreenStreamSender] Da co phien, gui SESSION_REJECT cho sessionId="
+                   << message.header.sessionId;
+        return;
+    }
+
+    if (!sendSessionResponse(Protocol::MessageType::SESSION_ACCEPT,
+                             message.header.sessionId)) {
+        qWarning() << "[ScreenStreamSender] Khong the gui SESSION_ACCEPT.";
+        return;
+    }
+
+    m_currentSessionId = message.header.sessionId;
+    qDebug() << "[ScreenStreamSender] Da gui SESSION_ACCEPT, sessionId="
+             << m_currentSessionId;
+}
+
+bool ScreenStreamSender::sendSessionResponse(Protocol::MessageType type,
+                                             uint64_t sessionId)
+{
+    Protocol::ProtocolHeader header(type);
+    header.sessionId = sessionId;
+
+    const QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
+    return m_relayClient->sendRawPacket(packet) >= 0;
 }
 
 // ---------------------------------------------------------------------------

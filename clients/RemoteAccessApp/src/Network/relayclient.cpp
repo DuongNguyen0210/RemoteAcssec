@@ -6,6 +6,7 @@ RelayClient::RelayClient(QObject *parent) : QObject(parent) {
     connect(m_socket, &QTcpSocket::connected, this, &RelayClient::onConnected);
     connect(m_socket, &QTcpSocket::disconnected, this, &RelayClient::onDisconnected);
     connect(m_socket, &QTcpSocket::readyRead, this, &RelayClient::onReadyRead);
+    connect(m_socket, &QTcpSocket::errorOccurred, this, &RelayClient::onErrorOccurred);
 }
 
 RelayClient::~RelayClient() {
@@ -35,6 +36,12 @@ void RelayClient::onReadyRead() {
     qDebug() << "Nhan duoc" << data.size() << "bytes tu Server!";
     if (!data.isEmpty())
         emit bytesReceived(data);
+}
+
+void RelayClient::onErrorOccurred(QAbstractSocket::SocketError socketError)
+{
+    Q_UNUSED(socketError);
+    emit transportError(m_socket->errorString());
 }
 
 qint64 RelayClient::sendRawPacket(const QByteArray &data)

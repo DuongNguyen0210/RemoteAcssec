@@ -3,6 +3,7 @@
 #include "authcontroller.h"
 #include "../GUI/Windows/mainwindow.h"
 #include "registercontroller.h"
+#include "Session/AdminSessionController.h"
 #include "../Network/HeartbeatReporter.h"
 #include "Screen/ScreenStreamSender.h"
 
@@ -15,7 +16,8 @@ AppController::AppController(QObject *parent)
       m_mainWindow(nullptr),
       m_registerController(nullptr),
       m_heartbeatReporter(nullptr),
-      m_screenStreamSender(nullptr)
+      m_screenStreamSender(nullptr),
+      m_adminSessionController(nullptr)
 {
 }
 
@@ -26,6 +28,7 @@ AppController::~AppController()
     if (m_registerController) m_registerController->deleteLater();
     if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
     if (m_screenStreamSender) m_screenStreamSender->deleteLater();
+    if (m_adminSessionController) m_adminSessionController->deleteLater();
 }
 
 void AppController::start()
@@ -44,6 +47,12 @@ void AppController::handleLoginSuccess(const QString &role, const QString &usern
         connect(m_mainWindow, &MainWindow::requestAddAccount, this, &AppController::handleRequestAddAccount);
         connect(m_mainWindow, &MainWindow::childConnectRequested,
                 this, &AppController::handleChildConnectRequested);
+
+        m_adminSessionController = new AdminSessionController(this);
+        connect(m_adminSessionController, &AdminSessionController::sessionEstablished,
+                this, &AppController::handleSessionEstablished);
+        connect(m_adminSessionController, &AdminSessionController::sessionFailed,
+                this, &AppController::handleSessionFailed);
         m_mainWindow->show();
     }
     else
@@ -83,4 +92,15 @@ void AppController::handleRequestAddAccount()
 void AppController::handleChildConnectRequested(const QString &childUsername)
 {
     qDebug() << "[AppController] ADMIN da chon CHILD:" << childUsername;
+    m_adminSessionController->requestSession(childUsername);
+}
+
+void AppController::handleSessionEstablished(quint64 sessionId)
+{
+    qDebug() << "[AppController] Phien Relay da ACTIVE, sessionId=" << sessionId;
+}
+
+void AppController::handleSessionFailed(const QString &reason)
+{
+    qWarning() << "[AppController] Tao phien Relay that bai:" << reason;
 }

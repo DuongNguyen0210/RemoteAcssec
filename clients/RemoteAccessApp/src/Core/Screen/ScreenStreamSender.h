@@ -62,12 +62,15 @@ private slots:
 
 private:
     void sendRegisterHost();
+    void handleSessionRequest(const Protocol::RdtpStreamParser::Message &message);
+    bool sendSessionResponse(Protocol::MessageType type, uint64_t sessionId);
 
     QTimer      *m_timer;
     RelayClient *m_relayClient;
     uint32_t     m_frameId;
     QString      m_childUsername;
     bool         m_registered;
+    uint64_t     m_currentSessionId;
     Protocol::RdtpStreamParser m_streamParser;
 };
 
