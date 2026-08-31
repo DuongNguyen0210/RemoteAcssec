@@ -4,6 +4,8 @@ import com.remotecontrol.api.dto.ChildDto;
 import com.remotecontrol.api.dto.ListChillResponse;
 import com.remotecontrol.api.dto.RegisterRequest;
 import com.remotecontrol.api.dto.RegisterResponse;
+import com.remotecontrol.api.dto.HeartbeatRequest;
+import com.remotecontrol.api.dto.ChildSummaryResponse;
 import com.remotecontrol.api.entity.Child;
 import com.remotecontrol.api.entity.User;
 import com.remotecontrol.api.repository.ChildRepository;
@@ -16,7 +18,10 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -81,13 +86,13 @@ public class ChildService {
         } catch (Exception e) {
             return new ListChillResponse(Collections.emptyList(), false, "Lỗi xác thực");
         }
-        
+
         List<Child> childEntities = childRepository.findByOwner(user.get());
         List<ChildDto> childList = new ArrayList<>();
         for (Child c : childEntities) {
             childList.add(new ChildDto(c.getChildUsername(), c.getPassword()));
         }
-        
+
         return new ListChillResponse(childList, true, "Accepted");
     }
 
@@ -98,6 +103,61 @@ public class ChildService {
                     .owner(user)
                     .build();
             childRepository.save(newChild);
+    }
+
+    public Optional<List<ChildSummaryResponse>> findOwnedChildren(String token) {
+        if (token == null || token.isEmpty()) {
+            return Optional.empty();
+        }
+
+        try {
+            if (jwtUtil.isTokenExpired(token)
+                    || !"ADMIN".equals(jwtUtil.extractRole(token))) {
+                return Optional.empty();
+            }
+
+            Optional<User> owner = userRepository.findByUsername(jwtUtil.extractUsername(token));
+            if (!owner.isPresent()) {
+                return Optional.empty();
+            }
+
+            List<ChildSummaryResponse> children = childRepository.findByOwner(owner.get())
+                    .stream()
+                    .map(child -> new ChildSummaryResponse(child.getChildUsername()))
+                    .collect(Collectors.toList());
+            return Optional.of(children);
+        } catch (Exception exception) {
+            log.error("Invalid token while listing CHILD accounts: {}", exception.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    public boolean handleHeartbeat(String token, HeartbeatRequest request, String remoteIp) {
+        if (token == null || token.isEmpty()) {
+            return false;
+        }
+
+        try {
+            if (jwtUtil.isTokenExpired(token)) {
+                return false;
+            }
+
+            if (!"CHILD".equals(jwtUtil.extractRole(token))) {
+                return false;
+            }
+
+            String childUsername = jwtUtil.extractUsername(token);
+            Optional<Child> childOpt = childRepository.findByChildUsername(childUsername);
+
+            if (!childOpt.isPresent()) {
+                return false;
+            }
+
+            return true;
+        } catch (Exception e) {
+            log.error("Invalid token in heartbeat: {}", e.getMessage());
+            return false;
+        }
     }
 }
 

@@ -1,7 +1,9 @@
 package com.remotecontrol.relay.server;
 
 import com.remotecontrol.relay.handler.ProtocolDecoder;
+import com.remotecontrol.relay.handler.ProtocolEncoder;
 import com.remotecontrol.relay.handler.RelayServerHandler;
+import com.remotecontrol.relay.registry.RelayRegistry;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -23,6 +25,7 @@ public class RelayServer {
 
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
+        RelayRegistry relayRegistry = new RelayRegistry();
 
         try {
 
@@ -34,7 +37,8 @@ public class RelayServer {
                  @Override
                  protected void initChannel(SocketChannel ch) {
                      ch.pipeline().addLast(new ProtocolDecoder());
-                     ch.pipeline().addLast(new RelayServerHandler());
+                     ch.pipeline().addLast(new ProtocolEncoder());
+                     ch.pipeline().addLast(new RelayServerHandler(relayRegistry));
                  }
              })
              .option(ChannelOption.SO_BACKLOG, 128)

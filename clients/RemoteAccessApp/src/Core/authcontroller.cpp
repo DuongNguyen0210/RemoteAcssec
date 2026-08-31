@@ -32,11 +32,12 @@ void AuthController::handleLoginRequested(const QString &username, const QString
     m_authService->login(username, password);
 }
 
-void AuthController::handleAuthResult(bool success, const QString &role, const QString &message)
+void AuthController::handleAuthResult(bool success, const QString &role, const QString &message,
+                                      const QString &username)
 {
     if (success)
     {
-        emit loginSuccess(role);
+        emit loginSuccess(role, username);
         
         if (m_loginWindow)
             m_loginWindow->close();

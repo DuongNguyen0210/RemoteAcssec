@@ -6,8 +6,12 @@
 #include <QIcon>
 #include <QPixmap>
 
-DeviceCardWidget::DeviceCardWidget(const QString& name, const QString& OS, const QString& ip, const QString& status, const QString& uptime, QWidget *parent)
+DeviceCardWidget::DeviceCardWidget(const QString &childUsername, const QString &name,
+                                   const QString &OS, const QString &ip,
+                                   const QString &status, const QString &uptime,
+                                   QWidget *parent)
     : QWidget(parent)
+    , m_childUsername(childUsername)
 {
     setObjectName("deviceCard");
     this->setAttribute(Qt::WA_StyledBackground, true);
@@ -31,7 +35,7 @@ DeviceCardWidget::DeviceCardWidget(const QString& name, const QString& OS, const
     QVBoxLayout *NameLayout = new QVBoxLayout();
     NameLayout->setSpacing(2);
     NameLayout->setContentsMargins(0, 0, 0, 0);
-    QLabel *lblName = new QLabel(QString("<b>%1</b>").arg(name), this);
+    QLabel *lblName = new QLabel(QString("<b>%1</b>").arg(name.toHtmlEscaped()), this);
     lblName->setObjectName("deviceName");
     QLabel *lblOS = new QLabel(QString(OS), this);
     lblOS->setProperty("role", "muted");
@@ -109,6 +113,9 @@ DeviceCardWidget::DeviceCardWidget(const QString& name, const QString& OS, const
     btnConnect->setObjectName("connectButton");
     btnConnect->setCursor(Qt::PointingHandCursor);
     btnConnect->setFixedHeight(40);
+    connect(btnConnect, &QPushButton::clicked, this, [this]() {
+        emit connectRequested(m_childUsername);
+    });
 
     layout->addStretch();
     layout->addWidget(btnConnect);

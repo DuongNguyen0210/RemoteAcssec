@@ -15,12 +15,12 @@ void AuthService::login(const QString &username, const QString &password)
 
     QNetworkReply *reply = ApiClient::instance().post("/api/v1/auth/login", json);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply](){
-        onLoginReply(reply);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, username](){
+        onLoginReply(reply, username);
     });
 }
 
-void AuthService::onLoginReply(QNetworkReply *reply)
+void AuthService::onLoginReply(QNetworkReply *reply, const QString &username)
 {
     reply->deleteLater();
 
@@ -28,7 +28,7 @@ void AuthService::onLoginReply(QNetworkReply *reply)
 
     if(reply->error() != QNetworkReply::NoError && statusCode == 0)
     {
-        emit loginResult(false, "", "Connect Error");
+        emit loginResult(false, "", "Connect Error", username);
         return;
     }
 
@@ -45,12 +45,12 @@ void AuthService::onLoginReply(QNetworkReply *reply)
             ApiClient::instance().setToken(token);
         }
 
-        emit loginResult(true, Role, Message);
+        emit loginResult(true, Role, Message, username);
     }
     else if(statusCode == 401 || statusCode == 400)
     {
         QString Message = doc.object()["message"].toString();
-        emit loginResult(false, "", Message);
+        emit loginResult(false, "", Message, username);
     }
 
 }

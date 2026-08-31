@@ -16,6 +16,7 @@ public:
 
 signals:
     void requestAddAccount();
+    void childConnectRequested(const QString &childUsername);
 
 private:
     SidebarWidget *sidebar;

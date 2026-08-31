@@ -1,14 +1,12 @@
 #include "relayclient.h"
 #include <QDebug>
-#include "protocol/protocolheader.h"
-#include "protocol/protocolserializer.h"
-#include "protocol/protocolconstants.h"
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
     m_socket = new QTcpSocket(this);
     connect(m_socket, &QTcpSocket::connected, this, &RelayClient::onConnected);
     connect(m_socket, &QTcpSocket::disconnected, this, &RelayClient::onDisconnected);
     connect(m_socket, &QTcpSocket::readyRead, this, &RelayClient::onReadyRead);
+    connect(m_socket, &QTcpSocket::errorOccurred, this, &RelayClient::onErrorOccurred);
 }
 
 RelayClient::~RelayClient() {
@@ -25,32 +23,37 @@ void RelayClient::DisconnectFromServer()
 }
 
 void RelayClient::onConnected() {
-    qDebug() << "Đã kết nối thành công tới Relay Server!";
-    sendRegisterHostRequest(9999);
+    qDebug() << "Da ket noi thanh cong toi Relay Server!";
+    emit connected();
 }
 
 void RelayClient::onDisconnected() {
+    emit disconnected();
 }
 
 void RelayClient::onReadyRead() {
-    QByteArray data = m_socket->readAll();
-    qDebug() << "Nhận được" << data.size() << "bytes từ Server!";
+    const QByteArray data = m_socket->readAll();
+    qDebug() << "Nhan duoc" << data.size() << "bytes tu Server!";
+    if (!data.isEmpty())
+        emit bytesReceived(data);
 }
 
-void RelayClient::sendRegisterHostRequest(uint64_t mySessionId)
+void RelayClient::onErrorOccurred(QAbstractSocket::SocketError socketError)
 {
-    Protocol::ProtocolHeader header(Protocol::MessageType::MOUSE_MOVE);
-    
-    header.sessionId = mySessionId;
-    header.sequenceNumber = 1;
+    Q_UNUSED(socketError);
+    emit transportError(m_socket->errorString());
+}
 
-    QByteArray dataToSend = Protocol::ProtocolSerializer::serializeHeader(header);
-    
-    if (!dataToSend.isEmpty())
-    {
-        m_socket->write(dataToSend);
-        m_socket->flush();
-    }
-    else
-        qDebug() << "Lỗi: Không thể mã hoá Header!";
+qint64 RelayClient::sendRawPacket(const QByteArray &data)
+{
+    if (m_socket->state() != QAbstractSocket::ConnectedState)
+        return -1;
+    if (data.isEmpty())
+        return -1;
+    return m_socket->write(data);
+}
+
+qint64 RelayClient::pendingBytes() const
+{
+    return m_socket->bytesToWrite();
 }

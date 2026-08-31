@@ -13,12 +13,12 @@ public:
     void login(const QString &username, const QString &password);
 
 signals:
-    void loginResult(bool Success, const QString &Role, const QString Message);
-
-private slots:
-    void onLoginReply(QNetworkReply *reply);
+    void loginResult(bool success, const QString &role, const QString &message,
+                     const QString &username);
 
 private:
+    void onLoginReply(QNetworkReply *reply, const QString &username);
+
 };
 
 #endif
