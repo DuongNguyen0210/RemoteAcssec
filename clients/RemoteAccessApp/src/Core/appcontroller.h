@@ -22,6 +22,7 @@ public:
 private slots:
     void handleLoginSuccess(const QString &role, const QString &username);
     void handleRequestAddAccount();
+    void handleChildConnectRequested(const QString &childUsername);
 
 private:
     QPointer<AuthController> m_authController;

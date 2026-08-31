@@ -1,15 +1,26 @@
 #include "devicespage.h"
 
 #include <QLabel>
+#include <QDebug>
+#include <QLayoutItem>
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include "../Components/devicecardwidget.h"
 #include "../Layouts/flowlayout.h"
+#include "../../Network/childdiscoveryservice.h"
 
 DevicesPage::DevicesPage(QWidget *parent)
     : QWidget{parent}
+    , m_childDiscoveryService(new ChildDiscoveryService(this))
+    , m_flowLayout(nullptr)
+    , m_scrollContent(nullptr)
 {
     setupUi();
+    connect(m_childDiscoveryService, &ChildDiscoveryService::childrenLoaded,
+            this, &DevicesPage::handleChildrenLoaded);
+    connect(m_childDiscoveryService, &ChildDiscoveryService::loadFailed,
+            this, &DevicesPage::handleLoadFailed);
+    m_childDiscoveryService->loadChildren();
 }
 
 void DevicesPage::setupUi()
@@ -34,16 +45,43 @@ void DevicesPage::setupUi()
     scrollArea->setProperty("role", "scrollArea");
     scrollArea->setWidgetResizable(true);
 
-    QWidget *scrollContent = new QWidget(scrollArea);
-    scrollContent->setProperty("role", "scrollContent");
-    scrollContent->setAttribute(Qt::WA_StyledBackground, true);
+    m_scrollContent = new QWidget(scrollArea);
+    m_scrollContent->setProperty("role", "scrollContent");
+    m_scrollContent->setAttribute(Qt::WA_StyledBackground, true);
 
-    FlowLayout *flowLayout = new FlowLayout(scrollContent, 16, 16, 16);
-    flowLayout->addWidget(new DeviceCardWidget("SRV-APOLLO-01", "Windows Server 2022", "192.168.1.105", "Online", "14d 6h 23m", scrollContent));
-    flowLayout->addWidget(new DeviceCardWidget("MBP-SARAH-DESIGN", "macOS Sonoma", "10.0.0.42", "Online", "2d 11h 05m", scrollContent));
-    flowLayout->addWidget(new DeviceCardWidget("WKSTN-DEV-04", "Ubuntu 22.04 LTS", "192.168.1.104", "Offline", "—", scrollContent));
-    flowLayout->addWidget(new DeviceCardWidget("LAPTOP-MIKE-SALES", "Windows 11 Pro", "10.0.0.55", "Warning", "0d 4h 12m", scrollContent));
+    m_flowLayout = new FlowLayout(m_scrollContent, 16, 16, 16);
 
-    scrollArea->setWidget(scrollContent);
+    scrollArea->setWidget(m_scrollContent);
     mainLayout->addWidget(scrollArea, 1);
+}
+
+void DevicesPage::handleChildrenLoaded(const QStringList &childUsernames)
+{
+    while (QLayoutItem *item = m_flowLayout->takeAt(0)) {
+        if (item->widget())
+            item->widget()->deleteLater();
+        delete item;
+    }
+
+    for (const QString &childUsername : childUsernames) {
+        DeviceCardWidget *card = new DeviceCardWidget(
+                childUsername,
+                childUsername,
+                QStringLiteral("Thông tin thiết bị chưa được cung cấp"),
+                QStringLiteral("Chưa được cung cấp"),
+                QStringLiteral("Không xác định"),
+                QStringLiteral("Chưa được cung cấp"),
+                m_scrollContent);
+        connect(card, &DeviceCardWidget::connectRequested,
+                this, &DevicesPage::connectRequested);
+        m_flowLayout->addWidget(card);
+    }
+
+    qDebug() << "[DevicesPage] Da tai" << childUsernames.size()
+             << "tai khoan CHILD cua ADMIN.";
+}
+
+void DevicesPage::handleLoadFailed(const QString &message)
+{
+    qWarning() << "[DevicesPage]" << message;
 }

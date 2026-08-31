@@ -42,6 +42,8 @@ void AppController::handleLoginSuccess(const QString &role, const QString &usern
         m_mainWindow = new MainWindow();
 
         connect(m_mainWindow, &MainWindow::requestAddAccount, this, &AppController::handleRequestAddAccount);
+        connect(m_mainWindow, &MainWindow::childConnectRequested,
+                this, &AppController::handleChildConnectRequested);
         m_mainWindow->show();
     }
     else
@@ -76,4 +78,9 @@ void AppController::handleRequestAddAccount()
     m_registerController = new RegisterController(this);
     
     m_registerController->start("admin");
+}
+
+void AppController::handleChildConnectRequested(const QString &childUsername)
+{
+    qDebug() << "[AppController] ADMIN da chon CHILD:" << childUsername;
 }

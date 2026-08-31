@@ -1,7 +1,7 @@
 # RDTP Protocol Documentation
 
 > Tai lieu ky thuat cho RemoteAccessApp - RDTP (Remote Desktop Transfer Protocol)
-> Phạm vi: nền tảng RDTP và Giai đoạn 2 đăng ký CHILD với Relay
+> Phạm vi: nền tảng RDTP, Giai đoạn 2 đăng ký CHILD và Giai đoạn 3A khám phá CHILD của ADMIN
 
 ---
 
@@ -17,7 +17,7 @@
 | [06_HEADER_SERIALIZATION.md](06_HEADER_SERIALIZATION.md) | ProtocolSerializer: serializeHeader(), QByteArray, Q_ASSERT, test vector |
 | [07_BYTE_ORDER_BIG_ENDIAN.md](07_BYTE_ORDER_BIG_ENDIAN.md) | Big Endian / Network Byte Order: ly thuyet, cac helper appendUIntXXBE |
 | [08_CMAKE_INTEGRATION.md](08_CMAKE_INTEGRATION.md) | CMakeLists.txt: NETWORK_SOURCES, target_include_directories |
-| [09_IMPLEMENTATION_STATUS.md](09_IMPLEMENTATION_STATUS.md) | Trạng thái triển khai, luồng đăng ký CHILD, trách nhiệm các lớp và phần chưa triển khai |
+| [09_IMPLEMENTATION_STATUS.md](09_IMPLEMENTATION_STATUS.md) | Trạng thái triển khai, đăng ký CHILD, khám phá CHILD của ADMIN và phần chưa triển khai |
 | [10_HEADER_DESERIALIZATION.md](10_HEADER_DESERIALIZATION.md) | Giai thich Phase 1A.2C: chuyen 24-byte RDTP wire header thanh ProtocolHeader object. |
 
 ---
@@ -53,6 +53,28 @@ Ly thuyet byte-order xem: [07_BYTE_ORDER_BIG_ENDIAN.md](07_BYTE_ORDER_BIG_ENDIAN
 
 CMake build xem: [08_CMAKE_INTEGRATION.md](08_CMAKE_INTEGRATION.md)
 
+## Luồng khám phá CHILD của ADMIN
+
+```text
+ADMIN đăng nhập và nhận JWT
+        |
+        v
+GET /api/v1/child
+        |
+        v
+JWT subject -> User -> ChildRepository.findByOwner(...)
+        |
+        v
+childUsername thật -> ChildDiscoveryService -> DevicesPage
+        |
+        v
+DeviceCardWidget -> MainWindow -> AppController
+```
+
+Luồng này mới dừng ở việc xác định chính xác CHILD được chọn. Kết nối ADMIN đến
+Relay, handshake phiên và chuyển tiếp màn hình chưa được triển khai. Chi tiết xem
+[09_IMPLEMENTATION_STATUS.md](09_IMPLEMENTATION_STATUS.md).
+
 ---
 
-*Cập nhật lần cuối: Giai đoạn 2 đăng ký CHILD đã hoàn thành.*
+*Cập nhật lần cuối: Giai đoạn 3A khám phá CHILD của ADMIN đã hoàn thành.*

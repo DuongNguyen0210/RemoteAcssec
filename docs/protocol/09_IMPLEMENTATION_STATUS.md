@@ -1,6 +1,6 @@
 # 09 - Trạng thái triển khai
 
-> Cập nhật lần cuối: Giai đoạn 2 đăng ký CHILD đã hoàn thành và kiểm tra runtime thành công
+> Cập nhật lần cuối: Giai đoạn 3A khám phá CHILD của ADMIN đã hoàn thành và kiểm tra runtime thành công
 > Xem them: [README.md](README.md)
 
 ---
@@ -99,6 +99,84 @@ CHILD đăng nhập
 - [x] Bionic review thành công.
 - [x] Hợp đồng Big Endian đã được xác minh.
 
+### Giai đoạn 3A - ADMIN khám phá CHILD
+
+Mục đích hiện tại là để ADMIN lấy đúng danh sách tài khoản CHILD thuộc quyền sở
+hữu của mình, hiển thị `childUsername` thật trên trang thiết bị và chuyển đúng
+định danh được chọn đến ranh giới `AppController`. Luồng đã triển khai:
+
+```text
+ADMIN đăng nhập và nhận JWT
+→ ApiClient gửi GET /api/v1/child kèm Bearer JWT
+→ Management API lấy danh tính ADMIN từ subject của JWT
+→ ChildRepository.findByOwner(...)
+→ API trả các giá trị childUsername thật
+→ ChildDiscoveryService đọc phản hồi
+→ DevicesPage tạo DeviceCardWidget cho từng CHILD
+→ DeviceCardWidget phát childUsername khi nhấn Connect
+→ MainWindow chuyển tiếp lựa chọn
+→ AppController nhận chính xác childUsername đã chọn
+```
+
+#### API lấy danh sách CHILD
+
+```http
+GET /api/v1/child
+Authorization: Bearer <ADMIN JWT>
+```
+
+Quy tắc xác thực và phân quyền hiện tại:
+
+- Token phải tồn tại, hợp lệ và chưa hết hạn.
+- Role trong token phải là `ADMIN`.
+- Danh tính ADMIN chỉ lấy từ subject của JWT; API không nhận username chủ sở hữu
+  từ body hoặc query parameter.
+- Subject phải xác định được một `User` đang tồn tại.
+- `ChildRepository.findByOwner(...)` chỉ lấy các tài khoản CHILD thuộc ADMIN đó.
+- Endpoint chỉ đọc dữ liệu và không thực hiện ghi cơ sở dữ liệu.
+
+Phản hồi thành công là một mảng JSON:
+
+```json
+[
+  {
+    "childUsername": "..."
+  }
+]
+```
+
+Phản hồi chỉ công khai `childUsername`. Phản hồi không chứa password, owner,
+database id, OS, IP, status, uptime hoặc `deviceUid`.
+
+#### Luồng client và UI
+
+| Thành phần | Trách nhiệm hiện tại |
+|---|---|
+| `ApiClient` | Tái sử dụng JWT đã lưu và tự động gắn Bearer token vào yêu cầu HTTP. |
+| `ChildDiscoveryService` | Gọi `GET /api/v1/child`, kiểm tra phản hồi và lấy danh sách `childUsername`. |
+| `DevicesPage` | Xóa các thẻ nhận dạng máy mẫu cũ và tạo thẻ từ danh sách username thật. |
+| `DeviceCardWidget` | Lưu riêng `childUsername` thật và phát `connectRequested(const QString &childUsername)` khi nhấn Connect. |
+| `MainWindow` | Chuyển tiếp lựa chọn từ trang thiết bị đến ranh giới ứng dụng. |
+| `AppController` | Nhận và ghi log chính xác `childUsername` được ADMIN chọn. Chưa mở kết nối Relay. |
+
+Trạng thái dữ liệu hiển thị:
+
+- `childUsername` là dữ liệu thật từ backend.
+- Các nhận dạng máy giả dạng `SRV-*`, `MBP-*` và các thẻ máy mẫu tương tự đã bị
+  loại bỏ khỏi `DevicesPage`.
+- OS, IP, trạng thái online và uptime hiện chưa có dữ liệu backend; UI hiển thị
+  rõ là chưa được cung cấp hoặc không xác định.
+- Nút Connect hiện chỉ chuyển tiếp `childUsername` đến `AppController`; chưa gửi
+  thông điệp RDTP hoặc thiết lập phiên.
+
+#### Kết quả xác minh Giai đoạn 3A
+
+- [x] Cài đặt Phase 3A thành công.
+- [x] Runtime khám phá CHILD của ADMIN thành công.
+- [x] Bionic source review thành công.
+- [x] Chuỗi Qt UI và comment tiếng Việt dùng đầy đủ dấu.
+- [x] Chuỗi tiếng Việt ghi ra console/log dùng dạng không dấu.
+
 
 ---
 
@@ -106,12 +184,14 @@ CHILD đăng nhập
 
 Các chức năng dưới đây **chưa được triển khai** trong phạm vi hiện tại:
 
-- Kết nối ADMIN đến Relay.
+- Kết nối TCP từ ADMIN đến Relay.
 - `CONNECT_REQUEST`.
-- Cấp phát `sessionId` và quản lý phiên.
+- Relay cấp phát `sessionId` và quản lý phiên.
 - `SESSION_REQUEST`, `SESSION_ACCEPT`, `SESSION_REJECT`.
+- `CONNECT_RESULT`.
 - Chuyển tiếp `SCREEN_FRAME` từ CHILD đến ADMIN.
-- Nhận và hiển thị màn hình tại ADMIN.
+- ADMIN nhận, ghép lại và hiển thị màn hình.
+- Các trường telemetry trực tiếp cho OS, IP, trạng thái online và uptime.
 - Xác thực JWT trên kết nối Relay.
 
 Việc các loại thông điệp tương ứng đã có giá trị trong `MessageType` không có
@@ -130,10 +210,15 @@ nghĩa là hành vi phiên hoặc ADMIN đã được triển khai.
 [DONE] Relay TCP transport
 [DONE] CHILD REGISTER_HOST / REGISTER_ACK
 [DONE] RelayRegistry cho đăng ký CHILD
+[DONE] ADMIN GET /api/v1/child
+[DONE] UI sử dụng childUsername thật và chuyển lựa chọn đến AppController
 [ ]    Kết nối ADMIN đến Relay
+[ ]    CONNECT_REQUEST / CONNECT_RESULT
 [ ]    Cấp phát và quản lý phiên
+[ ]    SESSION_REQUEST / SESSION_ACCEPT / SESSION_REJECT
 [ ]    Chuyển tiếp SCREEN_FRAME đến ADMIN
-[ ]    Hiển thị màn hình tại ADMIN
+[ ]    ADMIN nhận, ghép lại và hiển thị màn hình
+[ ]    Các trường telemetry trực tiếp
 [ ]    Xác thực JWT trên Relay
 ```
 

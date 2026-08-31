@@ -62,6 +62,8 @@ void MainWindow::setupUi()
     stackedWidget->addWidget(pageAccount);   // index 4
 
     connect(pageAccount, &AccountPage::requestAddAccount, this, &MainWindow::requestAddAccount);
+    connect(pageDevices, &DevicesPage::connectRequested,
+            this, &MainWindow::childConnectRequested);
 
     rightLayout->addWidget(topbar);
     rightLayout->addWidget(stackedWidget);

@@ -22,7 +22,7 @@ void RelayClient::DisconnectFromServer()
 }
 
 void RelayClient::onConnected() {
-    qDebug() << "Đã kết nối thành công tới Relay Server!";
+    qDebug() << "Da ket noi thanh cong toi Relay Server!";
     emit connected();
 }
 
@@ -32,7 +32,7 @@ void RelayClient::onDisconnected() {
 
 void RelayClient::onReadyRead() {
     const QByteArray data = m_socket->readAll();
-    qDebug() << "Nhận được" << data.size() << "bytes từ Server!";
+    qDebug() << "Nhan duoc" << data.size() << "bytes tu Server!";
     if (!data.isEmpty())
         emit bytesReceived(data);
 }
