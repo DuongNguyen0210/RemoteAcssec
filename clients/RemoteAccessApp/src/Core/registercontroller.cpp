@@ -36,7 +36,7 @@ void RegisterController::handleRegisterRequested(const QString &childUsername, c
         return;
     }
 
-    m_accountService->createSubAccount(childUsername, password, m_parentUsername);
+    m_accountService->createSubAccount(childUsername, password);
 }
 
 void RegisterController::handleAccountCreated(bool success, const QString &message)

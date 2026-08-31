@@ -1,5 +1,7 @@
 package com.remotecontrol.api.service;
 
+import com.remotecontrol.api.dto.ChildDto;
+import com.remotecontrol.api.dto.ListChillResponse;
 import com.remotecontrol.api.dto.RegisterRequest;
 import com.remotecontrol.api.dto.RegisterResponse;
 import com.remotecontrol.api.entity.Child;
@@ -11,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -55,6 +60,35 @@ public class ChildService {
         }
         addChild(childUsername, password, user.get());
         return new RegisterResponse(true, "Accepted", username + childUsername, password);
+    }
+
+    public ListChillResponse getListChillResponse(String token)
+    {
+        if (token == null || token.isEmpty()) {
+            return new ListChillResponse(Collections.emptyList(), false, "Thiếu token");
+        }
+
+        String role, username;
+        Optional<User> user;
+        try {
+            role = jwtUtil.extractRole(token);
+            username = jwtUtil.extractUsername(token);
+            user = userRepository.findByUsername(username);
+            if(!user.isPresent())
+                return new ListChillResponse(Collections.emptyList(), false, "User không tồn tại");
+            if(!role.equals("ADMIN"))
+                return new ListChillResponse(Collections.emptyList(), false, "Không có quyền truy cập");
+        } catch (Exception e) {
+            return new ListChillResponse(Collections.emptyList(), false, "Lỗi xác thực");
+        }
+        
+        List<Child> childEntities = childRepository.findByOwner(user.get());
+        List<ChildDto> childList = new ArrayList<>();
+        for (Child c : childEntities) {
+            childList.add(new ChildDto(c.getChildUsername(), c.getPassword()));
+        }
+        
+        return new ListChillResponse(childList, true, "Accepted");
     }
 
     public void addChild(String childUsername, String password, User user) {

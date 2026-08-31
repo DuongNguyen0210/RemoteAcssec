@@ -36,6 +36,8 @@ QNetworkRequest ApiClient::createRequest(const QString &endpoint) const
     QNetworkRequest request(url);
     
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    // Bỏ qua trang cảnh báo của ngrok khi gọi qua API
+    request.setRawHeader("ngrok-skip-browser-warning", "true");
     
     if (!m_token.isEmpty()) {
         qDebug() << "Token Request: " + m_token << '\n';

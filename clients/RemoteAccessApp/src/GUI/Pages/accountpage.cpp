@@ -27,7 +27,7 @@ QPushButton *actionButton(const QString &text, const QString &objectName, QWidge
     return button;
 }
 
-QFrame *accountCard(const QString &username, const QString &email, const QString &role,
+QFrame *accountCard(const QString &username, const QString &password, const QString &role,
                     const QString &status, const QString &statusState, QWidget *parent)
 {
     QFrame *card = new QFrame(parent);
@@ -41,7 +41,7 @@ QFrame *accountCard(const QString &username, const QString &email, const QString
     QHBoxLayout *header = new QHBoxLayout();
     header->setSpacing(12);
 
-    QLabel *avatar = label(QString(username[0]).toUpper(), "cardIcon", card);
+    QLabel *avatar = label(QString(username.isEmpty() ? '?' : username[0]).toUpper(), "cardIcon", card);
     avatar->setFixedSize(40, 40);
     avatar->setAlignment(Qt::AlignCenter);
     header->addWidget(avatar);
@@ -49,7 +49,31 @@ QFrame *accountCard(const QString &username, const QString &email, const QString
     QVBoxLayout *titleLayout = new QVBoxLayout();
     titleLayout->setSpacing(2);
     titleLayout->addWidget(label(username, "cardTitle", card));
-    titleLayout->addWidget(label(email,    "cardSubtitle", card));
+    
+    QHBoxLayout *passwordLayout = new QHBoxLayout();
+    passwordLayout->setContentsMargins(0, 0, 0, 0);
+    passwordLayout->setSpacing(8);
+    QLabel *passwordLabel = label("••••••••", "cardSubtitle", card);
+    passwordLayout->addWidget(passwordLabel);
+    
+    QPushButton *togglePwdBtn = new QPushButton("Show", card);
+    togglePwdBtn->setCursor(Qt::PointingHandCursor);
+    togglePwdBtn->setStyleSheet("background: transparent; color: #3498db; border: none; text-decoration: underline;");
+    togglePwdBtn->setFixedWidth(40);
+    passwordLayout->addWidget(togglePwdBtn);
+    passwordLayout->addStretch();
+    
+    QObject::connect(togglePwdBtn, &QPushButton::clicked, [passwordLabel, togglePwdBtn, password]() {
+        if (passwordLabel->text() == "••••••••") {
+            passwordLabel->setText(password);
+            togglePwdBtn->setText("Hide");
+        } else {
+            passwordLabel->setText("••••••••");
+            togglePwdBtn->setText("Show");
+        }
+    });
+
+    titleLayout->addLayout(passwordLayout);
     header->addLayout(titleLayout, 1);
 
     QLabel *chip = label(status, "stateChip", card);
@@ -85,10 +109,83 @@ QFrame *accountCard(const QString &username, const QString &email, const QString
 
 }
 
+#include "../../Core/accountcontroller.h"
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QMessageBox>
+
 AccountPage::AccountPage(QWidget *parent)
-    : QWidget{parent}
+    : QWidget{parent},
+      m_controller(nullptr),
+      m_listLayout(nullptr),
+      m_scrollContent(nullptr)
 {
     setupUi();
+}
+
+void AccountPage::setController(AccountController *controller)
+{
+    m_controller = controller;
+    // Tự động load dữ liệu khi đã set controller
+    loadData();
+}
+
+void AccountPage::loadData()
+{
+    if (m_controller) {
+        m_controller->fetchAccounts();
+    }
+}
+
+void AccountPage::showLoading()
+{
+    if (!m_listLayout || !m_scrollContent) return;
+
+    // Xóa các widget cũ
+    QLayoutItem *child;
+    while ((child = m_listLayout->takeAt(0)) != nullptr) {
+        if (child->widget()) {
+            child->widget()->deleteLater();
+        }
+        delete child;
+    }
+    
+    // Thêm label "Đang tải dữ liệu..." (Dùng hàm Hide danh hoặc có thể dùng label() tạo sẵn)
+    QLabel *lbl = new QLabel("Đang tải dữ liệu...", m_scrollContent);
+    lbl->setProperty("role", "metaLabel");
+    m_listLayout->addWidget(lbl);
+    m_listLayout->addStretch();
+}
+
+void AccountPage::updateAccountList(const QJsonArray &children)
+{
+    if (!m_listLayout || !m_scrollContent) return;
+
+    // Xóa loading hoặc widget cũ
+    QLayoutItem *child;
+    while ((child = m_listLayout->takeAt(0)) != nullptr) {
+        if (child->widget()) {
+            child->widget()->deleteLater();
+        }
+        delete child;
+    }
+
+    // Render lại danh sách
+    for (int i = 0; i < children.size(); ++i) {
+        QJsonObject childObj = children[i].toObject();
+        QString username = childObj["username"].toString();
+        QString password = childObj["password"].toString();
+        if (password.isEmpty()) password = "N/A";
+        
+        m_listLayout->addWidget(accountCard(username, password, "Child", "Active", "active", m_scrollContent));
+    }
+    
+    m_listLayout->addStretch();
+}
+
+void AccountPage::showError(const QString &message)
+{
+    QMessageBox::warning(this, "Lỗi", message);
 }
 
 void AccountPage::setupUi()
@@ -167,19 +264,18 @@ void AccountPage::setupUi()
     scrollArea->setProperty("role", "scrollArea");
     scrollArea->setWidgetResizable(true);
 
-    QWidget *scrollContent = new QWidget(scrollArea);
-    scrollContent->setProperty("role", "scrollContent");
-    scrollContent->setAttribute(Qt::WA_StyledBackground, true);
+    m_scrollContent = new QWidget(scrollArea);
+    m_scrollContent->setProperty("role", "scrollContent");
+    m_scrollContent->setAttribute(Qt::WA_StyledBackground, true);
 
-    QVBoxLayout *listLayout = new QVBoxLayout(scrollContent);
-    listLayout->setContentsMargins(0, 0, 0, 0);
-    listLayout->setSpacing(14);
+    m_listLayout = new QVBoxLayout(m_scrollContent);
+    m_listLayout->setContentsMargins(0, 0, 0, 0);
+    m_listLayout->setSpacing(14);
 
-    listLayout->addWidget(accountCard("nguyen.van.a",  "nguyen.van.a@company.com",  "Viewer",    "Active",   "active",  scrollContent));
-    listLayout->addWidget(accountCard("tran.thi.b",    "tran.thi.b@company.com",    "Operator",  "Active",   "active",  scrollContent));
-    listLayout->addWidget(accountCard("le.minh.c",     "le.minh.c@company.com",     "Viewer",    "Inactive", "neutral", scrollContent));
-    listLayout->addStretch();
+    // Dữ liệu sẽ được load qua hàm onFetchListChildrenResult, nên tạm thời chỉ cần stretch hoặc Loading...
+    m_listLayout->addWidget(label("Đang tải dữ liệu...", "metaLabel", m_scrollContent));
+    m_listLayout->addStretch();
 
-    scrollArea->setWidget(scrollContent);
+    scrollArea->setWidget(m_scrollContent);
     mainLayout->addWidget(scrollArea, 1);
 }

@@ -8,18 +8,12 @@ AccountService::AccountService(QObject *parent) : QObject(parent)
 {
 }
 
-void AccountService::createSubAccount(const QString &childUsername, const QString &password, const QString &parentUsername)
+void AccountService::createSubAccount(const QString &childUsername, const QString &password)
 {
     QJsonObject json;
     json["childUsername"] = childUsername;
     json["password"] = password;
-    
-    // Vì Backend hiện tại RegisterRequest yêu cầu một object User, ta truyền vào JSON tương ứng
-    QJsonObject userObj;
-    userObj["username"] = parentUsername;
-    json["user"] = userObj;
 
-    // Gửi yêu cầu POST xuống API Register của bảng Child
     QNetworkReply *reply = ApiClient::instance().post("/api/v1/child/Register", json);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
@@ -60,4 +54,50 @@ void AccountService::onCreateAccountReply(QNetworkReply *reply)
     } else {
         emit createAccountResult(false, message);
     }
+}
+
+void AccountService::fetchListChildren()
+{
+    // Bạn có thể sửa URL này thành API Endpoint đúng của server
+    QNetworkReply *reply = ApiClient::instance().get("/api/v1/child/list");
+    
+    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+        onFetchListChildrenReply(reply);
+    });
+}
+
+void AccountService::onFetchListChildrenReply(QNetworkReply *reply)
+{
+    reply->deleteLater();
+    
+    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    
+    if (reply->error() != QNetworkReply::NoError && statusCode == 0) {
+        emit fetchListChildrenResult(false, QJsonArray(), "Không thể kết nối tới Server");
+        return;
+    }
+    
+    QByteArray responseData = reply->readAll();
+    qDebug() << "HTTP Status:" << statusCode;
+    qDebug() << "Raw Response:" << responseData;
+    
+    QJsonDocument doc = QJsonDocument::fromJson(responseData);
+    
+    // Giả sử API trả về class ListChillResponse: { "children": [...], "message": "..." }
+    if (!doc.isNull() && doc.isObject()) {
+        QJsonObject obj = doc.object();
+        QJsonArray children = obj["children"].toArray();
+        QString message = obj["message"].toString();
+        
+        // Nếu HTTP Status là 200 thì coi như thành công
+        if (statusCode == 200) {
+            emit fetchListChildrenResult(true, children, message);
+            return;
+        } else {
+            emit fetchListChildrenResult(false, QJsonArray(), message);
+            return;
+        }
+    }
+    
+    emit fetchListChildrenResult(false, QJsonArray(), "Phản hồi từ server không hợp lệ. Chi tiết: " + QString(responseData));
 }

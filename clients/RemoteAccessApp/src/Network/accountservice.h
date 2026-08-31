@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QNetworkReply>
+#include <QJsonArray>
 
 class AccountService : public QObject
 {
@@ -11,16 +12,16 @@ class AccountService : public QObject
 public:
     explicit AccountService(QObject *parent = nullptr);
 
-    // Hàm tạo tài khoản con mới
-    // Truyền vào thông tin tài khoản con, và tên của tài khoản cha (admin)
-    void createSubAccount(const QString &childUsername, const QString &password, const QString &parentUsername);
+    void createSubAccount(const QString &childUsername, const QString &password);
+    void fetchListChildren();
 
 signals:
-    // Tín hiệu báo kết quả về cho Controller hoặc GUI
     void createAccountResult(bool success, const QString &message);
+    void fetchListChildrenResult(bool success, const QJsonArray &children, const QString &message);
 
 private slots:
     void onCreateAccountReply(QNetworkReply *reply);
+    void onFetchListChildrenReply(QNetworkReply *reply);
 };
 
 #endif // ACCOUNTSERVICE_H

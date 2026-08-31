@@ -4,6 +4,7 @@
 #include "../Pages/sessionspage.h"
 #include "../Pages/settingspage.h"
 #include "../Pages/accountpage.h"
+#include "../../Core/accountcontroller.h"
 
 #include <QHBoxLayout>
 #include <QStringList>
@@ -53,7 +54,9 @@ void MainWindow::setupUi()
     SessionsPage *pageSessions = new SessionsPage(this);
     SettingsPage *pageSettings = new SettingsPage(this);
     LogsPage *pageLogs = new LogsPage(this);
-    AccountPage *pageAccount = new AccountPage(this);
+
+    AccountController *accountController = new AccountController(this);
+    AccountPage *pageAccount = accountController->getView();
 
     stackedWidget->addWidget(pageDevices);   // index 0
     stackedWidget->addWidget(pageSessions);  // index 1
@@ -61,7 +64,7 @@ void MainWindow::setupUi()
     stackedWidget->addWidget(pageLogs);      // index 3
     stackedWidget->addWidget(pageAccount);   // index 4
 
-    connect(pageAccount, &AccountPage::requestAddAccount, this, &MainWindow::requestAddAccount);
+    connect(accountController, &AccountController::requestAddAccount, this, &MainWindow::requestAddAccount);
 
     rightLayout->addWidget(topbar);
     rightLayout->addWidget(stackedWidget);
