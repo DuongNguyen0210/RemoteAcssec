@@ -192,22 +192,95 @@ Loại RDTP: `0x07`.
 `AdminSessionController` kiểm tra đầy đủ header, byte kết quả và quan hệ giữa
 kết quả với `sessionId` trước khi lưu phiên đang hoạt động.
 
-### Giới hạn sau Giai đoạn 3B
+### Trạng thái sau Giai đoạn 4
 
-Handshake phiên đã được triển khai, nhưng việc gắn `sessionId` vào
-`SCREEN_FRAME`, định tuyến hoặc chuyển tiếp khung hình đến ADMIN vẫn **chưa được
-triển khai**. CHILD có thể tiếp tục tạo `SCREEN_FRAME` theo hành vi có trước
-Giai đoạn 4; điều này không đồng nghĩa với truyền màn hình theo phiên.
+Handshake phiên của Giai đoạn 3B hiện là điều kiện để gửi màn hình: CHILD chỉ
+tạo `SCREEN_FRAME` khi giữ một `sessionId` khác `0`, còn Relay chỉ chuyển tiếp
+khi ID đó thuộc một phiên `ACTIVE` và nguồn là chính xác channel CHILD của
+phiên. Hợp đồng chi tiết được mô tả trong nhóm Screen bên dưới.
 
 ---
 
-## Nhom: Screen (Media Stream)
+## Nhóm: Màn hình
 
-| Ten | Hex | Y nghia du kien |
+| Tên | Hex | Ý nghĩa hiện tại |
 |---|---|---|
-| `SCREEN_FRAME` | `0x10` | Mot khung hinh man hinh da duoc encode, truyen tu Host den Client. |
+| `SCREEN_FRAME` | `0x10` | Một chunk của ảnh JPEG màn hình, gắn với phiên `ACTIVE` và được Relay chuyển trực tiếp từ CHILD đến ADMIN. |
 
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
+### Hợp đồng header của SCREEN_FRAME
+
+| Trường header | Giá trị/ngữ nghĩa hiện tại |
+|---|---|
+| `type` | `0x10` |
+| `flags` | Giữ nguyên ngữ nghĩa hiện có; packetizer hiện đặt `0` |
+| `sessionId` | ID khác `0` của phiên `ACTIVE` hiện tại ở CHILD |
+| `sequenceNumber` | Giữ nguyên ngữ nghĩa chỉ số chunk hiện có |
+| `payloadLength` | `16 + số byte JPEG trong chunk` |
+
+Giai đoạn 4 chỉ thay đổi việc gắn phiên trong **RDTP header**. Định dạng payload
+không thay đổi.
+
+### Metadata payload của SCREEN_FRAME
+
+Mọi số nguyên nhiều byte đều dùng **Big Endian**:
+
+| Offset | Kiểu/kích thước | Nội dung |
+|---|---|---|
+| `0` | `uint32`, 4 byte | `frameId` |
+| `4` | `uint32`, 4 byte | `chunkIndex` |
+| `8` | `uint32`, 4 byte | `chunkCount` |
+| `12` | `uint32`, 4 byte | `totalFrameSize` |
+| `16` | Số byte còn lại | Dữ liệu JPEG của chunk |
+
+Hỗ trợ nhiều chunk, kích thước chunk và các trường `frameId`, `chunkIndex`,
+`chunkCount`, `totalFrameSize` giữ nguyên so với trước Giai đoạn 4.
+
+### Điều kiện gửi ở CHILD
+
+`ScreenStreamSender` sở hữu `m_currentSessionId`:
+
+- Nếu `m_currentSessionId == 0`, CHILD không chụp màn hình, không mã hóa JPEG,
+  không packetize và không gửi `SCREEN_FRAME`.
+- Nếu `m_currentSessionId != 0`, CHILD giữ nguyên chu kỳ chụp, chất lượng JPEG,
+  cách chia chunk, kết nối `RelayClient` bền và chính sách backpressure có giới
+  hạn; ID hiện tại được truyền chính xác vào `ScreenFramePacketizer`.
+
+`ScreenFramePacketizer` không sở hữu hoặc cấp phát trạng thái phiên. Caller cung
+cấp `sessionId`, packetizer chỉ ghi đúng giá trị đó vào `header.sessionId` của
+từng chunk.
+
+### Phân quyền định tuyến tại Relay
+
+Relay gọi
+`RelayRegistry.findActiveSessionForChild(sessionId, childChannel)` và chỉ chuyển
+tiếp khi đồng thời thỏa mãn:
+
+- `sessionId` khác `0`;
+- phiên tồn tại;
+- phiên ở trạng thái `ACTIVE`;
+- channel nguồn là chính xác channel CHILD được gắn với phiên.
+
+Relay từ chối mà không chuyển tiếp đối với ID bằng `0`, ID không tồn tại hoặc đã
+cũ, phiên `PENDING`, nguồn ADMIN hoặc một CHILD khác. Vì vậy CHILD không thể định
+tuyến khung hình chỉ bằng cách đoán `sessionId`; cả ràng buộc phiên và channel
+nguồn đều bắt buộc.
+
+### Chuyển tiếp trực tiếp
+
+```text
+Protocol SCREEN_FRAME đầu vào
+→ kiểm tra sessionId, trạng thái ACTIVE và channel nguồn
+→ ghi chính đối tượng Protocol gốc đến channel ADMIN
+→ ScreenFrameHandler/ScreenFrameReassembler chẩn đoán có thể chạy sau đó
+```
+
+Mỗi chunk gốc được chuyển độc lập. Relay không ghép ảnh trước khi định tuyến,
+không packetize lại, không sửa byte JPEG, metadata payload, `sequenceNumber` hay
+`sessionId`. Bộ ghép khung phía Relay chỉ phục vụ chẩn đoán và không phải điều
+kiện của đường chuyển tiếp.
+
+ADMIN hiện nhận được byte TCP/RDTP đã chuyển tiếp, nhưng chưa có bộ ghép
+`SCREEN_FRAME`, giải mã JPEG, tạo `QImage` hoặc hiển thị bằng Qt.
 
 ---
 

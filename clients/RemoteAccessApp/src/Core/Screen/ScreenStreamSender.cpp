@@ -199,6 +199,9 @@ bool ScreenStreamSender::sendSessionResponse(Protocol::MessageType type,
 
 void ScreenStreamSender::onTick()
 {
+    if (m_currentSessionId == 0)
+        return;
+
     // --- 1. Backpressure check ---------------------------------------------
     const qint64 pending = m_relayClient->pendingBytes();
     if (pending > MAX_PENDING_BYTES) {
@@ -224,7 +227,7 @@ void ScreenStreamSender::onTick()
 
     // --- 4. Packetize ------------------------------------------------------
     const QList<QByteArray> packets =
-        ScreenFramePacketizer::packetize(encoded, m_frameId);
+        ScreenFramePacketizer::packetize(encoded, m_frameId, m_currentSessionId);
     if (packets.isEmpty()) {
         qWarning() << "[ScreenStreamSender] Packetize returned empty, skipping frame.";
         return;

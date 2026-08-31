@@ -36,7 +36,8 @@ static void appendU32BE(QByteArray &buf, uint32_t value)
 // ---------------------------------------------------------------------------
 
 QList<QByteArray> ScreenFramePacketizer::packetize(const QByteArray &encodedFrame,
-                                                    uint32_t frameId)
+                                                    uint32_t frameId,
+                                                    uint64_t sessionId)
 {
     // --- guard: empty frame -------------------------------------------------
     if (encodedFrame.isEmpty()) {
@@ -82,10 +83,10 @@ QList<QByteArray> ScreenFramePacketizer::packetize(const QByteArray &encodedFram
         // --- build RDTP header ----------------------------------------------
         Protocol::ProtocolHeader header(Protocol::MessageType::SCREEN_FRAME);
         header.payloadLength  = payloadLen;
+        header.sessionId      = sessionId;
         header.sequenceNumber = i;   // repurpose sequenceNumber as chunk index
                                      // within this call; the streaming layer
                                      // may override this field later.
-        // header.sessionId stays 0 in this phase (no routing yet).
 
         QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
 
@@ -103,6 +104,7 @@ QList<QByteArray> ScreenFramePacketizer::packetize(const QByteArray &encodedFram
     }
 
     qDebug() << "[ScreenFramePacketizer] frameId=" << frameId
+             << "sessionId=" << sessionId
              << "frameBytes=" << frameSize
              << "chunkCount=" << chunkCount
              << "maxChunkData=" << chunkDataMax;

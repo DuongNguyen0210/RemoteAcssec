@@ -1,6 +1,6 @@
 # 09 - Trạng thái triển khai
 
-> Cập nhật lần cuối: Giai đoạn 3B handshake phiên MVP đã hoàn thành và kiểm tra runtime thành công
+> Cập nhật lần cuối: Giai đoạn 4 chuyển tiếp màn hình theo phiên đã hoàn thành và kiểm tra runtime thành công
 > Xem thêm: [README.md](README.md)
 
 ---
@@ -256,6 +256,92 @@ Lần kiểm tra runtime quan sát giá trị `sessionId=1`, nhưng giá trị `
 hằng số giao thức. Điều kiện có ý nghĩa là cùng một ID **khác `0`** xuất hiện ở
 Relay `PENDING`, CHILD `SESSION_ACCEPT`, Relay `ACTIVE` và ADMIN `ACTIVE`.
 
+### Giai đoạn 4 - Chuyển tiếp màn hình theo phiên
+
+Giai đoạn 4 gắn từng `SCREEN_FRAME` với phiên `ACTIVE` đã tạo ở Giai đoạn 3B và
+chuyển trực tiếp từng chunk gốc đến đúng channel ADMIN:
+
+```text
+CHILD có phiên ACTIVE với sessionId=N
+→ ScreenStreamSender truyền N vào ScreenFramePacketizer
+→ SCREEN_FRAME header.sessionId=N
+→ RelayRegistry kiểm tra phiên ACTIVE và đúng channel CHILD
+→ RelayServerHandler ghi Protocol gốc đến channel ADMIN
+→ ADMIN nhận byte TCP/RDTP đã chuyển tiếp
+```
+
+#### Hợp đồng SCREEN_FRAME hiện tại
+
+- Loại RDTP vẫn là `0x10`.
+- `header.sessionId` là ID khác `0` của phiên `ACTIVE` hiện tại.
+- Ngữ nghĩa `flags` và `sequenceNumber` không thay đổi.
+- Giai đoạn 4 chỉ thay đổi ràng buộc phiên trong RDTP header.
+
+Metadata payload giữ nguyên hoàn toàn và dùng Big Endian:
+
+| Offset | Nội dung | Kiểu |
+|---:|---|---|
+| `0` | `frameId` | `uint32` |
+| `4` | `chunkIndex` | `uint32` |
+| `8` | `chunkCount` | `uint32` |
+| `12` | `totalFrameSize` | `uint32` |
+| `16` | Dữ liệu JPEG của chunk | Dãy byte |
+
+#### Điều kiện gửi ở CHILD
+
+- Khi `m_currentSessionId == 0`, `ScreenStreamSender` không chụp màn hình, không
+  mã hóa JPEG, không packetize và không truyền `SCREEN_FRAME`.
+- Khi ID khác `0`, luồng tiếp tục với chu kỳ chụp, JPEG, chia chunk, kết nối
+  `RelayClient` bền và backpressure có giới hạn như trước.
+- `ScreenFramePacketizer` nhận ID từ caller và ghi đúng ID vào header; packetizer
+  không sở hữu hoặc cấp phát phiên.
+
+#### Phân quyền và chuyển tiếp ở Relay
+
+`RelayRegistry.findActiveSessionForChild(sessionId, childChannel)` là truy vấn
+duy nhất được đường định tuyến dùng để kiểm tra sự tồn tại của phiên, trạng thái
+`ACTIVE` và chính xác channel CHILD nguồn. Không có registry định tuyến thứ hai.
+
+Relay không chuyển tiếp nếu ID bằng `0`, không tồn tại, đã cũ, còn `PENDING`,
+hoặc nguồn là ADMIN/CHILD khác. Việc biết một `sessionId` không đủ để một CHILD
+định tuyến khung hình của phiên khác.
+
+Với yêu cầu hợp lệ, `RelayServerHandler` ghi trực tiếp đối tượng `Protocol` đầu
+vào đến channel ADMIN qua `ProtocolEncoder`. Relay không ghép khung trước khi
+định tuyến, không packetize lại, không cấp ID mới và không sửa JPEG,
+`frameId`, `chunkIndex`, `chunkCount`, `totalFrameSize` hoặc `sequenceNumber`.
+Mỗi chunk gốc được chuyển tiếp độc lập.
+
+`ScreenFrameHandler` và `ScreenFrameReassembler` phía Relay vẫn có thể chạy sau
+lệnh chuyển tiếp để ghi thông tin chẩn đoán. Chúng không phải điều kiện hoặc cơ
+chế định tuyến.
+
+#### Trạng thái ADMIN
+
+ADMIN đã có phiên `ACTIVE` từ Giai đoạn 3B và hiện nhận được byte TCP/RDTP do
+Relay chuyển tiếp. `AdminSessionController` không được mở rộng thành bộ nhận
+khung hình; việc ghép chunk, giải mã JPEG, tạo `QImage` và hiển thị Qt chưa được
+triển khai.
+
+#### Bằng chứng runtime và hồi quy
+
+- [x] CLIENT build thành công bằng cơ chế CMake hiện có.
+- [x] Java Relay runtime thành công.
+- [x] Kiểm tra chuyển tiếp cục bộ thành công.
+- [x] Trước khi phiên `ACTIVE`, CHILD vẫn đăng ký và gửi heartbeat nhưng không
+  packetize hoặc truyền `SCREEN_FRAME`.
+- [x] Sau khi phiên `ACTIVE`, packetizer tạo `SCREEN_FRAME` với cùng một
+  `sessionId` khác `0` đã được handshake cấp.
+- [x] Relay ghi nhận chuyển trực tiếp chunk với cùng `sessionId` đó.
+- [x] ADMIN nhận được byte TCP/RDTP đã chuyển tiếp.
+- [x] Phase 3B handshake, `REGISTER_HOST`, JWT, heartbeat,
+  `GET /api/v1/child`, JPEG, metadata chunk, hỗ trợ nhiều chunk và schema cơ sở
+  dữ liệu được giữ nguyên.
+- [x] Bionic source review thành công.
+
+Runtime từng quan sát `sessionId=1`, nhưng `1` chỉ là ví dụ. Giao thức chỉ yêu
+cầu dùng nhất quán cùng một ID **khác `0`** từ handshake đến định tuyến màn hình.
+
 
 ---
 
@@ -263,19 +349,19 @@ Relay `PENDING`, CHILD `SESSION_ACCEPT`, Relay `ACTIVE` và ADMIN `ACTIVE`.
 
 Các chức năng dưới đây **chưa được triển khai** trong phạm vi hiện tại:
 
-- Đưa `active sessionId` vào `SCREEN_FRAME`.
-- Định tuyến `SCREEN_FRAME` theo phiên.
-- Relay chuyển tiếp trực tiếp các chunk màn hình đến ADMIN.
-- ADMIN nhận và ghép lại các chunk màn hình.
-- ADMIN giải mã JPEG và hiển thị màn hình.
+- `ScreenFrameReassembler` phía ADMIN.
+- ADMIN giải mã JPEG.
+- ADMIN tạo `QImage`.
+- Hiển thị màn hình bằng Qt.
 - Chuyển tiếp chuột và bàn phím.
 - Luồng giao thức `DISCONNECT` tường minh.
-- Tự động kết nối lại và phục hồi phiên.
 - Xác thực JWT trên kết nối Relay.
+- Tự động kết nối lại và phục hồi phiên.
+- Lưu phiên bền vững.
 - Triển khai qua Internet từ xa.
 
-CHILD hiện vẫn có thể tạo `SCREEN_FRAME` theo hành vi trước Giai đoạn 4. Điều đó
-không có nghĩa là `SCREEN_FRAME` đã gắn với phiên hoặc đã được chuyển đến ADMIN.
+ADMIN nhận byte màn hình nhưng chưa ghép, giải mã hoặc hiển thị nội dung. Các
+chức năng đó thuộc những giai đoạn sau.
 
 ---
 
@@ -296,7 +382,7 @@ không có nghĩa là `SCREEN_FRAME` đã gắn với phiên hoặc đã đượ
 [DONE] CONNECT_REQUEST / CONNECT_RESULT
 [DONE] Cấp phát và quản lý phiên PENDING / ACTIVE trong bộ nhớ
 [DONE] SESSION_REQUEST / SESSION_ACCEPT / SESSION_REJECT
-[ ]    Chuyển tiếp SCREEN_FRAME đến ADMIN
+[DONE] Gắn sessionId vào SCREEN_FRAME và chuyển trực tiếp từng chunk đến ADMIN
 [ ]    ADMIN nhận, ghép lại và hiển thị màn hình
 [ ]    Các trường telemetry trực tiếp
 [ ]    Xác thực JWT trên Relay
@@ -311,4 +397,4 @@ không có nghĩa là `SCREEN_FRAME` đã gắn với phiên hoặc đã đượ
 - [04_PROTOCOL_HEADER_MODEL.md](04_PROTOCOL_HEADER_MODEL.md) - Chi tiet Phase 1A.2A
 - [06_HEADER_SERIALIZATION.md](06_HEADER_SERIALIZATION.md) - Chi tiet Phase 1A.2B
 - [10_HEADER_DESERIALIZATION.md](10_HEADER_DESERIALIZATION.md) - Chi tiet Phase 1A.2C
-- [03_MESSAGE_TYPES.md](03_MESSAGE_TYPES.md) - Hợp đồng wire của đăng ký CHILD và handshake phiên MVP
+- [03_MESSAGE_TYPES.md](03_MESSAGE_TYPES.md) - Hợp đồng wire của đăng ký, handshake và SCREEN_FRAME theo phiên

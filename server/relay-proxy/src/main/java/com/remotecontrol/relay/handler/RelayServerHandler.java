@@ -46,9 +46,8 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
             return;
         }
 
-        // Dispatch SCREEN_FRAME to dedicated handler; preserve existing path for all other types.
         if (msg.getHeader().getType() == ProtocolConstants.MessageType.SCREEN_FRAME.getValue()) {
-            screenFrameHandler.handle(msg);
+            handleScreenFrame(ctx, msg);
             return;
         }
 
@@ -240,6 +239,24 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
                 accepted ? sessionId : 0L,
                 0);
         adminChannel.writeAndFlush(new Protocol(header, payload));
+    }
+
+    private void handleScreenFrame(ChannelHandlerContext ctx, Protocol msg) {
+        long sessionId = msg.getHeader().getSessionId();
+        RelayRegistry.SessionRecord session = relayRegistry.findActiveSessionForChild(
+                sessionId, ctx.channel());
+        if (session == null) {
+            System.out.println("[RelayServer] SCREEN_FRAME rejected: invalid session or source");
+            return;
+        }
+
+        session.getAdminChannel().writeAndFlush(msg);
+        System.out.println("[RelayServer] SCREEN_FRAME forwarded sessionId=" + sessionId
+                + " sequenceNumber=" + msg.getHeader().getSequenceNumber()
+                + " payloadBytes=" + msg.getHeader().getPayloadLength());
+
+        // Existing reassembly remains diagnostic-only; forwarding above uses the original message.
+        screenFrameHandler.handle(msg);
     }
 
     @Override

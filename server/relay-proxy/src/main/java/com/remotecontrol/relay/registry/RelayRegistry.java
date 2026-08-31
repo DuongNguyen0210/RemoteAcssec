@@ -129,6 +129,19 @@ public final class RelayRegistry {
         return session;
     }
 
+    public synchronized SessionRecord findActiveSessionForChild(
+            long sessionId, Channel childChannel) {
+        SessionRecord session = sessions.get(sessionId);
+        if (sessionId == 0
+                || session == null
+                || session.state != SessionState.ACTIVE
+                || session.childChannel != childChannel) {
+            return null;
+        }
+
+        return session;
+    }
+
     public synchronized void removeSessionForChannel(Channel channel) {
         Long sessionId = adminSessions.get(channel.id());
         if (sessionId == null) {

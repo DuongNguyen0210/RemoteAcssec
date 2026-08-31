@@ -17,7 +17,7 @@
 //   - how the JPEG was encoded   (ScreenEncoder)
 //   - how packets are sent       (RelayClient / QTcpSocket)
 //   - JWT / ApiClient / server address
-//   - session routing (sessionId is set to 0 in this phase)
+//   - session state (the caller supplies the active sessionId)
 //   - timers / frame rate
 //
 // It depends only on protocolconstants.h / protocolheader.h /
@@ -69,6 +69,7 @@ public:
     //   encodedFrame — JPEG QByteArray produced by ScreenEncoder.
     //   frameId      — caller-assigned identifier for this logical frame.
     //                  The future streaming layer should increment this per frame.
+    //   sessionId    — caller-owned active Relay session identifier.
     //
     // Returns:
     //   A QList of complete RDTP message QByteArrays (header + payload).
@@ -78,8 +79,10 @@ public:
     //   size == HEADER_SIZE + payloadLength
     //   payloadLength <= MAX_PAYLOAD_LENGTH
     //   type == SCREEN_FRAME
+    //   sessionId == the caller-supplied value
     //
     // Never throws. Never crashes.
     static QList<QByteArray> packetize(const QByteArray &encodedFrame,
-                                       uint32_t frameId);
+                                       uint32_t frameId,
+                                       uint64_t sessionId);
 };
