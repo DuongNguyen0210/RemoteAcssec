@@ -21,6 +21,7 @@ public:
 signals:
     void sessionEstablished(quint64 sessionId);
     void sessionFailed(const QString &reason);
+    void sessionProtocolReceived(const Protocol::RdtpStreamParser::Message &message);
 
 private slots:
     void onRelayConnected();

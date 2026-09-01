@@ -11,6 +11,7 @@ class RegisterController;
 class HeartbeatReporter;
 class ScreenStreamSender;
 class AdminSessionController;
+class RemoteControlSubsystem;
 
 class AppController : public QObject
 {
@@ -35,6 +36,7 @@ private:
     HeartbeatReporter *m_heartbeatReporter;
     ScreenStreamSender *m_screenStreamSender;
     AdminSessionController *m_adminSessionController;
+    RemoteControlSubsystem *m_remoteControlSubsystem = nullptr;
 };
 
 #endif

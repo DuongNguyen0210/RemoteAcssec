@@ -5,6 +5,8 @@
 #include "registercontroller.h"
 #include "AdminSessionController.h"
 #include "Core/Services/HeartbeatReporter.h"
+#include "Core/Services/RemoteControl/RemoteControlContext.h"
+#include "Core/Services/RemoteControl/RemoteControlSubsystem.h"
 #include "Core/Services/Screen/ScreenStreamSender.h"
 
 #include <QDebug>
@@ -29,6 +31,7 @@ AppController::~AppController()
     if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
     if (m_screenStreamSender) m_screenStreamSender->deleteLater();
     if (m_adminSessionController) m_adminSessionController->deleteLater();
+    if (m_remoteControlSubsystem) m_remoteControlSubsystem->deleteLater();
 }
 
 void AppController::start()
@@ -97,6 +100,11 @@ void AppController::handleChildConnectRequested(const QString &childUsername)
 
 void AppController::handleSessionEstablished(quint64 sessionId)
 {
+    if (!m_remoteControlSubsystem)
+        m_remoteControlSubsystem = new RemoteControlSubsystem(this);
+
+    const RemoteControlContext context{sessionId, m_adminSessionController};
+    m_remoteControlSubsystem->activate(context);
     qDebug() << "[AppController] Phien Relay da ACTIVE, sessionId=" << sessionId;
 }
 

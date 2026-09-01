@@ -129,6 +129,9 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
         if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
+            emit sessionProtocolReceived(message);
+
+        if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
             continue;
 
         const bool validCommonFields = message.header.flags == 0
