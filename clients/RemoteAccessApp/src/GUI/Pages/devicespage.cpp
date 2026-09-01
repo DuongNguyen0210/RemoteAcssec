@@ -5,9 +5,9 @@
 #include <QLayoutItem>
 #include <QScrollArea>
 #include <QVBoxLayout>
-#include "../Components/devicecardwidget.h"
-#include "../Layouts/flowlayout.h"
-#include "../../Network/childdiscoveryservice.h"
+#include "GUI/Widgets/devicecardwidget.h"
+#include "GUI/Widgets/flowlayout.h"
+#include "Core/Services/childdiscoveryservice.h"
 
 DevicesPage::DevicesPage(QWidget *parent)
     : QWidget{parent}

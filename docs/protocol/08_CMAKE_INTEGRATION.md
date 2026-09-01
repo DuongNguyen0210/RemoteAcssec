@@ -16,12 +16,12 @@ Module `Network` duoc build thanh static library (`libNetwork.a`). CMakeLists.tx
 ```cmake
 set(NETWORK_SOURCES dummy.cpp
     # Phase 1A.1 - wire-protocol foundation (header-only, listed for IDE indexing)
-    Protocol/ProtocolConstants.h
+    Protocol/protocolconstants.h
     # Phase 1A.2A - wire-protocol header model (header-only, listed for IDE indexing)
-    Protocol/ProtocolHeader.h
+    Protocol/protocolheader.h
     # Phase 1A.2B - header serialization
-    Protocol/ProtocolSerializer.h
-    Protocol/ProtocolSerializer.cpp
+    Protocol/protocolserializer.h
+    Protocol/protocolserializer.cpp
 )
 
 add_library(Network STATIC ${NETWORK_SOURCES})
@@ -33,11 +33,11 @@ add_library(Network STATIC ${NETWORK_SOURCES})
 
 **Tai sao them file `.h` vao `NETWORK_SOURCES`?**
 
-Cac file header-only (`ProtocolConstants.h`, `ProtocolHeader.h`) khong can compile thanh `.o`, nhung duoc them vao de:
+Cac file header-only (`protocolconstants.h`, `protocolheader.h`) khong can compile thanh `.o`, nhung duoc them vao de:
 - **IDE indexing:** Visual Studio, CLion, Qt Creator co the hien thi chung trong project tree
 - **Dependency tracking:** Mot so CMake generator (Ninja, Make) co the theo doi thay doi header
 
-`ProtocolSerializer.cpp` la file nguon thuc su duoc compile.
+`protocolserializer.cpp` la file nguon thuc su duoc compile.
 
 ---
 
@@ -45,17 +45,15 @@ Cac file header-only (`ProtocolConstants.h`, `ProtocolHeader.h`) khong can compi
 
 ```cmake
 target_include_directories(Network PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/Protocol
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 ```
 
-Khai bao hai thu muc include cho target `Network`:
+Khai bao thu muc goc `src/` cho target `Network`:
 
 | Thu muc | Cho phep include bang cach nao |
 |---|---|
-| `${CMAKE_CURRENT_SOURCE_DIR}` (= `src/Network/`) | `#include "Protocol/ProtocolConstants.h"` |
-| `${CMAKE_CURRENT_SOURCE_DIR}/Protocol` (= `src/Network/Protocol/`) | `#include "ProtocolConstants.h"` |
+| `${CMAKE_CURRENT_SOURCE_DIR}/..` (= `src/`) | `#include "Network/Protocol/protocolconstants.h"` |
 
 Tu khoa `PUBLIC` co nghia la bat ky target nao `link` voi `Network` cung tu dong duoc ke thua cac include directories nay. Khong can khai bao lai o target khac.
 

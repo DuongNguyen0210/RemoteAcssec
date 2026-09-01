@@ -34,7 +34,7 @@ Neu dung `memcpy` hoac `reinterpret_cast`, code chi chay dung tren mot loai CPU.
 
 ## Cac Helper: Giai thich Bit-Shift
 
-Cac ham helper khai bao `static` trong `ProtocolSerializer.cpp` (file-scope), khong duoc export ra ngoai. Chung chi phuc vu `serializeHeader`.
+Cac ham helper khai bao `static` trong `protocolserializer.cpp` (file-scope), khong duoc export ra ngoai. Chung chi phuc vu `serializeHeader`.
 
 ---
 

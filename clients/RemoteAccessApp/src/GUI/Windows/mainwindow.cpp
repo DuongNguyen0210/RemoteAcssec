@@ -1,10 +1,10 @@
 #include "mainwindow.h"
-#include "../Pages/devicespage.h"
-#include "../Pages/logspage.h"
-#include "../Pages/sessionspage.h"
-#include "../Pages/settingspage.h"
-#include "../Pages/accountpage.h"
-#include "../../Core/accountcontroller.h"
+#include "GUI/Pages/devicespage.h"
+#include "GUI/Pages/logspage.h"
+#include "GUI/Pages/sessionspage.h"
+#include "GUI/Pages/settingspage.h"
+#include "GUI/Pages/accountpage.h"
+#include "Core/Controllers/accountcontroller.h"
 
 #include <QHBoxLayout>
 #include <QStringList>

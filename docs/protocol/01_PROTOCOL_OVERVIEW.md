@@ -37,9 +37,9 @@ Phase 1A **khong** implement bat ky ket noi TCP, gui/nhan du lieu thuc te, hay x
            v
        Protocol Layer
            |
-           +-- ProtocolConstants.h  <-- hang so + MessageType
+           +-- protocolconstants.h  <-- hang so + MessageType
            |
-           +-- ProtocolHeader.h     <-- data model cho 24-byte header
+           +-- protocolheader.h     <-- data model cho 24-byte header
                     |
                     | serializeHeader()
                     v
@@ -54,19 +54,19 @@ Phase 1A **khong** implement bat ky ket noi TCP, gui/nhan du lieu thuc te, hay x
 ## Luong su dung hien tai
 
 ```
-ProtocolConstants.h
+protocolconstants.h
         |
         +-- PROTOCOL_MAGIC, PROTOCOL_VERSION, HEADER_SIZE, MAX_PAYLOAD_LENGTH
         +-- enum class MessageType : uint8_t
                  |
                  v
-         ProtocolHeader.h
+         protocolheader.h
                  |
                  +-- struct ProtocolHeader { ... }
                  +-- explicit ProtocolHeader(MessageType)
                               |
                               v
-                 ProtocolSerializer.h / .cpp
+                 protocolserializer.h / .cpp
                               |
                               +-- serializeHeader() --> QByteArray (24 bytes)
                               |

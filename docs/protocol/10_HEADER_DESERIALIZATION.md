@@ -1,8 +1,8 @@
 # 10 - Header Deserialization (ProtocolSerializer)
 
 > Files:
-> - `clients/RemoteAccessApp/src/Network/Protocol/ProtocolSerializer.h`
-> - `clients/RemoteAccessApp/src/Network/Protocol/ProtocolSerializer.cpp`
+> - `clients/RemoteAccessApp/src/Network/Protocol/protocolserializer.h`
+> - `clients/RemoteAccessApp/src/Network/Protocol/protocolserializer.cpp`
 > Namespace: `Protocol`
 > Phase: 1A.2C
 > Xem them: [README.md](README.md)
@@ -113,7 +113,7 @@ Tham khao nguyen ly Big Endian: [07_BYTE_ORDER_BIG_ENDIAN.md](07_BYTE_ORDER_BIG_
 
 ## 6. Cac Helper `read...BE()` va Signed Byte Handling
 
-Implementation dung cac ham helper noi bo trong file `ProtocolSerializer.cpp`:
+Implementation dung cac ham helper noi bo trong file `protocolserializer.cpp`:
 - `readUInt8(buf, offset)`
 - `readUInt16BE(buf, offset)`
 - `readUInt32BE(buf, offset)`

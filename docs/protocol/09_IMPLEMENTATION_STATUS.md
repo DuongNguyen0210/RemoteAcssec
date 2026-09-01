@@ -14,16 +14,16 @@
 - [x] Hang so `HEADER_SIZE` (24)
 - [x] Hang so `MAX_PAYLOAD_LENGTH` (524288 = 512 KiB)
 - [x] `enum class MessageType : uint8_t` voi 20 message types
-- [x] File `ProtocolConstants.h` trong `namespace Protocol`
-- [x] CMake: `Protocol/ProtocolConstants.h` thuoc target `Network`
+- [x] File `protocolconstants.h` trong `namespace Protocol`
+- [x] CMake: `Protocol/protocolconstants.h` thuoc target `Network`
 
 ### Phase 1A.2A - ProtocolHeader Data Model
 
 - [x] `struct ProtocolHeader` voi 7 fields
 - [x] Constructor `explicit ProtocolHeader(MessageType)`
 - [x] Default values cho 6/7 fields (tru `type` do caller cung cap)
-- [x] File `ProtocolHeader.h` trong `namespace Protocol`
-- [x] CMake: `Protocol/ProtocolHeader.h` thuoc target `Network`
+- [x] File `protocolheader.h` trong `namespace Protocol`
+- [x] CMake: `Protocol/protocolheader.h` thuoc target `Network`
 
 ### Phase 1A.2B - Header Serialization
 
@@ -34,7 +34,7 @@
 - [x] Helper: `appendUInt8`, `appendUInt16BE`, `appendUInt32BE`, `appendUInt64BE`
 - [x] `MessageType` serialize bang underlying `uint8_t` value
 - [x] `Q_ASSERT` kiem tra size == 24 bytes
-- [x] CMake: `ProtocolSerializer.h` + `ProtocolSerializer.cpp` thuoc target `Network`
+- [x] CMake: `protocolserializer.h` + `protocolserializer.cpp` thuoc target `Network`
 - [x] Build PASS
 - [x] App launch PASS (kiem tra regression)
 - [x] Test vector PASS (xac nhan bang Python struct.pack)
@@ -368,8 +368,8 @@ chức năng đó thuộc những giai đoạn sau.
 ## Sơ đồ tiến độ
 
 ```
-[DONE] ProtocolConstants.h  (constants + MessageType)
-[DONE] ProtocolHeader.h     (data model)
+[DONE] protocolconstants.h  (constants + MessageType)
+[DONE] protocolheader.h     (data model)
 [DONE] ProtocolSerializer   (serializeHeader -> 24 bytes)
 [DONE] Header deserializer   (deserializeHeader <- 24 bytes)
 [DONE] RdtpStreamParser      (phân khung luồng TCP)

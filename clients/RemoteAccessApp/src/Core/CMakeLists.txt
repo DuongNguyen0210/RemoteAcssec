@@ -23,4 +23,4 @@ target_link_libraries(Core PRIVATE
 )
 
 # Cho phép các module khác (như GUI) include file .h của Core mà không cần gõ đường dẫn dài
-target_include_directories(Core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(Core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

@@ -1,6 +1,6 @@
 # 04 - ProtocolHeader Data Model
 
-> File: `clients/RemoteAccessApp/src/Network/Protocol/ProtocolHeader.h`
+> File: `clients/RemoteAccessApp/src/Network/Protocol/protocolheader.h`
 > Namespace: `Protocol`
 > Phase: 1A.2A
 > Xem them: [README.md](README.md)

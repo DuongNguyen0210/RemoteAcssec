@@ -1,5 +1,5 @@
 #include "HeartbeatReporter.h"
-#include "apiclient.h"
+#include "Network/Client/apiclient.h"
 
 #include <QHostInfo>
 #include <QSysInfo>

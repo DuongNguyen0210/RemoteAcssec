@@ -1,7 +1,7 @@
 #include "AdminSessionController.h"
 
-#include "../../Network/relayclient.h"
-#include "../../Network/protocol/protocolserializer.h"
+#include "Network/Client/relayclient.h"
+#include "Network/Protocol/protocolserializer.h"
 
 #include <QDebug>
 

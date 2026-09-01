@@ -1,11 +1,11 @@
 #include "appcontroller.h"
 
 #include "authcontroller.h"
-#include "../GUI/Windows/mainwindow.h"
+#include "GUI/Windows/mainwindow.h"
 #include "registercontroller.h"
-#include "Session/AdminSessionController.h"
-#include "../Network/HeartbeatReporter.h"
-#include "Screen/ScreenStreamSender.h"
+#include "AdminSessionController.h"
+#include "Core/Services/HeartbeatReporter.h"
+#include "Core/Services/Screen/ScreenStreamSender.h"
 
 #include <QDebug>
 #include <QGuiApplication>

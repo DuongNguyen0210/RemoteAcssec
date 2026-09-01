@@ -2,7 +2,7 @@
 #include <QFile>
 #include <QStringList>
 #include <QDebug>
-#include "Core/appcontroller.h"
+#include "Core/Controllers/appcontroller.h"
 
 static QString loadStyleSheet()
 {

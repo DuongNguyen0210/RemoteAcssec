@@ -1,0 +1,22 @@
+<RCC>
+    <qresource prefix="/styles">
+        <file alias="Resources/styles/main.qss">styles/main.qss</file>
+        <file alias="Resources/styles/sidebar.qss">styles/sidebar.qss</file>
+        <file alias="Resources/styles/topbar.qss">styles/topbar.qss</file>
+        <file alias="Resources/styles/devicecard.qss">styles/devicecard.qss</file>
+        <file alias="Resources/styles/loginwindow.qss">styles/loginwindow.qss</file>
+        <file alias="Resources/styles/registerwindow.qss">styles/registerwindow.qss</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file alias="Resources/icons/bell.svg">icons/bell.svg</file>
+        <file alias="Resources/icons/circle-question-mark.svg">icons/circle-question-mark.svg</file>
+        <file alias="Resources/icons/circle-user.svg">icons/circle-user.svg</file>
+        <file alias="Resources/icons/computer.svg">icons/computer.svg</file>
+        <file alias="Resources/icons/devices.svg">icons/devices.svg</file>
+        <file alias="Resources/icons/logs.svg">icons/logs.svg</file>
+        <file alias="Resources/icons/sessions.svg">icons/sessions.svg</file>
+        <file alias="Resources/icons/settings.svg">icons/settings.svg</file>
+        <file alias="Resources/icons/x.svg">icons/x.svg</file>
+        <file alias="Resources/icons/add-fill.svg">icons/add-fill.svg</file>
+    </qresource>
+</RCC>

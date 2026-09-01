@@ -1,6 +1,6 @@
 # 03 - MessageType
 
-> Định nghĩa trong: `clients/RemoteAccessApp/src/Network/protocol/protocolconstants.h`
+> Định nghĩa trong: `clients/RemoteAccessApp/src/Network/Protocol/protocolconstants.h`
 > Namespace: `Protocol`
 > Xem thêm: [README.md](README.md)
 

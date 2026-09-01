@@ -1,6 +1,6 @@
 # 02 - Protocol Constants
 
-> File: `clients/RemoteAccessApp/src/Network/Protocol/ProtocolConstants.h`
+> File: `clients/RemoteAccessApp/src/Network/Protocol/protocolconstants.h`
 > Namespace: `Protocol`
 > Xem them: [README.md](README.md)
 
@@ -10,7 +10,7 @@
 
 Phase 1A.1 tao ra mot diem chua duy nhat (single source of truth) cho toan bo hang so va kieu du lieu cua protocol. Thay vi moi phan code tu khai bao cac magic number hay gia tri phien ban, tat ca dung chung tu file nay, dam bao tinh nhat quan.
 
-File `ProtocolConstants.h` la header-only (chi gom `.h`, khong co `.cpp`), thuoc `namespace Protocol`. Tat ca Host, Client va Relay (khi duoc implement) deu se `#include` file nay.
+File `protocolconstants.h` la header-only (chi gom `.h`, khong co `.cpp`), thuoc `namespace Protocol`. Tat ca Host, Client va Relay (khi duoc implement) deu se `#include` file nay.
 
 ---
 

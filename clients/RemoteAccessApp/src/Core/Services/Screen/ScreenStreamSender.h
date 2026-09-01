@@ -6,7 +6,7 @@
 #include <QTimer>
 #include <cstdint>
 
-#include "../../Network/protocol/RdtpStreamParser.h"
+#include "Network/Protocol/RdtpStreamParser.h"
 
 class RelayClient;
 

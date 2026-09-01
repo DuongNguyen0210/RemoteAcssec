@@ -1,6 +1,6 @@
 #include "accountcontroller.h"
-#include "../GUI/Pages/accountpage.h"
-#include "../Network/accountservice.h"
+#include "GUI/Pages/accountpage.h"
+#include "Core/Services/accountservice.h"
 
 AccountController::AccountController(QObject *parent)
     : QObject(parent),

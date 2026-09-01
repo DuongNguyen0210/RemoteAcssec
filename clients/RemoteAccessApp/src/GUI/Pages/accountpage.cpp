@@ -109,7 +109,7 @@ QFrame *accountCard(const QString &username, const QString &password, const QStr
 
 }
 
-#include "../../Core/accountcontroller.h"
+#include "Core/Controllers/accountcontroller.h"
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QMessageBox>

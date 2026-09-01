@@ -1,8 +1,8 @@
 # 06 - Header Serialization (ProtocolSerializer)
 
 > Files:
-> - `clients/RemoteAccessApp/src/Network/Protocol/ProtocolSerializer.h`
-> - `clients/RemoteAccessApp/src/Network/Protocol/ProtocolSerializer.cpp`
+> - `clients/RemoteAccessApp/src/Network/Protocol/protocolserializer.h`
+> - `clients/RemoteAccessApp/src/Network/Protocol/protocolserializer.cpp`
 > Namespace: `Protocol`
 > Phase: 1A.2B
 > Xem them: [README.md](README.md)
@@ -26,9 +26,9 @@ ProtocolHeader object (RAM)
 
 ---
 
-## File: `ProtocolSerializer.h`
+## File: `protocolserializer.h`
 
-File header khai bao class `ProtocolSerializer` trong `namespace Protocol`. No `#include` ca `QByteArray` (kieu du lieu tra ve) va `ProtocolHeader.h` (kieu tham so dau vao).
+File header khai bao class `ProtocolSerializer` trong `namespace Protocol`. No `#include` ca `QByteArray` (kieu du lieu tra ve) va `protocolheader.h` (kieu tham so dau vao).
 
 ### Class `ProtocolSerializer`
 
@@ -56,7 +56,7 @@ QByteArray bytes = Protocol::ProtocolSerializer::serializeHeader(header);
 
 ---
 
-## File: `ProtocolSerializer.cpp`
+## File: `protocolserializer.cpp`
 
 File implement chua hai phan: cac helper noi bo (file-scope `static`) va ham chinh `serializeHeader`.
 

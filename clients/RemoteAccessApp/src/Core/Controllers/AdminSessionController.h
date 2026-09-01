@@ -5,7 +5,7 @@
 #include <QString>
 #include <QtGlobal>
 
-#include "../../Network/protocol/RdtpStreamParser.h"
+#include "Network/Protocol/RdtpStreamParser.h"
 
 class RelayClient;
 

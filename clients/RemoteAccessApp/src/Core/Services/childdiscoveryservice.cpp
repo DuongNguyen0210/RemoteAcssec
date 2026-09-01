@@ -1,6 +1,6 @@
 #include "childdiscoveryservice.h"
 
-#include "apiclient.h"
+#include "Network/Client/apiclient.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
