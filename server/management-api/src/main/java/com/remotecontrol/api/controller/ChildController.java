@@ -4,14 +4,12 @@ import com.remotecontrol.api.dto.ListChillResponse;
 import com.remotecontrol.api.dto.RegisterRequest;
 import com.remotecontrol.api.dto.RegisterResponse;
 import com.remotecontrol.api.dto.HeartbeatRequest;
-import com.remotecontrol.api.dto.ChildSummaryResponse;
 import com.remotecontrol.api.service.ChildService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestHeader;
 
-import java.util.List;
 import java.util.Optional;
 
 @RestController
