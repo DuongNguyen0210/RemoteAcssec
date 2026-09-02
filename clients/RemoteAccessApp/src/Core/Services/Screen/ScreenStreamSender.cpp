@@ -9,7 +9,8 @@
 #include <QDebug>
 
 // Relay host for local / LAN testing.
-static const QString RELAY_HOST = QStringLiteral("localhost");
+static const QString RELAY_HOST = QStringLiteral("0.tcp.ap.ngrok.io");
+// port = 29856
 
 ScreenStreamSender::ScreenStreamSender(const QString &childUsername, QObject *parent)
     : QObject(parent)
@@ -216,8 +217,6 @@ void ScreenStreamSender::onTick()
     // --- 1. Backpressure check ---------------------------------------------
     const qint64 pending = m_relayClient->pendingBytes();
     if (pending > MAX_PENDING_BYTES) {
-        qDebug() << "[ScreenStreamSender] Backpressure: skipping frame"
-                 << m_frameId << " pending=" << pending << "bytes";
         return;
     }
 
@@ -235,6 +234,11 @@ void ScreenStreamSender::onTick()
         qWarning() << "[ScreenStreamSender] Encode failed, skipping frame.";
         return;
     }
+
+    // Capture and JPEG encoding are synchronous, but re-check the transport
+    // before enqueueing so this frame never joins older pending screen data.
+    if (m_relayClient->pendingBytes() > MAX_PENDING_BYTES)
+        return;
 
     // --- 4. Packetize ------------------------------------------------------
     const QList<QByteArray> packets =

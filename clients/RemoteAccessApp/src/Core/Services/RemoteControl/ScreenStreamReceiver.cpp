@@ -1,6 +1,9 @@
 #include "ScreenStreamReceiver.h"
 
 #include <QDebug>
+#include <QMetaObject>
+
+#include <utility>
 
 ScreenStreamReceiver::ScreenStreamReceiver(QObject *parent)
     : QObject(parent)
@@ -11,6 +14,8 @@ ScreenStreamReceiver::ScreenStreamReceiver(QObject *parent)
 void ScreenStreamReceiver::setActiveSession(quint64 sessionId)
 {
     m_reassembler.reset();
+    m_pendingJpeg.clear();
+    m_pendingFrameId = 0;
     m_activeSessionId = sessionId;
 }
 
@@ -37,15 +42,39 @@ void ScreenStreamReceiver::handleMessage(
         return;
     }
 
-    const auto completeFrame = m_reassembler.addChunk(
+    auto completeFrame = m_reassembler.addChunk(
             message.payload, message.header.sequenceNumber);
     if (!completeFrame.has_value())
         return;
 
-    const QImage image = QImage::fromData(completeFrame->jpegBytes, "JPEG");
+    m_pendingJpeg = std::move(completeFrame->jpegBytes);
+    m_pendingFrameId = completeFrame->frameId;
+
+    if (m_decodeScheduled)
+        return;
+
+    m_decodeScheduled = true;
+    QMetaObject::invokeMethod(
+            this,
+            [this]() { decodePendingFrame(); },
+            Qt::QueuedConnection);
+}
+
+void ScreenStreamReceiver::decodePendingFrame()
+{
+    QByteArray jpegBytes = std::move(m_pendingJpeg);
+    const uint32_t frameId = m_pendingFrameId;
+    m_pendingJpeg.clear();
+    m_pendingFrameId = 0;
+    m_decodeScheduled = false;
+
+    if (jpegBytes.isEmpty())
+        return;
+
+    const QImage image = QImage::fromData(jpegBytes, "JPEG");
     if (image.isNull()) {
         qWarning() << "[ScreenStreamReceiver] Giai ma JPEG that bai, frameId="
-                   << completeFrame->frameId;
+                   << frameId;
         return;
     }
 

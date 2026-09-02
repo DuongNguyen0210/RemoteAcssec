@@ -7,6 +7,7 @@ import com.remotecontrol.relay.protocol.ProtocolHeader;
 import com.remotecontrol.relay.registry.RelayRegistry;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.SimpleChannelInboundHandler;
 
 import java.nio.ByteBuffer;
@@ -16,9 +17,25 @@ import java.nio.charset.StandardCharsets;
 
 public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
+    private static final int SCREEN_FRAME_METADATA_SIZE = 16;
+    private static final long SCREEN_DROP_LOG_INTERVAL_NANOS = 1_000_000_000L;
+    private static final boolean SCREEN_FRAME_DIAGNOSTICS_ENABLED =
+            Boolean.getBoolean("relay.screenFrameDiagnostics");
+
     // One screen handler per channel; the registry is shared through construction.
     private final ScreenFrameHandler screenFrameHandler = new ScreenFrameHandler();
     private final RelayRegistry relayRegistry;
+
+    // SCREEN_FRAME is serialized by the current CHILD sender, so one bounded
+    // state record is enough to make an admission decision for the whole frame.
+    private Channel screenFrameDestination;
+    private long activeScreenFrameId = -1L;
+    private long activeScreenChunkCount;
+    private long activeScreenTotalFrameSize;
+    private boolean dropActiveScreenFrame;
+    private Channel lastScreenFrameWriteDestination;
+    private ChannelFuture lastScreenFrameWrite;
+    private long lastScreenDropLogNanos;
 
     public RelayServerHandler(RelayRegistry relayRegistry) {
         this.relayRegistry = relayRegistry;
@@ -255,13 +272,126 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
             return;
         }
 
-        session.getAdminChannel().writeAndFlush(msg);
-        System.out.println("[RelayServer] SCREEN_FRAME forwarded sessionId=" + sessionId
-                + " sequenceNumber=" + msg.getHeader().getSequenceNumber()
-                + " payloadBytes=" + msg.getHeader().getPayloadLength());
+        ScreenFrameMetadata metadata = decodeScreenFrameMetadata(msg);
+        if (metadata == null) {
+            System.err.println("[RelayServer] Bo SCREEN_FRAME co metadata khong hop le");
+            return;
+        }
 
-        // Existing reassembly remains diagnostic-only; forwarding above uses the original message.
-        screenFrameHandler.handle(msg);
+        Channel adminChannel = session.getAdminChannel();
+        if (screenFrameDestination != adminChannel
+                || activeScreenFrameId != metadata.frameId) {
+            beginScreenFrameAdmission(adminChannel, sessionId, metadata);
+        } else if (activeScreenChunkCount != metadata.chunkCount
+                || activeScreenTotalFrameSize != metadata.totalFrameSize) {
+            dropActiveScreenFrame = true;
+        }
+
+        if (!dropActiveScreenFrame) {
+            ChannelFuture writeFuture = adminChannel.writeAndFlush(msg);
+            if (metadata.isLastChunk()) {
+                lastScreenFrameWriteDestination = adminChannel;
+                lastScreenFrameWrite = writeFuture;
+            }
+
+            // Diagnostic reassembly remains available explicitly, but is off
+            // by default so it cannot block the production forwarding path.
+            if (SCREEN_FRAME_DIAGNOSTICS_ENABLED)
+                screenFrameHandler.handle(msg);
+        }
+
+        if (metadata.isLastChunk())
+            resetScreenFrameAdmission();
+    }
+
+    private void beginScreenFrameAdmission(Channel adminChannel,
+                                           long sessionId,
+                                           ScreenFrameMetadata metadata) {
+        screenFrameDestination = adminChannel;
+        activeScreenFrameId = metadata.frameId;
+        activeScreenChunkCount = metadata.chunkCount;
+        activeScreenTotalFrameSize = metadata.totalFrameSize;
+
+        final long frameWireBytes = metadata.totalFrameSize
+                + metadata.chunkCount
+                * (ProtocolConstants.HEADER_SIZE + SCREEN_FRAME_METADATA_SIZE);
+        final long writableBytes = adminChannel.bytesBeforeUnwritable();
+        final boolean previousFramePending =
+                lastScreenFrameWriteDestination == adminChannel
+                && lastScreenFrameWrite != null
+                && !lastScreenFrameWrite.isDone();
+
+        dropActiveScreenFrame = metadata.chunkIndex != 0
+                || !adminChannel.isActive()
+                || !adminChannel.isWritable()
+                || previousFramePending
+                || frameWireBytes > writableBytes;
+
+        if (dropActiveScreenFrame)
+            logScreenFrameDrop(sessionId, metadata);
+    }
+
+    private void logScreenFrameDrop(long sessionId, ScreenFrameMetadata metadata) {
+        final long now = System.nanoTime();
+        if (now - lastScreenDropLogNanos < SCREEN_DROP_LOG_INTERVAL_NANOS)
+            return;
+
+        lastScreenDropLogNanos = now;
+        System.out.println("[RelayServer] Bo toan bo frame man hinh cham, sessionId="
+                + sessionId + " frameId=" + metadata.frameId
+                + " frameBytes=" + metadata.totalFrameSize);
+    }
+
+    private void resetScreenFrameAdmission() {
+        screenFrameDestination = null;
+        activeScreenFrameId = -1L;
+        activeScreenChunkCount = 0L;
+        activeScreenTotalFrameSize = 0L;
+        dropActiveScreenFrame = false;
+    }
+
+    private ScreenFrameMetadata decodeScreenFrameMetadata(Protocol msg) {
+        byte[] payload = msg.getPayload();
+        if (payload == null || payload.length < SCREEN_FRAME_METADATA_SIZE)
+            return null;
+
+        long frameId = readUnsignedInt(payload, 0);
+        long chunkIndex = readUnsignedInt(payload, 4);
+        long chunkCount = readUnsignedInt(payload, 8);
+        long totalFrameSize = readUnsignedInt(payload, 12);
+        if (chunkCount == 0 || chunkIndex >= chunkCount || totalFrameSize == 0)
+            return null;
+
+        return new ScreenFrameMetadata(
+                frameId, chunkIndex, chunkCount, totalFrameSize);
+    }
+
+    private static long readUnsignedInt(byte[] payload, int offset) {
+        return ((long) (payload[offset] & 0xFF) << 24)
+                | ((long) (payload[offset + 1] & 0xFF) << 16)
+                | ((long) (payload[offset + 2] & 0xFF) << 8)
+                | (long) (payload[offset + 3] & 0xFF);
+    }
+
+    private static final class ScreenFrameMetadata {
+        private final long frameId;
+        private final long chunkIndex;
+        private final long chunkCount;
+        private final long totalFrameSize;
+
+        private ScreenFrameMetadata(long frameId,
+                                    long chunkIndex,
+                                    long chunkCount,
+                                    long totalFrameSize) {
+            this.frameId = frameId;
+            this.chunkIndex = chunkIndex;
+            this.chunkCount = chunkCount;
+            this.totalFrameSize = totalFrameSize;
+        }
+
+        private boolean isLastChunk() {
+            return chunkIndex + 1 == chunkCount;
+        }
     }
 
     private boolean isMouseMessageType(byte type) {
@@ -293,6 +423,9 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        resetScreenFrameAdmission();
+        lastScreenFrameWriteDestination = null;
+        lastScreenFrameWrite = null;
         relayRegistry.removeSessionForChannel(ctx.channel());
         relayRegistry.unregisterChild(ctx.channel());
         System.out.println("[RelayServer] Ket noi da dong: " + ctx.channel().remoteAddress());

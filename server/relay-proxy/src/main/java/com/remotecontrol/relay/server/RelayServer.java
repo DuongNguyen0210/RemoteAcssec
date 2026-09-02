@@ -3,17 +3,42 @@ package com.remotecontrol.relay.server;
 import com.remotecontrol.relay.handler.ProtocolDecoder;
 import com.remotecontrol.relay.handler.ProtocolEncoder;
 import com.remotecontrol.relay.handler.RelayServerHandler;
+import com.remotecontrol.relay.protocol.Protocol;
+import com.remotecontrol.relay.protocol.ProtocolConstants;
 import com.remotecontrol.relay.registry.RelayRegistry;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.DefaultMessageSizeEstimator;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.MessageSizeEstimator;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 public class RelayServer {
+
+    private static final WriteBufferWaterMark RELAY_WRITE_BUFFER_WATER_MARK =
+            new WriteBufferWaterMark(512 * 1024, 2 * 1024 * 1024);
+
+    private static final MessageSizeEstimator RDTP_MESSAGE_SIZE_ESTIMATOR =
+            new MessageSizeEstimator() {
+                @Override
+                public MessageSizeEstimator.Handle newHandle() {
+                    final MessageSizeEstimator.Handle fallback =
+                            DefaultMessageSizeEstimator.DEFAULT.newHandle();
+                    return msg -> {
+                        if (msg instanceof Protocol) {
+                            byte[] payload = ((Protocol) msg).getPayload();
+                            return ProtocolConstants.HEADER_SIZE
+                                    + (payload == null ? 0 : payload.length);
+                        }
+                        return fallback.size(msg);
+                    };
+                }
+            };
 
     private final int port;
 
@@ -42,7 +67,11 @@ public class RelayServer {
                  }
              })
              .option(ChannelOption.SO_BACKLOG, 128)
-             .childOption(ChannelOption.SO_KEEPALIVE, true);
+             .childOption(ChannelOption.SO_KEEPALIVE, true)
+             .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,
+                     RELAY_WRITE_BUFFER_WATER_MARK)
+             .childOption(ChannelOption.MESSAGE_SIZE_ESTIMATOR,
+                     RDTP_MESSAGE_SIZE_ESTIMATOR);
 
             ChannelFuture f = b.bind(port).sync();
             f.channel().closeFuture().sync();

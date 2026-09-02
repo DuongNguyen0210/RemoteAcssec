@@ -37,13 +37,13 @@ public:
     // Interval between capture ticks (milliseconds).
     static constexpr int STREAM_INTERVAL_MS = 200;   // ≈ 5 FPS
 
-    // Maximum bytes allowed in the relay socket output buffer before
-    // the current frame is skipped.  Set to two raw maximum-size frames
-    // to allow one frame in-flight while a second is being written.
-    static constexpr qint64 MAX_PENDING_BYTES = 2 * 524288LL;   // 1 MB
+    // Phase 6B.1 admits a new screen frame only when the existing socket
+    // write buffer is empty.  The timer retries on a later tick instead of
+    // appending a fresh frame behind stale screen bytes.
+    static constexpr qint64 MAX_PENDING_BYTES = 0;
 
     // Relay host / port — must match the running Relay Proxy.
-    static constexpr quint16 RELAY_PORT = 8080;
+    static constexpr quint16 RELAY_PORT = 19802;
 
     explicit ScreenStreamSender(const QString &childUsername, QObject *parent = nullptr);
     ~ScreenStreamSender();

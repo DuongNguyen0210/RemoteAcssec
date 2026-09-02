@@ -7,8 +7,9 @@
 
 namespace {
 
-const QString RELAY_HOST = QStringLiteral("localhost");
-constexpr quint16 RELAY_PORT = 8080;
+// AdminSessionController.cpp
+const QString RELAY_HOST = QStringLiteral("0.tcp.ap.ngrok.io");
+constexpr quint16 RELAY_PORT = 19802;
 
 }
 
