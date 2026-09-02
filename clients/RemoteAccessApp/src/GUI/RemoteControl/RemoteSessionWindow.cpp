@@ -15,3 +15,8 @@ void RemoteSessionWindow::setRemoteFrame(const QImage &frame)
 {
     m_desktopView->setRemoteFrame(frame);
 }
+
+RemoteDesktopView *RemoteSessionWindow::desktopView() const
+{
+    return m_desktopView;
+}

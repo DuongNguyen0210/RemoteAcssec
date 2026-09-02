@@ -51,6 +51,11 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
             return;
         }
 
+        if (isMouseMessageType(msg.getHeader().getType())) {
+            handleMouseInput(ctx, msg);
+            return;
+        }
+
         System.out.println("[RelayServer] Nhan duoc goi tin tu Client: " + ctx.channel().remoteAddress());
         System.out.println("Noi dung Header: " + msg.toString());
 
@@ -257,6 +262,27 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
         // Existing reassembly remains diagnostic-only; forwarding above uses the original message.
         screenFrameHandler.handle(msg);
+    }
+
+    private boolean isMouseMessageType(byte type) {
+        return type == ProtocolConstants.MessageType.MOUSE_MOVE.getValue()
+                || type == ProtocolConstants.MessageType.MOUSE_BUTTON_DOWN.getValue()
+                || type == ProtocolConstants.MessageType.MOUSE_BUTTON_UP.getValue()
+                || type == ProtocolConstants.MessageType.MOUSE_WHEEL.getValue();
+    }
+
+    private void handleMouseInput(ChannelHandlerContext ctx, Protocol msg) {
+        long sessionId = msg.getHeader().getSessionId();
+        RelayRegistry.SessionRecord session = relayRegistry.findActiveSessionForAdmin(
+                sessionId, ctx.channel());
+        if (session == null) {
+            System.out.println("[RelayServer] MOUSE_* rejected: invalid session or source");
+            return;
+        }
+
+        session.getChildChannel().writeAndFlush(msg);
+        System.out.println("[RelayServer] MOUSE_* forwarded sessionId=" + sessionId
+                + " type=" + String.format("0x%02X", msg.getHeader().getType()));
     }
 
     @Override

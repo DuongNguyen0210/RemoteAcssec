@@ -44,6 +44,10 @@ public final class RelayRegistry {
         public Channel getAdminChannel() {
             return adminChannel;
         }
+
+        public Channel getChildChannel() {
+            return childChannel;
+        }
     }
 
     /**
@@ -136,6 +140,19 @@ public final class RelayRegistry {
                 || session == null
                 || session.state != SessionState.ACTIVE
                 || session.childChannel != childChannel) {
+            return null;
+        }
+
+        return session;
+    }
+
+    public synchronized SessionRecord findActiveSessionForAdmin(
+            long sessionId, Channel adminChannel) {
+        SessionRecord session = sessions.get(sessionId);
+        if (sessionId == 0
+                || session == null
+                || session.state != SessionState.ACTIVE
+                || session.adminChannel != adminChannel) {
             return null;
         }
 

@@ -54,6 +54,11 @@ public:
     // Stop the timer.
     void stop();
 
+    quint64 currentSessionId() const;
+
+signals:
+    void sessionProtocolReceived(const Protocol::RdtpStreamParser::Message &message);
+
 private slots:
     void onTick();
     void onRelayConnected();

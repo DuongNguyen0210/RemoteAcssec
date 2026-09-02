@@ -13,6 +13,7 @@ public:
     explicit RemoteSessionWindow(QWidget *parent = nullptr);
 
     void setRemoteFrame(const QImage &frame);
+    RemoteDesktopView *desktopView() const;
 
 private:
     RemoteDesktopView *m_desktopView;

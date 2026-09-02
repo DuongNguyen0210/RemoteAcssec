@@ -57,6 +57,23 @@ void AdminSessionController::requestSession(const QString &targetChildUsername)
     }
 }
 
+bool AdminSessionController::sendSessionMessage(
+        Protocol::MessageType type, const QByteArray &payload)
+{
+    if (!m_connected || m_activeSessionId == 0
+            || static_cast<quint64>(payload.size()) > Protocol::MAX_PAYLOAD_LENGTH) {
+        return false;
+    }
+
+    Protocol::ProtocolHeader header(type);
+    header.payloadLength = static_cast<uint32_t>(payload.size());
+    header.sessionId = static_cast<uint64_t>(m_activeSessionId);
+
+    QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
+    packet.append(payload);
+    return m_relayClient->sendRawPacket(packet) >= 0;
+}
+
 void AdminSessionController::onRelayConnected()
 {
     m_connected = true;

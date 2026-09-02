@@ -58,6 +58,11 @@ void ScreenStreamSender::stop()
     }
 }
 
+quint64 ScreenStreamSender::currentSessionId() const
+{
+    return static_cast<quint64>(m_currentSessionId);
+}
+
 void ScreenStreamSender::onRelayConnected()
 {
     m_registered = false;
@@ -110,6 +115,12 @@ void ScreenStreamSender::onRelayBytesReceived(const QByteArray &data)
     }
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
+        if (message.header.type != Protocol::MessageType::SESSION_REQUEST
+                && message.header.type != Protocol::MessageType::REGISTER_ACK) {
+            emit sessionProtocolReceived(message);
+            continue;
+        }
+
         if (message.header.type == Protocol::MessageType::SESSION_REQUEST) {
             handleSessionRequest(message);
             continue;

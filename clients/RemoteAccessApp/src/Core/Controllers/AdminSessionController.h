@@ -17,6 +17,8 @@ public:
     explicit AdminSessionController(QObject *parent = nullptr);
 
     void requestSession(const QString &targetChildUsername);
+    bool sendSessionMessage(Protocol::MessageType type,
+                            const QByteArray &payload);
 
 signals:
     void sessionEstablished(quint64 sessionId);

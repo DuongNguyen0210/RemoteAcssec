@@ -5,6 +5,7 @@
 #include "registercontroller.h"
 #include "AdminSessionController.h"
 #include "Core/Services/HeartbeatReporter.h"
+#include "Core/Services/RemoteControl/ChildRemoteControlContext.h"
 #include "Core/Services/RemoteControl/RemoteControlContext.h"
 #include "Core/Services/RemoteControl/RemoteControlSubsystem.h"
 #include "Core/Services/Screen/ScreenStreamSender.h"
@@ -76,6 +77,11 @@ void AppController::handleLoginSuccess(const QString &role, const QString &usern
             m_screenStreamSender = new ScreenStreamSender(username, this);
             m_screenStreamSender->start();
         }
+
+        if (!m_remoteControlSubsystem)
+            m_remoteControlSubsystem = new RemoteControlSubsystem(this);
+        const ChildRemoteControlContext context{m_screenStreamSender};
+        m_remoteControlSubsystem->activate(context);
     }
 
     if (m_authController)
