@@ -1,10 +1,10 @@
-#include "mainwindow.h"
-#include "../Pages/devicespage.h"
-#include "../Pages/logspage.h"
-#include "../Pages/sessionspage.h"
-#include "../Pages/settingspage.h"
-#include "../Pages/accountpage.h"
-#include "../../Core/accountcontroller.h"
+#include "MainWindow.h"
+#include "../Pages/DevicesPage.h"
+#include "../Pages/LogsPage.h"
+#include "../Pages/SessionsPage.h"
+#include "../Pages/SettingsPage.h"
+#include "../Pages/AccountPage.h"
+#include "../../Core/AccountController.h"
 
 #include <QHBoxLayout>
 #include <QStringList>
@@ -74,7 +74,12 @@ void MainWindow::setupUi()
     mainLayout->addWidget(rightContentWidget);
 
     connect(sidebar, &SidebarWidget::pageChanged, stackedWidget, &QStackedWidget::setCurrentIndex);
-    connect(sidebar, &SidebarWidget::pageChanged, this, [this](int pageIndex) {
+    connect(sidebar, &SidebarWidget::pageChanged, this, [this, pageDevices, accountController](int pageIndex) {
+        if (pageIndex == 0) {
+            pageDevices->loadDevices();
+        } else if (pageIndex == 4) {
+            accountController->fetchAccounts();
+        }
         const QStringList placeholders = {
             "Search devices...",
             "Search sessions...",

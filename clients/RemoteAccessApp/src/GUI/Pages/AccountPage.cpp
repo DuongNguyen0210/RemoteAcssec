@@ -1,4 +1,4 @@
-#include "accountpage.h"
+#include "AccountPage.h"
 
 #include <QFrame>
 #include <QGridLayout>
@@ -109,7 +109,7 @@ QFrame *accountCard(const QString &username, const QString &password, const QStr
 
 }
 
-#include "../../Core/accountcontroller.h"
+#include "../../Core/AccountController.h"
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QMessageBox>

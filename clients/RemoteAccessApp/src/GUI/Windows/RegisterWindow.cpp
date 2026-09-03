@@ -4,7 +4,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
-#include "registerwindow.h"
+#include "RegisterWindow.h"
 
 RegisterWindow::RegisterWindow(QWidget * parent) : QWidget(parent) {
     setObjectName("registerWindow");

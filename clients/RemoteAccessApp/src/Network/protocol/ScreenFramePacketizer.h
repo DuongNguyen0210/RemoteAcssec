@@ -20,8 +20,8 @@
 //   - session state (the caller supplies the active sessionId)
 //   - timers / frame rate
 //
-// It depends only on protocolconstants.h / protocolheader.h /
-// protocolserializer.h and Qt byte containers.
+// It depends only on Protocolconstants.h / Protocolheader.h /
+// ProtocolSerializer.h and Qt byte containers.
 //
 // ===========================================================================
 // SCREEN_FRAME payload wire layout

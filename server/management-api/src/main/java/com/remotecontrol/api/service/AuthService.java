@@ -36,14 +36,14 @@ public class AuthService {
             l.setSuccess(true);
             l.setRole("ADMIN");
             l.setMessage("Account Login Successful");
-            l.setToken(jwtUtil.generateToken(username, "ADMIN"));
+            l.setToken(jwtUtil.generateToken(username, "ADMIN", String.valueOf(u.get().getId())));
         }
         else if(c.isPresent() && Objects.equals(c.get().getPassword(), password))
         {
             l.setSuccess(true);
             l.setRole("CHILD");
             l.setMessage("Account Login Successful");
-            l.setToken(jwtUtil.generateToken(username, "CHILD"));
+            l.setToken(jwtUtil.generateToken(username, "CHILD", String.valueOf(c.get().getId())));
         }
         return l;
     }

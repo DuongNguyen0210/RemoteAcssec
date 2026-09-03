@@ -1,4 +1,4 @@
-#include "sidebarwidget.h"
+#include "SidebarWidget.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

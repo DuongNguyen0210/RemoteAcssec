@@ -4,7 +4,9 @@
 #include <QWidget>
 #include <QStringList>
 
-class ChildDiscoveryService;
+#include <QJsonArray>
+
+class AccountService;
 class FlowLayout;
 class QWidget;
 
@@ -13,18 +15,18 @@ class DevicesPage : public QWidget
     Q_OBJECT
 public:
     explicit DevicesPage(QWidget *parent = nullptr);
+    void loadDevices();
 
 signals:
     void connectRequested(const QString &childUsername);
 
 private slots:
-    void handleChildrenLoaded(const QStringList &childUsernames);
-    void handleLoadFailed(const QString &message);
+    void handleChildrenLoaded(bool success, const QJsonArray &children, const QString &message);
 
 private:
     void setupUi();
 
-    ChildDiscoveryService *m_childDiscoveryService;
+    AccountService *m_accountService;
     FlowLayout *m_flowLayout;
     QWidget *m_scrollContent;
 };

@@ -1,26 +1,30 @@
-#include "devicespage.h"
+#include "DevicesPage.h"
 
 #include <QLabel>
 #include <QDebug>
 #include <QLayoutItem>
 #include <QScrollArea>
 #include <QVBoxLayout>
-#include "../Components/devicecardwidget.h"
-#include "../Layouts/flowlayout.h"
-#include "../../Network/childdiscoveryservice.h"
+#include "../Components/DevicecardWidget.h"
+#include "../Layouts/Flowlayout.h"
+#include "../../Network/AccountService.h"
+#include <QJsonObject>
 
 DevicesPage::DevicesPage(QWidget *parent)
     : QWidget{parent}
-    , m_childDiscoveryService(new ChildDiscoveryService(this))
+    , m_accountService(new AccountService(this))
     , m_flowLayout(nullptr)
     , m_scrollContent(nullptr)
 {
     setupUi();
-    connect(m_childDiscoveryService, &ChildDiscoveryService::childrenLoaded,
+    connect(m_accountService, &AccountService::fetchListChildrenResult,
             this, &DevicesPage::handleChildrenLoaded);
-    connect(m_childDiscoveryService, &ChildDiscoveryService::loadFailed,
-            this, &DevicesPage::handleLoadFailed);
-    m_childDiscoveryService->loadChildren();
+    loadDevices();
+}
+
+void DevicesPage::loadDevices()
+{
+    m_accountService->fetchListChildren();
 }
 
 void DevicesPage::setupUi()
@@ -55,33 +59,48 @@ void DevicesPage::setupUi()
     mainLayout->addWidget(scrollArea, 1);
 }
 
-void DevicesPage::handleChildrenLoaded(const QStringList &childUsernames)
+void DevicesPage::handleChildrenLoaded(bool success, const QJsonArray &children, const QString &message)
 {
+    if (!m_flowLayout) return;
+
     while (QLayoutItem *item = m_flowLayout->takeAt(0)) {
         if (item->widget())
             item->widget()->deleteLater();
         delete item;
     }
 
-    for (const QString &childUsername : childUsernames) {
+    if (!success) {
+        qWarning() << "[DevicesPage] Failed to load devices:" << message;
+        return;
+    }
+
+    int count = 0;
+    for (const QJsonValue &val : children) {
+        if (!val.isObject()) continue;
+
+        QJsonObject childObj = val.toObject();
+        QString childUsername = childObj.value(QStringLiteral("childUsername")).toString();
+        if (childUsername.isEmpty()) {
+            childUsername = childObj.value(QStringLiteral("username")).toString();
+        }
+        if (childUsername.isEmpty()) continue;
+
+        bool isOnline = childObj.value(QStringLiteral("online")).toBool(false);
+        QString status = isOnline ? QStringLiteral("Active") : QStringLiteral("Offline");
+
         DeviceCardWidget *card = new DeviceCardWidget(
                 childUsername,
                 childUsername,
-                QStringLiteral("Thông tin thiết bị chưa được cung cấp"),
-                QStringLiteral("Chưa được cung cấp"),
-                QStringLiteral("Không xác định"),
-                QStringLiteral("Chưa được cung cấp"),
+                QStringLiteral("Thông tin thiết bị"),
+                QStringLiteral("Local Network"),
+                status,
+                QStringLiteral("N/A"),
                 m_scrollContent);
         connect(card, &DeviceCardWidget::connectRequested,
                 this, &DevicesPage::connectRequested);
         m_flowLayout->addWidget(card);
+        count++;
     }
 
-    qDebug() << "[DevicesPage] Da tai" << childUsernames.size()
-             << "tai khoan CHILD cua ADMIN.";
-}
-
-void DevicesPage::handleLoadFailed(const QString &message)
-{
-    qWarning() << "[DevicesPage]" << message;
+    qDebug() << "[DevicesPage] Đã tải" << count << "thiết bị con qua AccountService.";
 }

@@ -1,6 +1,6 @@
-#include "authcontroller.h"
-#include "../GUI/Windows/loginwindow.h"
-#include "../Network/authservice.h"
+#include "AuthController.h"
+#include "../GUI/Windows/LoginWindow.h"
+#include "../Network/AuthService.h"
 
 AuthController::AuthController(QObject *parent)
     : QObject(parent),

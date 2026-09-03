@@ -1,4 +1,4 @@
-#include "relayclient.h"
+#include "RelayClient.h"
 #include <QDebug>
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {

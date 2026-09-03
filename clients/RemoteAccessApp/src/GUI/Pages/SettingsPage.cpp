@@ -1,4 +1,4 @@
-#include "settingspage.h"
+#include "SettingsPage.h"
 
 #include <QCheckBox>
 #include <QComboBox>

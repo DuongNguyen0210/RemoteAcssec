@@ -1,4 +1,4 @@
-#include "logspage.h"
+#include "LogsPage.h"
 
 #include <QFrame>
 #include <QHBoxLayout>

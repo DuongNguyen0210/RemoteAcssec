@@ -1,4 +1,4 @@
-#include "devicecardwidget.h"
+#include "DevicecardWidget.h"
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QPushButton>

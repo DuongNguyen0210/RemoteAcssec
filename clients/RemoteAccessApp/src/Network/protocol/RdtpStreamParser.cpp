@@ -1,7 +1,7 @@
 #include "RdtpStreamParser.h"
 
-#include "protocolconstants.h"
-#include "protocolserializer.h"
+#include "Protocolconstants.h"
+#include "ProtocolSerializer.h"
 
 namespace Protocol {
 

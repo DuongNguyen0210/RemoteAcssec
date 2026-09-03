@@ -1,4 +1,4 @@
-#include "topbarwidget.h"
+#include "TopbarWidget.h"
 
 #include <QHBoxLayout>
 #include <QIcon>

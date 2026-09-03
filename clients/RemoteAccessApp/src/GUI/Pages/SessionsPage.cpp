@@ -1,4 +1,4 @@
-#include "sessionspage.h"
+#include "SessionsPage.h"
 
 #include <QFrame>
 #include <QGridLayout>

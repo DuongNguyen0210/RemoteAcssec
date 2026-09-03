@@ -1,8 +1,8 @@
-#include "appcontroller.h"
+#include "AppController.h"
 
-#include "authcontroller.h"
-#include "../GUI/Windows/mainwindow.h"
-#include "registercontroller.h"
+#include "AuthController.h"
+#include "../GUI/Windows/MainWindow.h"
+#include "RegisterController.h"
 #include "Session/AdminSessionController.h"
 #include "../Network/HeartbeatReporter.h"
 #include "Screen/ScreenStreamSender.h"

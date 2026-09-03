@@ -3,8 +3,8 @@
 
 #include <QMainWindow>
 #include <QStackedWidget>
-#include "../Components/sidebarwidget.h"
-#include "../Components/topbarwidget.h"
+#include "../Components/SidebarWidget.h"
+#include "../Components/TopbarWidget.h"
 
 class MainWindow : public QMainWindow
 {

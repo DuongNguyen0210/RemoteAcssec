@@ -1,5 +1,5 @@
-#include "loginwindow.h"
-//#include "../Network/relayclient.h"
+#include "LoginWindow.h"
+//#include "../Network/RelayClient.h"
 #include <QFrame>
 
 #include <QDebug>

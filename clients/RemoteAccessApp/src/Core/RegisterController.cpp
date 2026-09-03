@@ -1,6 +1,6 @@
-#include "registercontroller.h"
-#include "../GUI/Windows/registerwindow.h"
-#include "../Network/accountservice.h"
+#include "RegisterController.h"
+#include "../GUI/Windows/RegisterWindow.h"
+#include "../Network/AccountService.h"
 
 RegisterController::RegisterController(QObject *parent)
     : QObject(parent),

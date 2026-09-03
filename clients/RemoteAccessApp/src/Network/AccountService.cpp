@@ -1,5 +1,5 @@
-#include "accountservice.h"
-#include "apiclient.h"
+#include "AccountService.h"
+#include "ApiClient.h"
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QDebug>

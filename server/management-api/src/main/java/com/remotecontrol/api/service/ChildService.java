@@ -28,6 +28,7 @@ public class ChildService {
     private final ChildRepository childRepository;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
+    private final PresenceService presenceService;
 
     public RegisterResponse register(RegisterRequest request, String token) {
         String childUsername = request.getChildUsername();
@@ -87,7 +88,8 @@ public class ChildService {
         List<Child> childEntities = childRepository.findByOwner(user.get());
         List<ChildDto> childList = new ArrayList<>();
         for (Child c : childEntities) {
-            childList.add(new ChildDto(c.getChildUsername(), c.getPassword()));
+            boolean isOnline = presenceService != null && presenceService.isDeviceOnline(user.get().getUsername(), c.getChildUsername());
+            childList.add(new ChildDto(c.getChildUsername(), c.getPassword(), isOnline));
         }
 
         return new ListChillResponse(childList, true, "Accepted");
@@ -121,6 +123,12 @@ public class ChildService {
 
             if (!childOpt.isPresent()) {
                 return false;
+            }
+
+            Child child = childOpt.get();
+            if (child.getOwner() != null && presenceService != null) {
+                presenceService.markDeviceOnline(child.getOwner().getUsername(), childUsername);
+                log.info("Heartbeat recorded in Redis: {} (admin: {})", childUsername, child.getOwner().getUsername());
             }
 
             return true;

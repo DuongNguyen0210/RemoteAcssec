@@ -2,9 +2,9 @@
 
 #include "ScreenCapture.h"
 #include "ScreenEncoder.h"
-#include "../../Network/relayclient.h"
+#include "../../Network/RelayClient.h"
 #include "../../Network/protocol/ScreenFramePacketizer.h"
-#include "../../Network/protocol/protocolserializer.h"
+#include "../../Network/protocol/ProtocolSerializer.h"
 
 #include <QDebug>
 

@@ -6,9 +6,9 @@ file(GLOB_RECURSE UTILS_SOURCES
     "*.h"
 )
 
-# Nếu chưa có file nào, thêm dummy.cpp để tránh lỗi "no source files"
+# Nếu chưa có file nào, thêm Dummy.cpp để tránh lỗi "no source files"
 if(NOT UTILS_SOURCES)
-    list(APPEND UTILS_SOURCES dummy.cpp)
+    list(APPEND UTILS_SOURCES Dummy.cpp)
 endif()
 
 add_library(Utils STATIC ${UTILS_SOURCES})
