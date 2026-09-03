@@ -1,17 +1,24 @@
 #include "AccountController.h"
 #include "../GUI/Pages/AccountPage.h"
-#include "../Network/AccountService.h"
+#include "Store/DeviceStore.h"
 
-AccountController::AccountController(QObject *parent)
+AccountController::AccountController(DeviceStore *store, QObject *parent)
     : QObject(parent),
       m_view(new AccountPage()),
-      m_service(new AccountService(this))
+      m_store(store)
 {
-    // Cấp cho View quyền gọi Controller
     m_view->setController(this);
 
-    connect(m_service, &AccountService::fetchListChildrenResult,
-            this, &AccountController::onFetchResult);
+    if (m_store) {
+        connect(m_store, &DeviceStore::devicesUpdated,
+                this, &AccountController::onDevicesUpdated);
+        connect(m_store, &DeviceStore::loadFailed,
+                this, &AccountController::onLoadFailed);
+        
+        if (!m_store->getDevices().isEmpty()) {
+            m_view->updateAccountList(m_store->getDevices());
+        }
+    }
             
     connect(m_view, &AccountPage::requestAddAccount,
             this, &AccountController::onAddAccountRequested);
@@ -32,14 +39,21 @@ AccountPage* AccountController::getView() const
 void AccountController::fetchAccounts()
 {
     m_view->showLoading();
-    m_service->fetchListChildren();
+    if (m_store) {
+        m_store->refresh();
+    }
 }
 
-void AccountController::onFetchResult(bool success, const QJsonArray &children, const QString &message)
+void AccountController::onDevicesUpdated(const QList<DeviceInfo> &devices)
 {
-    if (success) {
-        m_view->updateAccountList(children);
-    } else {
+    if (m_view) {
+        m_view->updateAccountList(devices);
+    }
+}
+
+void AccountController::onLoadFailed(const QString &message)
+{
+    if (m_view) {
         m_view->showError(message);
     }
 }

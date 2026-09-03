@@ -20,7 +20,7 @@ public class PresenceService {
 
     public boolean isDeviceOnline(String adminUsername, String childUsername) {
         String key = "presence:" + adminUsername + ":" + childUsername;
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
+        return redisTemplate.hasKey(key);
     }
 
     public Set<String> getOnlineChildrenOfAdmin(String adminUsername) {

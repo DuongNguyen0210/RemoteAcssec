@@ -157,7 +157,7 @@ void AccountPage::showLoading()
     m_listLayout->addStretch();
 }
 
-void AccountPage::updateAccountList(const QJsonArray &children)
+void AccountPage::updateAccountList(const QList<DeviceInfo> &accounts)
 {
     if (!m_listLayout || !m_scrollContent) return;
 
@@ -171,13 +171,13 @@ void AccountPage::updateAccountList(const QJsonArray &children)
     }
 
     // Render lại danh sách
-    for (int i = 0; i < children.size(); ++i) {
-        QJsonObject childObj = children[i].toObject();
-        QString username = childObj["username"].toString();
-        QString password = childObj["password"].toString();
-        if (password.isEmpty()) password = "N/A";
+    for (const DeviceInfo &acc : accounts) {
+        QString username = acc.childUsername.isEmpty() ? acc.username : acc.childUsername;
+        QString password = acc.password.isEmpty() ? "N/A" : acc.password;
+        QString statusText = acc.isOnline ? "Active" : "Offline";
+        QString statusRole = acc.isOnline ? "active" : "offline";
         
-        m_listLayout->addWidget(accountCard(username, password, "Child", "Active", "active", m_scrollContent));
+        m_listLayout->addWidget(accountCard(username, password, "Child", statusText, statusRole, m_scrollContent));
     }
     
     m_listLayout->addStretch();

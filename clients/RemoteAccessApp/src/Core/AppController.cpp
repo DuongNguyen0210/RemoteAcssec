@@ -6,6 +6,9 @@
 #include "Session/AdminSessionController.h"
 #include "../Network/HeartbeatReporter.h"
 #include "Screen/ScreenStreamSender.h"
+#include "Store/DeviceStore.h"
+#include "DevicesController.h"
+#include "AccountController.h"
 
 #include <QDebug>
 #include <QGuiApplication>
@@ -17,7 +20,10 @@ AppController::AppController(QObject *parent)
       m_registerController(nullptr),
       m_heartbeatReporter(nullptr),
       m_screenStreamSender(nullptr),
-      m_adminSessionController(nullptr)
+      m_adminSessionController(nullptr),
+      m_deviceStore(nullptr),
+      m_devicesController(nullptr),
+      m_accountController(nullptr)
 {
 }
 
@@ -29,6 +35,9 @@ AppController::~AppController()
     if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
     if (m_screenStreamSender) m_screenStreamSender->deleteLater();
     if (m_adminSessionController) m_adminSessionController->deleteLater();
+    if (m_devicesController) m_devicesController->deleteLater();
+    if (m_accountController) m_accountController->deleteLater();
+    if (m_deviceStore) m_deviceStore->deleteLater();
 }
 
 void AppController::start()
@@ -42,11 +51,17 @@ void AppController::handleLoginSuccess(const QString &role, const QString &usern
 {
     if (role == "ADMIN")
     {
-        m_mainWindow = new MainWindow();
+        m_deviceStore = new DeviceStore(this);
+        m_devicesController = new DevicesController(m_deviceStore, this);
+        m_accountController = new AccountController(m_deviceStore, this);
+
+        m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView());
 
         connect(m_mainWindow, &MainWindow::requestAddAccount, this, &AppController::handleRequestAddAccount);
         connect(m_mainWindow, &MainWindow::childConnectRequested,
                 this, &AppController::handleChildConnectRequested);
+        connect(m_mainWindow, &MainWindow::pageSelected,
+                this, &AppController::handlePageSelected);
 
         m_adminSessionController = new AdminSessionController(this);
         connect(m_adminSessionController, &AdminSessionController::sessionEstablished,
@@ -54,6 +69,9 @@ void AppController::handleLoginSuccess(const QString &role, const QString &usern
         connect(m_adminSessionController, &AdminSessionController::sessionFailed,
                 this, &AppController::handleSessionFailed);
         m_mainWindow->show();
+
+        // Initial fetch to populate DeviceStore
+        m_deviceStore->refresh();
     }
     else
     {
@@ -85,8 +103,23 @@ void AppController::handleRequestAddAccount()
         return;
     
     m_registerController = new RegisterController(this);
+    connect(m_registerController, &RegisterController::accountCreatedSuccessfully, this, [this]() {
+        if (m_deviceStore) {
+            m_deviceStore->refresh();
+        }
+    });
     
     m_registerController->start("admin");
+}
+
+void AppController::handlePageSelected(int pageIndex)
+{
+    // Auto-refresh DeviceStore when navigating to Devices (0) or Accounts (4)
+    if (pageIndex == 0 || pageIndex == 4) {
+        if (m_deviceStore) {
+            m_deviceStore->refresh();
+        }
+    }
 }
 
 void AppController::handleChildConnectRequested(const QString &childUsername)

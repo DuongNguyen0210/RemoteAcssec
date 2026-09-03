@@ -18,6 +18,9 @@ public:
     // Hiển thị giao diện đăng ký
     void start(const QString &parentUsername);
 
+signals:
+    void accountCreatedSuccessfully();
+
 private slots:
     void handleRegisterRequested(const QString &childUsername, const QString &password);
     void handleAccountCreated(bool success, const QString &message);

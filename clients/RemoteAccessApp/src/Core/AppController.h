@@ -11,6 +11,9 @@ class RegisterController;
 class HeartbeatReporter;
 class ScreenStreamSender;
 class AdminSessionController;
+class DeviceStore;
+class DevicesController;
+class AccountController;
 
 class AppController : public QObject
 {
@@ -27,6 +30,7 @@ private slots:
     void handleChildConnectRequested(const QString &childUsername);
     void handleSessionEstablished(quint64 sessionId);
     void handleSessionFailed(const QString &reason);
+    void handlePageSelected(int pageIndex);
 
 private:
     QPointer<AuthController> m_authController;
@@ -35,6 +39,10 @@ private:
     HeartbeatReporter *m_heartbeatReporter;
     ScreenStreamSender *m_screenStreamSender;
     AdminSessionController *m_adminSessionController;
+
+    DeviceStore *m_deviceStore;
+    DevicesController *m_devicesController;
+    AccountController *m_accountController;
 };
 
 #endif

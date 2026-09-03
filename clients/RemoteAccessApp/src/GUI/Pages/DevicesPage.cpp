@@ -7,24 +7,13 @@
 #include <QVBoxLayout>
 #include "../Components/DevicecardWidget.h"
 #include "../Layouts/Flowlayout.h"
-#include "../../Network/AccountService.h"
-#include <QJsonObject>
 
 DevicesPage::DevicesPage(QWidget *parent)
     : QWidget{parent}
-    , m_accountService(new AccountService(this))
     , m_flowLayout(nullptr)
     , m_scrollContent(nullptr)
 {
     setupUi();
-    connect(m_accountService, &AccountService::fetchListChildrenResult,
-            this, &DevicesPage::handleChildrenLoaded);
-    loadDevices();
-}
-
-void DevicesPage::loadDevices()
-{
-    m_accountService->fetchListChildren();
 }
 
 void DevicesPage::setupUi()
@@ -59,7 +48,7 @@ void DevicesPage::setupUi()
     mainLayout->addWidget(scrollArea, 1);
 }
 
-void DevicesPage::handleChildrenLoaded(bool success, const QJsonArray &children, const QString &message)
+void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
 {
     if (!m_flowLayout) return;
 
@@ -69,38 +58,21 @@ void DevicesPage::handleChildrenLoaded(bool success, const QJsonArray &children,
         delete item;
     }
 
-    if (!success) {
-        qWarning() << "[DevicesPage] Failed to load devices:" << message;
-        return;
-    }
-
-    int count = 0;
-    for (const QJsonValue &val : children) {
-        if (!val.isObject()) continue;
-
-        QJsonObject childObj = val.toObject();
-        QString childUsername = childObj.value(QStringLiteral("childUsername")).toString();
-        if (childUsername.isEmpty()) {
-            childUsername = childObj.value(QStringLiteral("username")).toString();
-        }
-        if (childUsername.isEmpty()) continue;
-
-        bool isOnline = childObj.value(QStringLiteral("online")).toBool(false);
-        QString status = isOnline ? QStringLiteral("Active") : QStringLiteral("Offline");
+    for (const DeviceInfo &device : devices) {
+        QString status = device.isOnline ? QStringLiteral("Active") : QStringLiteral("Offline");
 
         DeviceCardWidget *card = new DeviceCardWidget(
-                childUsername,
-                childUsername,
-                QStringLiteral("Thông tin thiết bị"),
-                QStringLiteral("Local Network"),
+                device.childUsername,
+                device.childUsername,
+                device.os,
+                device.ipAddress,
                 status,
                 QStringLiteral("N/A"),
                 m_scrollContent);
         connect(card, &DeviceCardWidget::connectRequested,
                 this, &DevicesPage::connectRequested);
         m_flowLayout->addWidget(card);
-        count++;
     }
 
-    qDebug() << "[DevicesPage] Đã tải" << count << "thiết bị con qua AccountService.";
+    qDebug() << "[DevicesPage] Đã render" << devices.size() << "thiết bị từ DeviceInfo Model.";
 }

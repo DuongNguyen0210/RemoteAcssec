@@ -45,6 +45,7 @@ void RegisterController::handleAccountCreated(bool success, const QString &messa
 
     if (success) {
         m_registerWindow->showSuccess(message);
+        emit accountCreatedSuccessfully();
     } else {
         m_registerWindow->showError(message);
     }

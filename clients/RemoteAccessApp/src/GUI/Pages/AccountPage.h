@@ -3,8 +3,9 @@
 
 #include <QWidget>
 #include <QVBoxLayout>
-#include <QJsonArray>
+#include <QList>
 #include <QString>
+#include "../../Core/Model/DeviceInfo.h"
 
 class AccountController;
 
@@ -17,7 +18,7 @@ public:
     void setController(AccountController *controller);
     
     void showLoading();
-    void updateAccountList(const QJsonArray &children);
+    void updateAccountList(const QList<DeviceInfo> &accounts);
     void showError(const QString &message);
 
 signals:

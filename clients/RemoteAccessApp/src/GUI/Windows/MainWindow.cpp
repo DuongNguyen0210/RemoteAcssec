@@ -4,24 +4,23 @@
 #include "../Pages/SessionsPage.h"
 #include "../Pages/SettingsPage.h"
 #include "../Pages/AccountPage.h"
-#include "../../Core/AccountController.h"
 
 #include <QHBoxLayout>
 #include <QStringList>
 #include <QVBoxLayout>
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(DevicesPage *devicesPage, AccountPage *accountPage, QWidget *parent)
     : QMainWindow(parent)
 {
     setObjectName("mainWindow");
     resize(1200, 800);
     setWindowTitle("Remote Access App");
-    setupUi();
+    setupUi(devicesPage, accountPage);
 }
 
 MainWindow::~MainWindow() {}
 
-void MainWindow::setupUi()
+void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
 {
     QWidget *centralWidget = new QWidget(this);
     centralWidget->setObjectName("appRoot");
@@ -50,22 +49,23 @@ void MainWindow::setupUi()
     stackedWidget = new QStackedWidget(this);
     stackedWidget->setObjectName("contentStack");
 
-    DevicesPage *pageDevices = new DevicesPage(this);
     SessionsPage *pageSessions = new SessionsPage(this);
     SettingsPage *pageSettings = new SettingsPage(this);
     LogsPage *pageLogs = new LogsPage(this);
 
-    AccountController *accountController = new AccountController(this);
-    AccountPage *pageAccount = accountController->getView();
-
-    stackedWidget->addWidget(pageDevices);   // index 0
+    if (devicesPage) {
+        stackedWidget->addWidget(devicesPage);   // index 0
+        connect(devicesPage, &DevicesPage::connectRequested,
+                this, &MainWindow::childConnectRequested);
+    }
     stackedWidget->addWidget(pageSessions);  // index 1
     stackedWidget->addWidget(pageSettings);  // index 2
     stackedWidget->addWidget(pageLogs);      // index 3
-    stackedWidget->addWidget(pageAccount);   // index 4
-
-    connect(accountController, &AccountController::requestAddAccount, this, &MainWindow::requestAddAccount);
-    connect(pageDevices, &DevicesPage::connectRequested, this, &MainWindow::childConnectRequested);
+    if (accountPage) {
+        stackedWidget->addWidget(accountPage);   // index 4
+        connect(accountPage, &AccountPage::requestAddAccount,
+                this, &MainWindow::requestAddAccount);
+    }
 
     rightLayout->addWidget(topbar);
     rightLayout->addWidget(stackedWidget);
@@ -74,12 +74,9 @@ void MainWindow::setupUi()
     mainLayout->addWidget(rightContentWidget);
 
     connect(sidebar, &SidebarWidget::pageChanged, stackedWidget, &QStackedWidget::setCurrentIndex);
-    connect(sidebar, &SidebarWidget::pageChanged, this, [this, pageDevices, accountController](int pageIndex) {
-        if (pageIndex == 0) {
-            pageDevices->loadDevices();
-        } else if (pageIndex == 4) {
-            accountController->fetchAccounts();
-        }
+    connect(sidebar, &SidebarWidget::pageChanged, this, [this](int pageIndex) {
+        emit pageSelected(pageIndex);
+
         const QStringList placeholders = {
             "Search devices...",
             "Search sessions...",
