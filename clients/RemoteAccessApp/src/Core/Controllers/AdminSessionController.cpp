@@ -1,15 +1,14 @@
 #include "AdminSessionController.h"
 
-#include "Network/Client/relayclient.h"
-#include "Network/Protocol/protocolserializer.h"
+#include "../../Network/RelayClient.h"
+#include "../../Network/protocol/ProtocolSerializer.h"
 
 #include <QDebug>
 
 namespace {
 
-// AdminSessionController.cpp
-const QString RELAY_HOST = QStringLiteral("0.tcp.ap.ngrok.io");
-constexpr quint16 RELAY_PORT = 19802;
+const QString RELAY_HOST = QStringLiteral("localhost");
+constexpr quint16 RELAY_PORT = 8080;
 
 }
 
@@ -56,23 +55,6 @@ void AdminSessionController::requestSession(const QString &targetChildUsername)
         m_connecting = true;
         m_relayClient->ConnectToServer(RELAY_HOST, RELAY_PORT);
     }
-}
-
-bool AdminSessionController::sendSessionMessage(
-        Protocol::MessageType type, const QByteArray &payload)
-{
-    if (!m_connected || m_activeSessionId == 0
-            || static_cast<quint64>(payload.size()) > Protocol::MAX_PAYLOAD_LENGTH) {
-        return false;
-    }
-
-    Protocol::ProtocolHeader header(type);
-    header.payloadLength = static_cast<uint32_t>(payload.size());
-    header.sessionId = static_cast<uint64_t>(m_activeSessionId);
-
-    QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
-    packet.append(payload);
-    return m_relayClient->sendRawPacket(packet) >= 0;
 }
 
 void AdminSessionController::onRelayConnected()
@@ -146,9 +128,6 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
     }
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
-        if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
-            emit sessionProtocolReceived(message);
-
         if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
             continue;
 

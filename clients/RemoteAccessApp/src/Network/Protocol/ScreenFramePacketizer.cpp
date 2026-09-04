@@ -1,8 +1,8 @@
 #include "ScreenFramePacketizer.h"
 
-#include "protocolconstants.h"
-#include "protocolheader.h"
-#include "protocolserializer.h"
+#include "Protocolconstants.h"
+#include "Protocolheader.h"
+#include "ProtocolSerializer.h"
 
 #include <QDebug>
 #include <cmath>     // std::ceil — not strictly needed but kept for clarity
@@ -20,7 +20,7 @@ constexpr uint32_t ScreenFramePacketizer::maxChunkData()
 // ---------------------------------------------------------------------------
 // appendUInt32BE() — local helper mirroring the serializer's private helpers.
 // We cannot call the serializer's static helpers (they are file-static in
-// protocolserializer.cpp), so we replicate the trivial 4-byte BE write here.
+// ProtocolSerializer.cpp), so we replicate the trivial 4-byte BE write here.
 // ---------------------------------------------------------------------------
 
 static void appendU32BE(QByteArray &buf, uint32_t value)

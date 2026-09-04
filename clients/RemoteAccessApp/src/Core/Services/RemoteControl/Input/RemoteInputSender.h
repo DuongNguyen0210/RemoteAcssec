@@ -14,7 +14,7 @@ class RemoteInputSender : public QObject
     Q_OBJECT
 
 public:
-    static constexpr int MOVE_COALESCE_INTERVAL_MS = 16;
+    static constexpr int MOVE_COALESCE_INTERVAL_MS = 50;
 
     explicit RemoteInputSender(QObject *parent = nullptr);
 

@@ -2,15 +2,14 @@
 
 #include "ScreenCapture.h"
 #include "ScreenEncoder.h"
-#include "Network/Client/relayclient.h"
-#include "Network/Protocol/ScreenFramePacketizer.h"
-#include "Network/Protocol/protocolserializer.h"
+#include "../../Network/RelayClient.h"
+#include "../../Network/protocol/ScreenFramePacketizer.h"
+#include "../../Network/protocol/ProtocolSerializer.h"
 
 #include <QDebug>
 
 // Relay host for local / LAN testing.
-static const QString RELAY_HOST = QStringLiteral("0.tcp.ap.ngrok.io");
-// port = 29856
+static const QString RELAY_HOST = QStringLiteral("localhost");
 
 ScreenStreamSender::ScreenStreamSender(const QString &childUsername, QObject *parent)
     : QObject(parent)
@@ -57,11 +56,6 @@ void ScreenStreamSender::stop()
         m_timer->stop();
         qDebug() << "[ScreenStreamSender] Stopped.";
     }
-}
-
-quint64 ScreenStreamSender::currentSessionId() const
-{
-    return static_cast<quint64>(m_currentSessionId);
 }
 
 void ScreenStreamSender::onRelayConnected()
@@ -116,12 +110,6 @@ void ScreenStreamSender::onRelayBytesReceived(const QByteArray &data)
     }
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
-        if (message.header.type != Protocol::MessageType::SESSION_REQUEST
-                && message.header.type != Protocol::MessageType::REGISTER_ACK) {
-            emit sessionProtocolReceived(message);
-            continue;
-        }
-
         if (message.header.type == Protocol::MessageType::SESSION_REQUEST) {
             handleSessionRequest(message);
             continue;
@@ -217,6 +205,8 @@ void ScreenStreamSender::onTick()
     // --- 1. Backpressure check ---------------------------------------------
     const qint64 pending = m_relayClient->pendingBytes();
     if (pending > MAX_PENDING_BYTES) {
+        qDebug() << "[ScreenStreamSender] Backpressure: skipping frame"
+                 << m_frameId << " pending=" << pending << "bytes";
         return;
     }
 
@@ -234,11 +224,6 @@ void ScreenStreamSender::onTick()
         qWarning() << "[ScreenStreamSender] Encode failed, skipping frame.";
         return;
     }
-
-    // Capture and JPEG encoding are synchronous, but re-check the transport
-    // before enqueueing so this frame never joins older pending screen data.
-    if (m_relayClient->pendingBytes() > MAX_PENDING_BYTES)
-        return;
 
     // --- 4. Packetize ------------------------------------------------------
     const QList<QByteArray> packets =
