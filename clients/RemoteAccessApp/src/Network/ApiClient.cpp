@@ -13,7 +13,7 @@ ApiClient& ApiClient::instance()
 ApiClient::ApiClient(QObject *parent) 
     : QObject(parent), m_networkManager(new QNetworkAccessManager(this))
 {
-    m_baseUrl = "http://localhost:9090";
+    m_baseUrl = "http://cornball-ibuprofen-polygraph.ngrok-free.dev";
 }
 
 ApiClient::~ApiClient()

@@ -1,5 +1,6 @@
 package com.remotecontrol.api.config;
 
+import com.remotecontrol.api.dto.InfoPrincipal;
 import com.remotecontrol.api.dto.UserPrincipal;
 import com.remotecontrol.api.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -7,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+
 
 @Component
 @RequiredArgsConstructor
@@ -28,8 +30,8 @@ public class JwtInterceptor implements HandlerInterceptor {
 
         String token = authHeader.substring(7);
         try {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             if (jwtUtil.isTokenExpired(token)) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.getWriter().write("{\"success\": false, \"message\": \"Token Expired\"}");
                 return false;
             }
@@ -43,6 +45,15 @@ public class JwtInterceptor implements HandlerInterceptor {
                     .role(role)
                     .build();
             request.setAttribute("currentUser", currentUser);
+
+            String name = request.getLocalName();
+            String ip = request.getRemoteAddr();
+            InfoPrincipal currentInfo = InfoPrincipal.builder()
+                    .name(name)
+                    .ip(ip)
+                    .build();
+            request.setAttribute("currentInfo", currentInfo);
+
             return true;
         }
         catch (Exception e) {

@@ -1,9 +1,7 @@
 package com.remotecontrol.api.controller;
 
-import com.remotecontrol.api.dto.ListChillResponse;
-import com.remotecontrol.api.dto.RegisterRequest;
-import com.remotecontrol.api.dto.RegisterResponse;
-import com.remotecontrol.api.dto.HeartbeatRequest;
+import com.remotecontrol.api.dto.*;
+import com.remotecontrol.api.entity.User;
 import com.remotecontrol.api.service.ChildService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -11,12 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/child")
@@ -27,28 +20,19 @@ public class ChildController {
 
     @PostMapping({"/Register", "/register"})
     public ResponseEntity<RegisterResponse> register(
-            @RequestHeader(value = "Authorization") String authHeader,
+            @RequestAttribute("currentUser") UserPrincipal currentUser,
             @Valid @RequestBody RegisterRequest registerRequest) {
 
-        String token = null;
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
-        }
-
-        RegisterResponse r = childService.register(registerRequest, token);
+        RegisterResponse r = childService.register(registerRequest, currentUser);
         if(r.getSuccess())
             return ResponseEntity.ok(r);
         else
             return ResponseEntity.status(HttpStatus.CONFLICT).body(r);
     }
 
-    @GetMapping({"/list", ""})
-    public ResponseEntity<ListChillResponse> getListChillResponse(@RequestHeader(value = "Authorization") String authHeader) {
-        String token = null;
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
-        }
-        ListChillResponse response = childService.getListChillResponse(token);
+    @GetMapping
+    public ResponseEntity<ListChillResponse> getListChillResponse(@RequestAttribute("currentUser") UserPrincipal currentUser) {
+        ListChillResponse response = childService.getListChillResponse(currentUser);
         if(response.getSuccess())
             return ResponseEntity.ok(response);
         else
@@ -57,22 +41,12 @@ public class ChildController {
 
     @PostMapping("/heartbeat")
     public ResponseEntity<String> heartbeat(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestBody HeartbeatRequest heartbeatRequest,
-            HttpServletRequest request) {
-
-        String token = null;
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
-        }
-
-        String remoteIp = request.getRemoteAddr();
-
-        boolean success = childService.handleHeartbeat(token, heartbeatRequest, remoteIp);
-        if (success) {
+            @RequestAttribute("currentUser") UserPrincipal currentUser,
+            @RequestAttribute("currentInfo") InfoPrincipal currentInfo) {
+        boolean success = childService.handleHeartbeat(currentUser, currentInfo);
+        if (success)
             return ResponseEntity.ok("Heartbeat OK");
-        } else {
+        else
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Heartbeat failed");
-        }
     }
 }
