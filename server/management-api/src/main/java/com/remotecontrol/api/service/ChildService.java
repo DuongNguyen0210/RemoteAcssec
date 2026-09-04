@@ -32,7 +32,7 @@ public class ChildService {
         if(!user.isPresent())
             return  new RegisterResponse(false, "Not found", childUsername, password);
 
-        Optional<Child> child = childRepository.findByChildUsername(currentUser.getUsername() + childUsername);
+        Optional<Child> child = childRepository.findByUsername(currentUser.getUsername() + childUsername);
         if (child.isPresent())
             return new RegisterResponse(false, "Child already exists", childUsername, password);
 
@@ -72,7 +72,7 @@ public class ChildService {
         if (!"CHILD".equals(currentUser.getRole()))
             return false;
 
-        Optional<Child> c = childRepository.findByChildUsername(currentUser.getUsername());
+        Optional<Child> c = childRepository.findByUsername(currentUser.getUsername());
         if (!c.isPresent()) {
             return false;
         }

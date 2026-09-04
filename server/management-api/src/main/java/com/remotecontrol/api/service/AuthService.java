@@ -30,7 +30,7 @@ public class AuthService {
         l.setMessage("Wrong Username or Password");
         
         Optional<User> u = userRepository.findByUsername(username);
-        Optional<Child> c = childRepository.findByChildUsername(username);
+        Optional<Child> c = childRepository.findByUsername(username);
         
         if(u.isPresent() && Objects.equals(u.get().getPassword(), password)) {
             l.setSuccess(true);

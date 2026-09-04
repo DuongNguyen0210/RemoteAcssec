@@ -46,10 +46,8 @@ public class JwtInterceptor implements HandlerInterceptor {
                     .build();
             request.setAttribute("currentUser", currentUser);
 
-            String name = request.getLocalName();
             String ip = request.getRemoteAddr();
             InfoPrincipal currentInfo = InfoPrincipal.builder()
-                    .name(name)
                     .ip(ip)
                     .build();
             request.setAttribute("currentInfo", currentInfo);

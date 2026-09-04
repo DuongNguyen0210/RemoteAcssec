@@ -8,6 +8,5 @@ import lombok.Data;
 @Builder
 @AllArgsConstructor
 public class InfoPrincipal {
-    private String name;
     private String ip;
 }

@@ -1,9 +1,7 @@
 package com.remotecontrol.api.controller;
 
 import com.remotecontrol.api.dto.*;
-import com.remotecontrol.api.entity.User;
 import com.remotecontrol.api.service.ChildService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
