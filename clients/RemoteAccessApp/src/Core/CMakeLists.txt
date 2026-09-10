@@ -6,9 +6,9 @@ file(GLOB_RECURSE CORE_SOURCES
     "*.h"
 )
 
-# Nếu chưa có file nào, thêm dummy.cpp để tránh lỗi "no source files"
+# Nếu chưa có file nào, thêm Dummy.cpp để tránh lỗi "no source files"
 if(NOT CORE_SOURCES)
-    list(APPEND CORE_SOURCES dummy.cpp)
+    list(APPEND CORE_SOURCES Dummy.cpp)
 endif()
 
 add_library(Core STATIC ${CORE_SOURCES})

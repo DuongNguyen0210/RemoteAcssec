@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QString>
 #include <QTimer>
-#include <QNetworkAccessManager>
 #include <QNetworkReply>
 
 // ---------------------------------------------------------------------------
@@ -13,13 +12,9 @@
 // Sends a periodic HTTP POST to the Management API heartbeat endpoint every
 // HEARTBEAT_INTERVAL_MS milliseconds while a CHILD device is logged in.
 //
-// Ownership: must be parented to a long-lived object (e.g. qApp) so that it
-// survives after LoginWindow is closed.
+// Ownership: parented to AppController so that it survives after LoginWindow.
 //
-// Technical-debt note: the heartbeat base URL is isolated here and NOT merged
-// with Authservice::API_URL to protect the currently working login code.
-// A shared ApiConfig class should be introduced in a future refactor to
-// eliminate this duplication.
+// Refactored to use ApiClient for JWT-based authenticated requests.
 // ---------------------------------------------------------------------------
 
 class HeartbeatReporter : public QObject
@@ -34,9 +29,9 @@ public:
     ~HeartbeatReporter();
 
     // Start sending heartbeats.
-    // username – the child_username that returned role=CHILD from login.
+    // Identity now comes from the JWT stored in ApiClient, so no username is passed.
     // Sends the first heartbeat immediately, then every HEARTBEAT_INTERVAL_MS.
-    void start(const QString &username);
+    void start();
 
     // Stop the timer. Safe to call even if not started.
     void stop();
@@ -48,22 +43,8 @@ private slots:
     void onHeartbeatReply(QNetworkReply *reply);
 
 private:
-    // ---------------------------------------------------------------------------
-    // TECHNICAL DEBT: This base URL is isolated here and intentionally NOT
-    // merged with Authservice::API_URL to protect the currently working login
-    // code.  A shared ApiConfig class should be introduced in a future refactor
-    // so both classes share the same host/port configuration.
-    //
-    // The Management API runs on port 9090 per application.yml.
-    // See: docs/telemetry/CLIENT_HEARTBEAT_INTEGRATION.md – section 1.
-    // ---------------------------------------------------------------------------
-    static const QString HEARTBEAT_BASE_URL;  // "http://localhost:9090"
-    static const QString HEARTBEAT_ENDPOINT;  // "/api/v1/devices/heartbeat"
+    QTimer *m_timer;
 
-    QTimer                *m_timer;
-    QNetworkAccessManager *m_networkManager;
-
-    QString m_username;    // authenticated child_username
     QString m_deviceName;  // QHostInfo::localHostName()
     QString m_deviceUid;   // QSysInfo::machineUniqueId() -> hex, with fallback
 

@@ -17,7 +17,7 @@ add_subdirectory(src/Network)
 add_subdirectory(src/GUI)
 
 add_executable(${PROJECT_NAME}
-    src/main.cpp
+    src/Main.cpp
     project.qrc
 )
 

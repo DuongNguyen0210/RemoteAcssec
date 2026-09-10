@@ -16,6 +16,7 @@ target_link_libraries(GUI PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Gui
     Network
+    Core
 )
 
 target_include_directories(GUI PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

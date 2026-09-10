@@ -1,8 +1,8 @@
 # 03 - MessageType
 
-> Dinh nghia trong: `clients/RemoteAccessApp/src/Network/Protocol/ProtocolConstants.h`
+> Định nghĩa trong: `clients/RemoteAccessApp/src/Network/protocol/protocolconstants.h`
 > Namespace: `Protocol`
-> Xem them: [README.md](README.md)
+> Xem thêm: [README.md](README.md)
 
 ---
 
@@ -24,38 +24,263 @@ enum class MessageType : uint8_t { ... };
 
 ---
 
-## Nhom: Host Registration
+## Nhóm: Đăng ký CHILD với Relay
 
-| Ten | Hex | Y nghia du kien |
+| Tên | Hex | Ý nghĩa hiện tại |
 |---|---|---|
-| `REGISTER_HOST` | `0x01` | Host gui packet nay den Relay de dang ky su hien dien cua minh. |
-| `REGISTER_ACK` | `0x02` | Relay tra loi xac nhan dang ky thanh cong. |
+| `REGISTER_HOST` | `0x01` | CHILD gửi tên đăng nhập đã được xác thực để đăng ký kênh TCP đang kết nối với Relay. |
+| `REGISTER_ACK` | `0x02` | Relay trả kết quả chấp nhận hoặc từ chối đăng ký. |
 
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
+Mục đích của đăng ký là cho phép Relay biết kênh TCP nào đang thuộc về một
+`childUsername`. Ánh xạ này hiện được Giai đoạn 3B dùng để tìm CHILD đích khi
+ADMIN yêu cầu tạo phiên; bản thân `REGISTER_HOST` không tạo phiên.
+
+### Luồng đăng ký hiện tại
+
+```text
+CHILD đăng nhập
+→ childUsername đã xác thực được truyền qua AuthService, AuthController và AppController
+→ ScreenStreamSender mở kết nối TCP đến Relay
+→ CHILD gửi REGISTER_HOST
+→ RelayServerHandler kiểm tra gói và yêu cầu RelayRegistry đăng ký
+→ Relay gửi REGISTER_ACK
+→ ScreenStreamSender xác nhận đăng ký được chấp nhận hoặc bị từ chối
+```
+
+### Hợp đồng wire của REGISTER_HOST
+
+Loại RDTP: `0x01`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | `0` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `2 + usernameLength` |
+
+Payload dùng thứ tự byte **Big Endian**:
+
+| Offset | Kiểu/kích thước | Nội dung |
+|---|---|---|
+| `0..1` | `uint16`, Big Endian | `usernameLength` |
+| `2..` | `usernameLength` byte | `childUsername` mã hóa UTF-8 |
+
+`usernameLength` phải nằm trong khoảng từ **1 đến 200 byte UTF-8**. Kích thước
+payload phải đúng bằng `2 + usernameLength`.
+
+### Hợp đồng wire của REGISTER_ACK
+
+Loại RDTP: `0x02`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | `0` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `1` |
+
+Payload có đúng một byte:
+
+| Giá trị | Kết quả |
+|---:|---|
+| `0` | Đăng ký bị từ chối |
+| `1` | Đăng ký được chấp nhận |
 
 ---
 
-## Nhom: Session Establishment
+## Nhóm: Thiết lập phiên
 
-| Ten | Hex | Y nghia du kien |
+| Tên | Hex | Ý nghĩa hiện tại |
 |---|---|---|
-| `CONNECT_REQUEST` | `0x03` | Client (viewer) gui den Relay de yeu cau ket noi voi mot Host cu the. |
-| `SESSION_REQUEST` | `0x04` | Relay chuyen tiep yeu cau ket noi tu Client den Host. |
-| `SESSION_ACCEPT` | `0x05` | Host chap nhan session duoc yeu cau. |
-| `SESSION_REJECT` | `0x06` | Host tu choi session. |
-| `CONNECT_RESULT` | `0x07` | Relay tra ket qua cuoi cung (accept/reject) ve cho Client. |
+| `CONNECT_REQUEST` | `0x03` | ADMIN yêu cầu Relay tạo phiên với một `childUsername` cụ thể. |
+| `SESSION_REQUEST` | `0x04` | Relay chuyển yêu cầu cùng `sessionId` do Relay cấp đến CHILD đã đăng ký. |
+| `SESSION_ACCEPT` | `0x05` | CHILD chấp nhận phiên đang chờ. |
+| `SESSION_REJECT` | `0x06` | CHILD từ chối phiên đang chờ. |
+| `CONNECT_RESULT` | `0x07` | Relay trả kết quả cuối cùng cho ADMIN. |
 
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
+### Luồng thiết lập phiên hiện tại
+
+```text
+ADMIN chọn childUsername thật
+→ AdminSessionController kết nối hoặc tái sử dụng RelayClient
+→ CONNECT_REQUEST(childUsername)
+→ RelayRegistry tìm CHILD đã đăng ký và cấp sessionId khác 0
+→ Relay tạo phiên PENDING
+→ Relay gửi SESSION_REQUEST(sessionId) đến CHILD
+→ CHILD kiểm tra và gửi SESSION_ACCEPT(sessionId)
+→ Relay kiểm tra đúng nguồn CHILD và đúng phiên
+→ Relay chuyển phiên thành ACTIVE
+→ Relay gửi CONNECT_RESULT(thành công, sessionId) đến ADMIN
+→ ADMIN kiểm tra kết quả và lưu active sessionId
+```
+
+### Hợp đồng wire của CONNECT_REQUEST
+
+Loại RDTP: `0x03`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | `0` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `2 + targetUsernameLength` |
+
+Payload dùng thứ tự byte **Big Endian**:
+
+| Offset | Kiểu/kích thước | Nội dung |
+|---|---|---|
+| `0..1` | `uint16`, Big Endian | `targetUsernameLength` |
+| `2..` | `targetUsernameLength` byte | `targetChildUsername` mã hóa UTF-8 |
+
+`targetUsernameLength` phải nằm trong khoảng **1 đến 200 byte UTF-8** và kích
+thước payload phải đúng bằng `2 + targetUsernameLength`.
+
+Relay trả kết quả thất bại nếu header hoặc payload không đúng hợp đồng, kênh
+gửi đã đăng ký là CHILD, CHILD đích chưa đăng ký, hoặc ADMIN/CHILD đang có một
+phiên `PENDING` hay `ACTIVE`.
+
+### Hợp đồng wire của SESSION_REQUEST
+
+Loại RDTP: `0x04`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | Giá trị khác `0` do Relay cấp |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `0` |
+
+Thông điệp không có payload. Relay tạo trạng thái `PENDING` trước khi gửi
+`SESSION_REQUEST` đến CHILD.
+
+### Hợp đồng wire của SESSION_ACCEPT và SESSION_REJECT
+
+- `SESSION_ACCEPT`: loại RDTP `0x05`.
+- `SESSION_REJECT`: loại RDTP `0x06`.
+
+Cả hai dùng cùng hợp đồng header:
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sessionId` | Cùng giá trị khác `0` trong `SESSION_REQUEST` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `0` |
+
+Thông điệp không có payload. Relay chỉ xử lý khi phiên tồn tại, đang ở trạng
+thái `PENDING`, nguồn là chính xác channel CHILD của phiên và `sessionId` khớp.
+
+- Với `SESSION_ACCEPT`, Relay chuyển phiên sang `ACTIVE`.
+- Với `SESSION_REJECT`, Relay xóa phiên đang chờ và trả thất bại cho ADMIN.
+- Thông điệp không hợp lệ không bao giờ kích hoạt phiên.
+
+### Hợp đồng wire của CONNECT_RESULT
+
+Loại RDTP: `0x07`.
+
+| Trường header | Giá trị |
+|---|---:|
+| `flags` | `0` |
+| `sequenceNumber` | `0` |
+| `payloadLength` | `1` |
+
+| Kết quả | `sessionId` | `payload[0]` |
+|---|---:|---:|
+| Thành công | Giá trị khác `0` đã được Relay cấp | `1` |
+| Thất bại | `0` | `0` |
+
+`AdminSessionController` kiểm tra đầy đủ header, byte kết quả và quan hệ giữa
+kết quả với `sessionId` trước khi lưu phiên đang hoạt động.
+
+### Trạng thái sau Giai đoạn 4
+
+Handshake phiên của Giai đoạn 3B hiện là điều kiện để gửi màn hình: CHILD chỉ
+tạo `SCREEN_FRAME` khi giữ một `sessionId` khác `0`, còn Relay chỉ chuyển tiếp
+khi ID đó thuộc một phiên `ACTIVE` và nguồn là chính xác channel CHILD của
+phiên. Hợp đồng chi tiết được mô tả trong nhóm Screen bên dưới.
 
 ---
 
-## Nhom: Screen (Media Stream)
+## Nhóm: Màn hình
 
-| Ten | Hex | Y nghia du kien |
+| Tên | Hex | Ý nghĩa hiện tại |
 |---|---|---|
-| `SCREEN_FRAME` | `0x10` | Mot khung hinh man hinh da duoc encode, truyen tu Host den Client. |
+| `SCREEN_FRAME` | `0x10` | Một chunk của ảnh JPEG màn hình, gắn với phiên `ACTIVE` và được Relay chuyển trực tiếp từ CHILD đến ADMIN. |
 
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
+### Hợp đồng header của SCREEN_FRAME
+
+| Trường header | Giá trị/ngữ nghĩa hiện tại |
+|---|---|
+| `type` | `0x10` |
+| `flags` | Giữ nguyên ngữ nghĩa hiện có; packetizer hiện đặt `0` |
+| `sessionId` | ID khác `0` của phiên `ACTIVE` hiện tại ở CHILD |
+| `sequenceNumber` | Giữ nguyên ngữ nghĩa chỉ số chunk hiện có |
+| `payloadLength` | `16 + số byte JPEG trong chunk` |
+
+Giai đoạn 4 chỉ thay đổi việc gắn phiên trong **RDTP header**. Định dạng payload
+không thay đổi.
+
+### Metadata payload của SCREEN_FRAME
+
+Mọi số nguyên nhiều byte đều dùng **Big Endian**:
+
+| Offset | Kiểu/kích thước | Nội dung |
+|---|---|---|
+| `0` | `uint32`, 4 byte | `frameId` |
+| `4` | `uint32`, 4 byte | `chunkIndex` |
+| `8` | `uint32`, 4 byte | `chunkCount` |
+| `12` | `uint32`, 4 byte | `totalFrameSize` |
+| `16` | Số byte còn lại | Dữ liệu JPEG của chunk |
+
+Hỗ trợ nhiều chunk, kích thước chunk và các trường `frameId`, `chunkIndex`,
+`chunkCount`, `totalFrameSize` giữ nguyên so với trước Giai đoạn 4.
+
+### Điều kiện gửi ở CHILD
+
+`ScreenStreamSender` sở hữu `m_currentSessionId`:
+
+- Nếu `m_currentSessionId == 0`, CHILD không chụp màn hình, không mã hóa JPEG,
+  không packetize và không gửi `SCREEN_FRAME`.
+- Nếu `m_currentSessionId != 0`, CHILD giữ nguyên chu kỳ chụp, chất lượng JPEG,
+  cách chia chunk, kết nối `RelayClient` bền và chính sách backpressure có giới
+  hạn; ID hiện tại được truyền chính xác vào `ScreenFramePacketizer`.
+
+`ScreenFramePacketizer` không sở hữu hoặc cấp phát trạng thái phiên. Caller cung
+cấp `sessionId`, packetizer chỉ ghi đúng giá trị đó vào `header.sessionId` của
+từng chunk.
+
+### Phân quyền định tuyến tại Relay
+
+Relay gọi
+`RelayRegistry.findActiveSessionForChild(sessionId, childChannel)` và chỉ chuyển
+tiếp khi đồng thời thỏa mãn:
+
+- `sessionId` khác `0`;
+- phiên tồn tại;
+- phiên ở trạng thái `ACTIVE`;
+- channel nguồn là chính xác channel CHILD được gắn với phiên.
+
+Relay từ chối mà không chuyển tiếp đối với ID bằng `0`, ID không tồn tại hoặc đã
+cũ, phiên `PENDING`, nguồn ADMIN hoặc một CHILD khác. Vì vậy CHILD không thể định
+tuyến khung hình chỉ bằng cách đoán `sessionId`; cả ràng buộc phiên và channel
+nguồn đều bắt buộc.
+
+### Chuyển tiếp trực tiếp
+
+```text
+Protocol SCREEN_FRAME đầu vào
+→ kiểm tra sessionId, trạng thái ACTIVE và channel nguồn
+→ ghi chính đối tượng Protocol gốc đến channel ADMIN
+→ ScreenFrameHandler/ScreenFrameReassembler chẩn đoán có thể chạy sau đó
+```
+
+Mỗi chunk gốc được chuyển độc lập. Relay không ghép ảnh trước khi định tuyến,
+không packetize lại, không sửa byte JPEG, metadata payload, `sequenceNumber` hay
+`sessionId`. Bộ ghép khung phía Relay chỉ phục vụ chẩn đoán và không phải điều
+kiện của đường chuyển tiếp.
+
+ADMIN hiện nhận được byte TCP/RDTP đã chuyển tiếp, nhưng chưa có bộ ghép
+`SCREEN_FRAME`, giải mã JPEG, tạo `QImage` hoặc hiển thị bằng Qt.
 
 ---
 
