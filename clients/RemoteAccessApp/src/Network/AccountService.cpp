@@ -41,16 +41,12 @@ void AccountService::onCreateAccountReply(QNetworkReply *reply)
 
     if (!doc.isNull() && doc.isObject()) {
         QJsonObject obj = doc.object();
-        if (obj.contains("success")) {
-            success = obj["success"].toBool();
-        }
-        if (obj.contains("message")) {
-            message = obj["message"].toString();
-        }
+        success = obj.value("success").toBool(statusCode == 200);
+        message = obj.value("message").toString("Lỗi không xác định");
     }
 
     if (statusCode == 200 && success) {
-        emit createAccountResult(true, "Tạo tài khoản con thành công!");
+        emit createAccountResult(true, message.isEmpty() ? "Tạo tài khoản con thành công!" : message);
     } else {
         emit createAccountResult(false, message);
     }
@@ -58,8 +54,8 @@ void AccountService::onCreateAccountReply(QNetworkReply *reply)
 
 void AccountService::fetchListChildren()
 {
-    // Bạn có thể sửa URL này thành API Endpoint đúng của server
-    QNetworkReply *reply = ApiClient::instance().get("/api/v1/child/list");
+    // Hỗ trợ endpoint chuẩn /api/v1/child
+    QNetworkReply *reply = ApiClient::instance().get("/api/v1/child");
     
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
         onFetchListChildrenReply(reply);
@@ -83,18 +79,26 @@ void AccountService::onFetchListChildrenReply(QNetworkReply *reply)
     
     QJsonDocument doc = QJsonDocument::fromJson(responseData);
     
-    // Giả sử API trả về class ListChillResponse: { "children": [...], "message": "..." }
     if (!doc.isNull() && doc.isObject()) {
         QJsonObject obj = doc.object();
-        QJsonArray children = obj["children"].toArray();
-        QString message = obj["message"].toString();
+        bool success = obj.value("success").toBool(statusCode == 200);
+        QString message = obj.value("message").toString();
+
+        // Lấy danh sách máy con từ data của ApiResponse<List<ChildDto>>
+        QJsonArray children;
+        if (obj.value("data").isArray()) {
+            children = obj.value("data").toArray();
+        } else if (obj.value("children").isArray()) {
+            children = obj.value("children").toArray();
+        } else if (obj.value("child").isArray()) {
+            children = obj.value("child").toArray();
+        }
         
-        // Nếu HTTP Status là 200 thì coi như thành công
-        if (statusCode == 200) {
+        if (statusCode == 200 && success) {
             emit fetchListChildrenResult(true, children, message);
             return;
         } else {
-            emit fetchListChildrenResult(false, QJsonArray(), message);
+            emit fetchListChildrenResult(false, QJsonArray(), message.isEmpty() ? "Không thể lấy danh sách máy con" : message);
             return;
         }
     }

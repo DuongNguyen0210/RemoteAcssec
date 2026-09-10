@@ -17,34 +17,45 @@ public class ChildController {
     private final ChildService childService;
 
     @PostMapping({"/Register", "/register"})
-    public ResponseEntity<RegisterResponse> register(
+    public ResponseEntity<ApiResponse<ChildDto>> register(
             @RequestAttribute("currentUser") UserPrincipal currentUser,
             @Valid @RequestBody RegisterRequest registerRequest) {
 
-        RegisterResponse r = childService.register(registerRequest, currentUser);
-        if(r.getSuccess())
+        ApiResponse<ChildDto> r = childService.register(registerRequest, currentUser);
+        if (r.getSuccess())
             return ResponseEntity.ok(r);
         else
             return ResponseEntity.status(HttpStatus.CONFLICT).body(r);
     }
 
-    @GetMapping
-    public ResponseEntity<ListChillResponse> getListChillResponse(@RequestAttribute("currentUser") UserPrincipal currentUser) {
-        ListChillResponse response = childService.getListChillResponse(currentUser);
-        if(response.getSuccess())
+    @DeleteMapping("/{childUsername}")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable String childUsername,
+            @RequestAttribute("currentUser") UserPrincipal currentUser) {
+        ApiResponse<Void> res = childService.deleteChild(childUsername, currentUser);
+        if (res.getSuccess()) {
+            return ResponseEntity.ok(res);
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+    }
+
+    @GetMapping({"", "/list"})
+    public ResponseEntity<ApiResponse<List<ChildDto>>> getListChildren(@RequestAttribute("currentUser") UserPrincipal currentUser) {
+        ApiResponse<List<ChildDto>> response = childService.getListChildren(currentUser);
+        if (response.getSuccess())
             return ResponseEntity.ok(response);
         else
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @PostMapping("/heartbeat")
-    public ResponseEntity<String> heartbeat(
+    public ResponseEntity<ApiResponse<Void>> heartbeat(
             @RequestAttribute("currentUser") UserPrincipal currentUser,
             @RequestAttribute("currentInfo") InfoPrincipal currentInfo) {
         boolean success = childService.handleHeartbeat(currentUser, currentInfo);
         if (success)
-            return ResponseEntity.ok("Heartbeat OK");
+            return ResponseEntity.ok(ApiResponse.success("Heartbeat OK"));
         else
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Heartbeat failed");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Heartbeat failed"));
     }
 }

@@ -9,8 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChildDto {
+public class LoginData {
+    private String token;
+    private String role;
     private String username;
-    private String password;
-    private Boolean online;
+    private String userId;
 }

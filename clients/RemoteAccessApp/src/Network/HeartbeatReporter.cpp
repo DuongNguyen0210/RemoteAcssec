@@ -96,7 +96,10 @@ void HeartbeatReporter::onHeartbeatReply(QNetworkReply *reply)
     }
 
     if (statusCode >= 200 && statusCode < 300) {
-        qDebug() << "[HeartbeatReporter] Heartbeat OK (HTTP" << statusCode << ")";
+        const QByteArray body = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(body);
+        QString msg = doc.isObject() ? doc.object().value("message").toString() : QStringLiteral("OK");
+        qDebug() << "[HeartbeatReporter] Heartbeat (HTTP" << statusCode << "):" << msg;
         return;  // timer continues
     }
 

@@ -1,7 +1,8 @@
 package com.remotecontrol.api.controller;
 
+import com.remotecontrol.api.dto.ApiResponse;
+import com.remotecontrol.api.dto.LoginData;
 import com.remotecontrol.api.dto.LoginRequest;
-import com.remotecontrol.api.dto.LoginResponse;
 import com.remotecontrol.api.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +18,10 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<ApiResponse<LoginData>> login(@Valid @RequestBody LoginRequest loginRequest) {
 
-        LoginResponse l = authService.login(loginRequest);
-        if(l.getSuccess()) {
+        ApiResponse<LoginData> l = authService.login(loginRequest);
+        if (l.getSuccess()) {
             return ResponseEntity.ok(l);
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(l);

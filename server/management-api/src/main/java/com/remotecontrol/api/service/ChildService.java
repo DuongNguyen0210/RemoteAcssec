@@ -23,40 +23,46 @@ public class ChildService {
     private final UserRepository userRepository;
     private final PresenceService presenceService;
 
-    public RegisterResponse register(RegisterRequest request, UserPrincipal currentUser) {
+    public ApiResponse<ChildDto> register(RegisterRequest request, UserPrincipal currentUser) {
 
         String childUsername = request.getChildUsername();
         String password = request.getPassword();
 
         Optional<User> user = userRepository.findByUsername(currentUser.getUsername());
         if(!user.isPresent())
-            return  new RegisterResponse(false, "Not found", childUsername, password);
+            return ApiResponse.error("Not found user");
 
-        Optional<Child> child = childRepository.findByUsername(currentUser.getUsername() + childUsername);
+        String fullChildUsername = currentUser.getUsername() + childUsername;
+        Optional<Child> child = childRepository.findByUsername(fullChildUsername);
         if (child.isPresent())
-            return new RegisterResponse(false, "Child already exists", childUsername, password);
+            return ApiResponse.error("Child already exists");
 
         addChild(childUsername, password, user.get());
-        return new RegisterResponse(true, "Accepted", currentUser.getUsername() + childUsername, password);
+        ChildDto dto = ChildDto.builder()
+                .username(fullChildUsername)
+                .password(password)
+                .online(false)
+                .build();
+        return ApiResponse.success("Accepted", dto);
     }
 
-    public ListChillResponse getListChillResponse(UserPrincipal currenUser)
+    public ApiResponse<List<ChildDto>> getListChildren(UserPrincipal currentUser)
     {
-        if(!currenUser.getRole().equals("ADMIN"))
-            return new ListChillResponse(Collections.emptyList(), false, "Can not to access");
+        if(!currentUser.getRole().equals("ADMIN"))
+            return ApiResponse.error("Can not to access");
 
-        Optional<User> user = userRepository.findByUsername(currenUser.getUsername());
+        Optional<User> user = userRepository.findByUsername(currentUser.getUsername());
         if(!user.isPresent())
-            return new ListChillResponse(Collections.emptyList(), false, "Not found user");
+            return ApiResponse.error("Not found user");
 
         List<Child> child = childRepository.findByOwner(user.get());
         List<ChildDto> childList = new ArrayList<>();
         for (Child c : child) {
-            boolean isOnline = presenceService.isDeviceOnline(user.get().getUsername(), c.getUsername());
+            boolean isOnline = presenceService.isDeviceOnline(currentUser.getUsername(), c.getUsername());
             childList.add(new ChildDto(c.getUsername(), c.getPassword(), isOnline));
         }
 
-        return new ListChillResponse(childList, true, "Accepted");
+        return ApiResponse.success("Accepted", childList);
     }
 
     public void addChild(String childUsername, String password, User user) {
@@ -81,6 +87,25 @@ public class ChildService {
         User parent = child.getOwner();
         presenceService.markDeviceOnline(parent, currentUser, currentInfo);
         return true;
+    }
+
+    public ApiResponse<Void> deleteChild(String childUsername, UserPrincipal currentUser) {
+        if (!"ADMIN".equals(currentUser.getRole())) {
+            return ApiResponse.error("Only ADMIN can delete devices");
+        }
+
+        Optional<Child> childOpt = childRepository.findByUsername(childUsername);
+        if (!childOpt.isPresent()) {
+            return ApiResponse.error("Device not found");
+        }
+
+        Child child = childOpt.get();
+        if (!child.getOwner().getUsername().equals(currentUser.getUsername())) {
+            return ApiResponse.error("Unauthorized to delete this device");
+        }
+
+        childRepository.delete(child);
+        return ApiResponse.success("Deleted successfully");
     }
 }
 

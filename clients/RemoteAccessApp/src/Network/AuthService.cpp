@@ -34,25 +34,32 @@ void AuthService::onLoginReply(QNetworkReply *reply, const QString &username)
 
     QByteArray responseData = reply->readAll();
     QJsonDocument doc = QJsonDocument::fromJson(responseData);
-    if(statusCode == 200)
+    QJsonObject root = doc.object();
+
+    bool success = root.value("success").toBool(statusCode == 200);
+    QString message = root.value("message").toString();
+
+    if(statusCode == 200 && success)
     {
-        QString Role = doc.object()["role"].toString();
-        QString Message = doc.object()["message"].toString();
+        QJsonObject dataObj = root.value("data").toObject();
+        // Hỗ trợ cả ApiResponse chuẩn (data.role) và fallback root-level (role)
+        QString role = dataObj.contains("role") ? dataObj["role"].toString() : root["role"].toString();
+        QString token = dataObj.contains("token") ? dataObj["token"].toString() : root["token"].toString();
         
-        if (doc.object().contains("token")) {
-            QString token = doc.object()["token"].toString();
+        if (!token.isEmpty()) {
             qDebug() << "Token: " + token << '\n';
             ApiClient::instance().setToken(token);
         }
 
-        emit loginResult(true, Role, Message, username);
+        emit loginResult(true, role, message, username);
     }
-    else if(statusCode == 401 || statusCode == 400)
+    else
     {
-        QString Message = doc.object()["message"].toString();
-        emit loginResult(false, "", Message, username);
+        if (message.isEmpty()) {
+            message = "Authentication Failed";
+        }
+        emit loginResult(false, "", message, username);
     }
-
 }
 
 
