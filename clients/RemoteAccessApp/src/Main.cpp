@@ -2,7 +2,7 @@
 #include <QFile>
 #include <QStringList>
 #include <QDebug>
-#include "Core/AppController.h"
+#include "Controllers/AppCoordinator.h"
 
 static QString loadStyleSheet()
 {
@@ -32,9 +32,8 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setStyleSheet(loadStyleSheet());
 
-    // Khởi tạo AppController làm bộ điều phối trung tâm
-    AppController controller;
-    controller.start();
+    AppCoordinator coordinator;
+    coordinator.start();
 
     return app.exec();
 }

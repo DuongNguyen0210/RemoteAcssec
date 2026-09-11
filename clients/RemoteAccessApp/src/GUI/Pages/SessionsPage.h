@@ -13,4 +13,4 @@ private:
     void setupUi();
 };
 
-#endif // SESSIONSPAGE_H
+#endif

@@ -11,10 +11,14 @@ set(CMAKE_AUTORCC ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Svg Core Gui Widgets Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Svg Core Gui Widgets Network)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 add_subdirectory(src/Utils)
-add_subdirectory(src/Core)
+add_subdirectory(src/Domain)
+add_subdirectory(src/Streaming)
 add_subdirectory(src/Network)
 add_subdirectory(src/GUI)
+add_subdirectory(src/Controllers)
 
 add_executable(${PROJECT_NAME}
     src/Main.cpp
@@ -25,7 +29,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Svg
     Utils
-    Core
+    Domain
+    Streaming
     Network
     GUI
+    Controllers
 )
