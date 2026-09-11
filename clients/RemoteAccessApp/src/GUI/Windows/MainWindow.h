@@ -18,8 +18,6 @@ public:
     ~MainWindow();
 
 signals:
-    void requestAddAccount();
-    void childConnectRequested(const QString &childUsername);
     void pageSelected(int pageIndex);
 
 private:

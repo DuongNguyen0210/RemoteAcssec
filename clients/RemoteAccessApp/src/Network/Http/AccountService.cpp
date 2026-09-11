@@ -15,6 +15,10 @@ void AccountService::createSubAccount(const QString &childUsername, const QStrin
     json["password"] = password;
 
     QNetworkReply *reply = ApiClient::instance().post("/api/v1/child/Register", json);
+    if (!reply) {
+        emit createAccountResult(false, QStringLiteral("Loi khoi tao yeu cau mang"));
+        return;
+    }
 
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
         onCreateAccountReply(reply);
@@ -37,6 +41,10 @@ void AccountService::onCreateAccountReply(QNetworkReply *reply)
 void AccountService::fetchListChildren()
 {
     QNetworkReply *reply = ApiClient::instance().get("/api/v1/child");
+    if (!reply) {
+        emit fetchListChildrenResult(false, QJsonArray(), QStringLiteral("Loi khoi tao yeu cau mang"));
+        return;
+    }
     
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
         onFetchListChildrenReply(reply);

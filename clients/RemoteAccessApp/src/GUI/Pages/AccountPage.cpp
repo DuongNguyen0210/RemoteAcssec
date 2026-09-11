@@ -10,6 +10,7 @@
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include "GUI/Components/EmptyStateWidget.h"
+#include "GUI/Components/AccountCardWidget.h"
 
 namespace {
 
@@ -18,95 +19,6 @@ QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
     QLabel *lbl = new QLabel(text, parent);
     lbl->setProperty("role", objectName);
     return lbl;
-}
-
-QPushButton *actionButton(const QString &text, const QString &objectName, QWidget *parent)
-{
-    QPushButton *button = new QPushButton(text, parent);
-    button->setProperty("role", objectName);
-    button->setCursor(Qt::PointingHandCursor);
-    button->setFixedHeight(36);
-    return button;
-}
-
-QFrame *accountCard(const QString &username, const QString &password, const QString &role,
-                    const QString &status, const QString &statusState, QWidget *parent)
-{
-    QFrame *card = new QFrame(parent);
-    card->setProperty("role", "sessionCard");
-    card->setAttribute(Qt::WA_StyledBackground, true);
-
-    QVBoxLayout *layout = new QVBoxLayout(card);
-    layout->setContentsMargins(16, 16, 16, 16);
-    layout->setSpacing(14);
-
-    QHBoxLayout *header = new QHBoxLayout();
-    header->setSpacing(12);
-
-    QLabel *avatar = label(QString(username.isEmpty() ? '?' : username[0]).toUpper(), "cardIcon", card);
-    avatar->setFixedSize(40, 40);
-    avatar->setAlignment(Qt::AlignCenter);
-    header->addWidget(avatar);
-
-    QVBoxLayout *titleLayout = new QVBoxLayout();
-    titleLayout->setSpacing(2);
-    titleLayout->addWidget(label(username, "cardTitle", card));
-
-    QHBoxLayout *passwordLayout = new QHBoxLayout();
-    passwordLayout->setContentsMargins(0, 0, 0, 0);
-    passwordLayout->setSpacing(8);
-    QLabel *passwordLabel = label("••••••••", "cardSubtitle", card);
-    passwordLayout->addWidget(passwordLabel);
-
-    QPushButton *togglePwdBtn = new QPushButton("Show", card);
-    togglePwdBtn->setCursor(Qt::PointingHandCursor);
-    togglePwdBtn->setProperty("role", "linkButton");
-    togglePwdBtn->setFixedWidth(40);
-    passwordLayout->addWidget(togglePwdBtn);
-    passwordLayout->addStretch();
-
-    QObject::connect(togglePwdBtn, &QPushButton::clicked, [passwordLabel, togglePwdBtn, password]() {
-        if (passwordLabel->text() == "••••••••") {
-            passwordLabel->setText(password);
-            togglePwdBtn->setText("Hide");
-        } else {
-            passwordLabel->setText("••••••••");
-            togglePwdBtn->setText("Show");
-        }
-    });
-
-    titleLayout->addLayout(passwordLayout);
-    header->addLayout(titleLayout, 1);
-
-    QLabel *chip = label(status, "stateChip", card);
-    chip->setProperty("state", statusState);
-    chip->setAlignment(Qt::AlignCenter);
-    header->addWidget(chip);
-
-    layout->addLayout(header);
-
-    QGridLayout *details = new QGridLayout();
-    details->setHorizontalSpacing(24);
-    details->setVerticalSpacing(4);
-    details->addWidget(label("ROLE",   "metaLabel", card), 0, 0);
-    details->addWidget(label("STATUS", "metaLabel", card), 0, 1);
-    details->addWidget(label(role,     "strongText", card), 1, 0);
-    details->addWidget(label(status,   "strongText", card), 1, 1);
-    layout->addLayout(details);
-
-    QFrame *divider = new QFrame(card);
-    divider->setProperty("role", "thinDivider");
-    divider->setFrameShape(QFrame::HLine);
-    layout->addWidget(divider);
-
-    QHBoxLayout *actions = new QHBoxLayout();
-    actions->setSpacing(10);
-    actions->addWidget(actionButton("Edit",   "secondaryActionButton", card));
-    actions->addWidget(actionButton("Delete", "dangerActionButton",    card));
-    actions->addStretch();
-    layout->addLayout(actions);
-
-    return card;
 }
 
 }
@@ -229,12 +141,12 @@ void AccountPage::renderAccounts(const QString &filterText)
     }
 
     for (const DeviceInfo &acc : filtered) {
-        QString username = acc.childUsername.isEmpty() ? acc.username : acc.childUsername;
-        QString password = acc.password.isEmpty() ? "N/A" : acc.password;
-        QString statusText = acc.isOnline ? "Active" : "Offline";
-        QString statusRole = acc.isOnline ? "active" : "offline";
-
-        m_listLayout->addWidget(accountCard(username, password, "Child", statusText, statusRole, m_scrollContent));
+        AccountCardWidget *card = new AccountCardWidget(acc, m_scrollContent);
+        connect(card, &AccountCardWidget::editRequested,
+                this, &AccountPage::editAccountRequested);
+        connect(card, &AccountCardWidget::deleteRequested,
+                this, &AccountPage::deleteAccountRequested);
+        m_listLayout->addWidget(card);
     }
 
     m_listLayout->addStretch();

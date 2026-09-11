@@ -26,6 +26,8 @@ void CreateAccountController::start(const QString &parentUsername)
 
     connect(m_dialog, &CreateAccountDialog::registerRequested,
             this, &CreateAccountController::handleRegisterRequested);
+    connect(m_dialog, &QObject::destroyed,
+            this, &CreateAccountController::finished);
 
     m_dialog->setAttribute(Qt::WA_DeleteOnClose);
     m_dialog->show();

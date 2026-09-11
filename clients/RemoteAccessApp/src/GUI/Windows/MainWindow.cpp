@@ -55,16 +55,12 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
 
     if (devicesPage) {
         stackedWidget->addWidget(devicesPage);
-        connect(devicesPage, &DevicesPage::connectRequested,
-                this, &MainWindow::childConnectRequested);
     }
     stackedWidget->addWidget(pageSessions);
     stackedWidget->addWidget(pageSettings);
     stackedWidget->addWidget(pageLogs);
     if (accountPage) {
         stackedWidget->addWidget(accountPage);
-        connect(accountPage, &AccountPage::requestAddAccount,
-                this, &MainWindow::requestAddAccount);
     }
 
     rightLayout->addWidget(topbar);
@@ -73,8 +69,8 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
     mainLayout->addWidget(sidebar);
     mainLayout->addWidget(rightContentWidget);
 
-    connect(sidebar, &SidebarWidget::pageChanged, stackedWidget, &QStackedWidget::setCurrentIndex);
     connect(sidebar, &SidebarWidget::pageChanged, this, [this](int pageIndex) {
+        stackedWidget->setCurrentIndex(pageIndex);
         emit pageSelected(pageIndex);
 
         const QStringList placeholders = {

@@ -19,6 +19,7 @@ public:
 
 signals:
     void accountCreatedSuccessfully();
+    void finished();
 
 private slots:
     void handleRegisterRequested(const QString &childUsername, const QString &password);
