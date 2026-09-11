@@ -1,9 +1,9 @@
 #include "MainWindow.h"
-#include "../Pages/DevicesPage.h"
-#include "../Pages/LogsPage.h"
-#include "../Pages/SessionsPage.h"
-#include "../Pages/SettingsPage.h"
-#include "../Pages/AccountPage.h"
+#include "GUI/Pages/DevicesPage.h"
+#include "GUI/Pages/LogsPage.h"
+#include "GUI/Pages/SessionsPage.h"
+#include "GUI/Pages/SettingsPage.h"
+#include "GUI/Pages/AccountPage.h"
 
 #include <QHBoxLayout>
 #include <QStringList>
@@ -54,15 +54,15 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
     LogsPage *pageLogs = new LogsPage(this);
 
     if (devicesPage) {
-        stackedWidget->addWidget(devicesPage);   // index 0
+        stackedWidget->addWidget(devicesPage);
         connect(devicesPage, &DevicesPage::connectRequested,
                 this, &MainWindow::childConnectRequested);
     }
-    stackedWidget->addWidget(pageSessions);  // index 1
-    stackedWidget->addWidget(pageSettings);  // index 2
-    stackedWidget->addWidget(pageLogs);      // index 3
+    stackedWidget->addWidget(pageSessions);
+    stackedWidget->addWidget(pageSettings);
+    stackedWidget->addWidget(pageLogs);
     if (accountPage) {
-        stackedWidget->addWidget(accountPage);   // index 4
+        stackedWidget->addWidget(accountPage);
         connect(accountPage, &AccountPage::requestAddAccount,
                 this, &MainWindow::requestAddAccount);
     }

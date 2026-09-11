@@ -32,4 +32,4 @@ private:
     QLabel* errorLabel;
 };
 
-#endif // LOGINWINDOW_H
+#endif

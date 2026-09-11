@@ -1,13 +1,19 @@
 package com.remotecontrol.api.controller;
 
-import com.remotecontrol.api.dto.*;
+import com.remotecontrol.api.dto.common.ApiResponse;
+import com.remotecontrol.api.dto.common.InfoPrincipal;
+import com.remotecontrol.api.dto.common.UserPrincipal;
+import com.remotecontrol.api.dto.child.ChildDto;
+import com.remotecontrol.api.dto.child.HeartbeatRequest;
+import com.remotecontrol.api.dto.child.RegisterRequest;
 import com.remotecontrol.api.service.ChildService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/child")
@@ -20,12 +26,11 @@ public class ChildController {
     public ResponseEntity<ApiResponse<ChildDto>> register(
             @RequestAttribute("currentUser") UserPrincipal currentUser,
             @Valid @RequestBody RegisterRequest registerRequest) {
-
         ApiResponse<ChildDto> r = childService.register(registerRequest, currentUser);
-        if (r.getSuccess())
+        if (r.getSuccess()) {
             return ResponseEntity.ok(r);
-        else
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(r);
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(r);
     }
 
     @DeleteMapping("/{childUsername}")
@@ -40,22 +45,24 @@ public class ChildController {
     }
 
     @GetMapping({"", "/list"})
-    public ResponseEntity<ApiResponse<List<ChildDto>>> getListChildren(@RequestAttribute("currentUser") UserPrincipal currentUser) {
+    public ResponseEntity<ApiResponse<List<ChildDto>>> getListChildren(
+            @RequestAttribute("currentUser") UserPrincipal currentUser) {
         ApiResponse<List<ChildDto>> response = childService.getListChildren(currentUser);
-        if (response.getSuccess())
+        if (response.getSuccess()) {
             return ResponseEntity.ok(response);
-        else
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @PostMapping("/heartbeat")
     public ResponseEntity<ApiResponse<Void>> heartbeat(
             @RequestAttribute("currentUser") UserPrincipal currentUser,
-            @RequestAttribute("currentInfo") InfoPrincipal currentInfo) {
-        boolean success = childService.handleHeartbeat(currentUser, currentInfo);
-        if (success)
+            @RequestAttribute("currentInfo") InfoPrincipal currentInfo,
+            @RequestBody(required = false) HeartbeatRequest heartbeatRequest) {
+        boolean success = childService.handleHeartbeat(currentUser, currentInfo, heartbeatRequest);
+        if (success) {
             return ResponseEntity.ok(ApiResponse.success("Heartbeat OK"));
-        else
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Heartbeat failed"));
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("UNAUTHORIZED", "Heartbeat failed"));
     }
 }

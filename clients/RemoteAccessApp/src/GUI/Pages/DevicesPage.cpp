@@ -5,8 +5,9 @@
 #include <QLayoutItem>
 #include <QScrollArea>
 #include <QVBoxLayout>
-#include "../Components/DevicecardWidget.h"
-#include "../Layouts/Flowlayout.h"
+#include "GUI/Components/DeviceCardWidget.h"
+#include "GUI/Components/EmptyStateWidget.h"
+#include "GUI/Layouts/FlowLayout.h"
 
 DevicesPage::DevicesPage(QWidget *parent)
     : QWidget{parent}
@@ -58,21 +59,25 @@ void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
         delete item;
     }
 
-    for (const DeviceInfo &device : devices) {
-        QString status = device.isOnline ? QStringLiteral("Active") : QStringLiteral("Offline");
+    if (devices.isEmpty()) {
+        EmptyStateWidget *emptyState = new EmptyStateWidget(
+            "Chưa có thiết bị nào",
+            "Hiện tại chưa có máy con nào kết nối đến hệ thống.",
+            "Làm mới",
+            m_scrollContent
+        );
+        connect(emptyState, &EmptyStateWidget::actionClicked,
+                this, &DevicesPage::refreshRequested);
+        m_flowLayout->addWidget(emptyState);
+        return;
+    }
 
-        DeviceCardWidget *card = new DeviceCardWidget(
-                device.childUsername,
-                device.childUsername,
-                device.os,
-                device.ipAddress,
-                status,
-                QStringLiteral("N/A"),
-                m_scrollContent);
+    for (const DeviceInfo &device : devices) {
+        DeviceCardWidget *card = new DeviceCardWidget(device, m_scrollContent);
         connect(card, &DeviceCardWidget::connectRequested,
                 this, &DevicesPage::connectRequested);
         m_flowLayout->addWidget(card);
     }
 
-    qDebug() << "[DevicesPage] Đã render" << devices.size() << "thiết bị từ DeviceInfo Model.";
+    qDebug() << "[DevicesPage] Rendered" << devices.size() << "devices.";
 }

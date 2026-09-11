@@ -1,18 +1,18 @@
 package com.remotecontrol.api.service;
 
-import com.remotecontrol.api.dto.ApiResponse;
-import com.remotecontrol.api.dto.LoginData;
-import com.remotecontrol.api.dto.LoginRequest;
+import com.remotecontrol.api.dto.common.ApiResponse;
+import com.remotecontrol.api.dto.auth.LoginData;
+import com.remotecontrol.api.dto.auth.LoginRequest;
 import com.remotecontrol.api.entity.Child;
 import com.remotecontrol.api.entity.User;
 import com.remotecontrol.api.repository.ChildRepository;
 import com.remotecontrol.api.repository.UserRepository;
+import com.remotecontrol.api.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
 import java.util.Optional;
-import com.remotecontrol.api.util.JwtUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +49,19 @@ public class AuthService {
             return ApiResponse.success("Account Login Successful", data);
         }
 
-        return ApiResponse.error("Wrong Username or Password");
+        return ApiResponse.error("AUTH_FAILED", "Wrong Username or Password");
+    }
+
+    public ApiResponse<Void> registerAdmin(LoginRequest request) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            return ApiResponse.error("USER_ALREADY_EXISTS", "Username already exists");
+        }
+        User user = User.builder()
+                .username(request.getUsername())
+                .password(request.getPassword())
+                .maxChildren(5)
+                .build();
+        userRepository.save(user);
+        return ApiResponse.success("Registration successful");
     }
 }

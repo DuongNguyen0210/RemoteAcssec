@@ -1,7 +1,5 @@
 #include "LoginWindow.h"
-//#include "../Network/RelayClient.h"
 #include <QFrame>
-
 #include <QDebug>
 
 LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent)
@@ -19,7 +17,7 @@ void LoginWindow::setupUi()
 {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setAlignment(Qt::AlignCenter);
-    
+
     QFrame* loginBox = new QFrame(this);
     loginBox->setObjectName("loginBox");
     QVBoxLayout* boxLayout = new QVBoxLayout(loginBox);
@@ -29,18 +27,18 @@ void LoginWindow::setupUi()
     QLabel* titleLabel = new QLabel("ĐĂNG NHẬP", loginBox);
     titleLabel->setObjectName("loginTitle");
     titleLabel->setAlignment(Qt::AlignCenter);
-    
+
     usernameInput = new QLineEdit(loginBox);
     usernameInput->setObjectName("usernameInput");
     usernameInput->setPlaceholderText("Tên đăng nhập...");
     usernameInput->setFixedHeight(40);
-    
+
     passwordInput = new QLineEdit(loginBox);
     passwordInput->setObjectName("passwordInput");
     passwordInput->setPlaceholderText("Mật khẩu...");
     passwordInput->setEchoMode(QLineEdit::Password);
     passwordInput->setFixedHeight(40);
-    
+
     loginButton = new QPushButton("Đăng Nhập", loginBox);
     loginButton->setObjectName("loginButton");
     loginButton->setFixedHeight(45);
@@ -57,7 +55,7 @@ void LoginWindow::setupUi()
     boxLayout->addWidget(passwordInput);
     boxLayout->addWidget(errorLabel);
     boxLayout->addWidget(loginButton);
-    
+
     mainLayout->addWidget(loginBox);
 
     connect(loginButton, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);

@@ -13,4 +13,4 @@ private:
     void setupUi();
 };
 
-#endif // SETTINGSPAGE_H
+#endif

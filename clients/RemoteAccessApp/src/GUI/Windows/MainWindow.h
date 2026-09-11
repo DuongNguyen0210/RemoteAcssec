@@ -3,8 +3,8 @@
 
 #include <QMainWindow>
 #include <QStackedWidget>
-#include "../Components/SidebarWidget.h"
-#include "../Components/TopbarWidget.h"
+#include "GUI/Components/SidebarWidget.h"
+#include "GUI/Components/TopBarWidget.h"
 
 class DevicesPage;
 class AccountPage;

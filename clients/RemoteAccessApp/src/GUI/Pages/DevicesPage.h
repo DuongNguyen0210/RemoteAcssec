@@ -3,7 +3,7 @@
 
 #include <QWidget>
 #include <QList>
-#include "../../Core/Model/DeviceInfo.h"
+#include "Domain/Model/DeviceInfo.h"
 
 class FlowLayout;
 class QWidget;
@@ -27,4 +27,4 @@ private:
     QWidget *m_scrollContent;
 };
 
-#endif // DEVICESPAGE_H
+#endif

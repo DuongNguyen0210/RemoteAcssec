@@ -1,4 +1,4 @@
-#registerWindow {
+#registerWindow, #createAccountDialog {
     background-color: #f7f9fb;
 }
 
@@ -50,8 +50,15 @@ QPushButton#registerBtt:pressed {
     background-color: #001d32;
 }
 
-#registerErrorLabel {
-    color: #ba1a1a;
+#registerStatusLabel {
     font-size: 13px;
     font-weight: 600;
+}
+
+#registerStatusLabel[status="error"] {
+    color: #ba1a1a;
+}
+
+#registerStatusLabel[status="success"] {
+    color: #2ecc71;
 }

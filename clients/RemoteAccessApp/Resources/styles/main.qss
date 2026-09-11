@@ -269,3 +269,50 @@ QCheckBox[role="settingsCheckBox"] {
     font-size: 14px;
     spacing: 8px;
 }
+
+QPushButton[role="linkButton"] {
+    background: transparent;
+    color: #005d90;
+    border: none;
+    text-decoration: underline;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton[role="linkButton"]:hover {
+    color: #004b74;
+}
+
+#emptyStateWidget {
+    background: transparent;
+}
+
+#emptyStateIcon {
+    font-size: 40px;
+}
+
+#emptyStateTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: #191c1e;
+}
+
+#emptyStateDesc {
+    font-size: 13px;
+    color: #707881;
+}
+
+QPushButton#emptyStateActionBtn {
+    background-color: #005d90;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0px 16px;
+}
+
+QPushButton#emptyStateActionBtn:hover {
+    background-color: #004b74;
+}
+
