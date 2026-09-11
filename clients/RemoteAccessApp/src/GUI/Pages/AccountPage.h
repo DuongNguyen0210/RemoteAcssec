@@ -23,6 +23,8 @@ public:
 signals:
     void requestAddAccount();
     void loadRequested();
+    void editAccountRequested(const QString &username);
+    void deleteAccountRequested(const QString &username);
 
 public slots:
     void loadData();

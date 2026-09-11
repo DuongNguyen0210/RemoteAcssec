@@ -55,6 +55,9 @@ void HeartbeatReporter::sendHeartbeat()
     body[QStringLiteral("os")]        = QSysInfo::prettyProductName();
 
     QNetworkReply *reply = ApiClient::instance().post("/api/v1/child/heartbeat", body);
+    if (!reply) {
+        return;
+    }
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         onHeartbeatReply(reply);
     });

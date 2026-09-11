@@ -14,6 +14,10 @@ void AuthService::login(const QString &username, const QString &password)
     json["password"] = password;
 
     QNetworkReply *reply = ApiClient::instance().post("/api/v1/auth/login", json);
+    if (!reply) {
+        emit loginResult(false, QString(), QStringLiteral("Loi khoi tao yeu cau mang"), username);
+        return;
+    }
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, username](){
         onLoginReply(reply, username);

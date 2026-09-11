@@ -56,8 +56,9 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
 
         m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView());
 
-        connect(m_mainWindow, &MainWindow::requestAddAccount, this, &AppCoordinator::handleRequestAddAccount);
-        connect(m_mainWindow, &MainWindow::childConnectRequested,
+        connect(m_accountController, &AccountController::requestAddAccount,
+                this, &AppCoordinator::handleRequestAddAccount);
+        connect(m_devicesController, &DevicesController::connectRequested,
                 this, &AppCoordinator::handleChildConnectRequested);
         connect(m_mainWindow, &MainWindow::pageSelected,
                 this, &AppCoordinator::handlePageSelected);
@@ -99,6 +100,12 @@ void AppCoordinator::handleRequestAddAccount()
     connect(m_createAccountController, &CreateAccountController::accountCreatedSuccessfully, this, [this]() {
         if (m_deviceStore) {
             m_deviceStore->refresh();
+        }
+    });
+    connect(m_createAccountController, &CreateAccountController::finished, this, [this]() {
+        if (m_createAccountController) {
+            m_createAccountController->deleteLater();
+            m_createAccountController = nullptr;
         }
     });
 
