@@ -29,6 +29,7 @@ public:
 
     QNetworkReply* post(const QString &endpoint, const QJsonObject &data);
     QNetworkReply* get(const QString &endpoint);
+    QNetworkReply* deleteResource(const QString &endpoint);
 
 private:
     explicit ApiClient(QObject *parent = nullptr);

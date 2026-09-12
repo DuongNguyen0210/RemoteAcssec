@@ -7,10 +7,8 @@
 
 class AuthController;
 class MainWindow;
-class CreateAccountController;
 class HeartbeatReporter;
 class ScreenStreamSender;
-class AdminSessionController;
 class DeviceStore;
 class DevicesController;
 class AccountController;
@@ -26,19 +24,14 @@ public:
 
 private slots:
     void handleLoginSuccess(const QString &role, const QString &username);
-    void handleRequestAddAccount();
-    void handleChildConnectRequested(const QString &childUsername);
-    void handleSessionEstablished(quint64 sessionId);
-    void handleSessionFailed(const QString &reason);
+    void handleRemoteSessionStarted(quint64 sessionId, const QString &childUsername);
     void handlePageSelected(int pageIndex);
 
 private:
     QPointer<AuthController> m_authController;
     QPointer<MainWindow> m_mainWindow;
-    QPointer<CreateAccountController> m_createAccountController;
     HeartbeatReporter *m_heartbeatReporter;
     ScreenStreamSender *m_screenStreamSender;
-    AdminSessionController *m_adminSessionController;
 
     DeviceStore *m_deviceStore;
     DevicesController *m_devicesController;

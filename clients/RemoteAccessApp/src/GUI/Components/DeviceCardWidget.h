@@ -17,6 +17,7 @@ public:
 
 signals:
     void connectRequested(const QString &childUsername);
+    void removeRequested(const QString &childUsername);
 
 private:
     QString m_childUsername;

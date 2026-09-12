@@ -8,7 +8,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QVBoxLayout>
-#include <QMessageBox>
+#include "GUI/Dialogs/ConfirmDialog.h"
 #include "GUI/Components/EmptyStateWidget.h"
 #include "GUI/Components/AccountCardWidget.h"
 
@@ -154,7 +154,7 @@ void AccountPage::renderAccounts(const QString &filterText)
 
 void AccountPage::showError(const QString &message)
 {
-    QMessageBox::warning(this, "Lỗi", message);
+    ConfirmDialog::showWarning(this, QStringLiteral("Lỗi"), message);
 }
 
 void AccountPage::setupUi()

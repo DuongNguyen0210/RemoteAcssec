@@ -18,5 +18,9 @@
         <file>Resources/icons/settings.svg</file>
         <file>Resources/icons/x.svg</file>
         <file>Resources/icons/add-fill.svg</file>
+        <file>Resources/icons/alert-circle.svg</file>
+        <file>Resources/icons/alert-triangle.svg</file>
+        <file>Resources/icons/check-circle.svg</file>
+        <file>Resources/icons/help-circle.svg</file>
     </qresource>
 </RCC>

@@ -5,6 +5,7 @@
 #include <QLayoutItem>
 #include <QScrollArea>
 #include <QVBoxLayout>
+#include "GUI/Dialogs/ConfirmDialog.h"
 #include "GUI/Components/DeviceCardWidget.h"
 #include "GUI/Components/EmptyStateWidget.h"
 #include "GUI/Layouts/FlowLayout.h"
@@ -76,8 +77,20 @@ void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
         DeviceCardWidget *card = new DeviceCardWidget(device, m_scrollContent);
         connect(card, &DeviceCardWidget::connectRequested,
                 this, &DevicesPage::connectRequested);
+        connect(card, &DeviceCardWidget::removeRequested,
+                this, &DevicesPage::removeDeviceRequested);
         m_flowLayout->addWidget(card);
     }
 
     qDebug() << "[DevicesPage] Rendered" << devices.size() << "devices.";
+}
+
+void DevicesPage::showError(const QString &message)
+{
+    ConfirmDialog::showWarning(this, QStringLiteral("Lỗi"), message);
+}
+
+void DevicesPage::showSuccess(const QString &message)
+{
+    ConfirmDialog::showInfo(this, QStringLiteral("Thành công"), message);
 }

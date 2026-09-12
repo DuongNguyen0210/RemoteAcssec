@@ -59,6 +59,9 @@ DeviceCardWidget::DeviceCardWidget(const QString &childUsername, const QString &
     bttRemove->setCursor(Qt::PointingHandCursor);
     bttRemove->setFixedSize(32, 32);
     bttRemove->setIcon(QIcon(":/icons/Resources/icons/x.svg"));
+    connect(bttRemove, &QPushButton::clicked, this, [this]() {
+        emit removeRequested(m_childUsername);
+    });
 
     HeaderLayout->addWidget(lblIcon);
     HeaderLayout->addLayout(NameLayout);

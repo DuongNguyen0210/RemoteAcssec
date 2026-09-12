@@ -63,3 +63,29 @@ void AccountService::onFetchListChildrenReply(QNetworkReply *reply)
         emit fetchListChildrenResult(false, QJsonArray(), res.message.isEmpty() ? QStringLiteral("Không thể lấy danh sách máy con") : res.message);
     }
 }
+
+void AccountService::deleteSubAccount(const QString &childUsername)
+{
+    QNetworkReply *reply = ApiClient::instance().deleteResource("/api/v1/child/" + childUsername);
+    if (!reply) {
+        emit deleteAccountResult(false, childUsername, QStringLiteral("Loi khoi tao yeu cau mang"));
+        return;
+    }
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, childUsername](){
+        onDeleteAccountReply(reply, childUsername);
+    });
+}
+
+void AccountService::onDeleteAccountReply(QNetworkReply *reply, const QString &childUsername)
+{
+    reply->deleteLater();
+
+    ApiParsedResponse res = ApiClient::parseReply(reply);
+
+    if (res.success) {
+        emit deleteAccountResult(true, childUsername, res.message.isEmpty() ? QStringLiteral("Xóa tài khoản thành công!") : res.message);
+    } else {
+        emit deleteAccountResult(false, childUsername, res.message.isEmpty() ? QStringLiteral("Không thể xóa tài khoản con") : res.message);
+    }
+}

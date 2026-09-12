@@ -15,9 +15,12 @@ public:
     explicit DevicesPage(QWidget *parent = nullptr);
 
     void updateDeviceList(const QList<DeviceInfo> &devices);
+    void showError(const QString &message);
+    void showSuccess(const QString &message);
 
 signals:
     void connectRequested(const QString &childUsername);
+    void removeDeviceRequested(const QString &childUsername);
     void refreshRequested();
 
 private:
