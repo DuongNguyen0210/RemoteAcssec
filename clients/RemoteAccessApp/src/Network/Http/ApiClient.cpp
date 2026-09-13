@@ -87,3 +87,9 @@ QNetworkReply* ApiClient::get(const QString &endpoint)
     QNetworkRequest request = createRequest(endpoint);
     return m_networkManager->get(request);
 }
+
+QNetworkReply* ApiClient::deleteResource(const QString &endpoint)
+{
+    QNetworkRequest request = createRequest(endpoint);
+    return m_networkManager->deleteResource(request);
+}

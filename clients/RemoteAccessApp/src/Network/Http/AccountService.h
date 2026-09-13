@@ -14,14 +14,17 @@ public:
 
     void createSubAccount(const QString &childUsername, const QString &password);
     void fetchListChildren();
+    void deleteSubAccount(const QString &childUsername);
 
 signals:
     void createAccountResult(bool success, const QString &message);
     void fetchListChildrenResult(bool success, const QJsonArray &children, const QString &message);
+    void deleteAccountResult(bool success, const QString &childUsername, const QString &message);
 
 private slots:
     void onCreateAccountReply(QNetworkReply *reply);
     void onFetchListChildrenReply(QNetworkReply *reply);
+    void onDeleteAccountReply(QNetworkReply *reply, const QString &childUsername);
 };
 
 #endif

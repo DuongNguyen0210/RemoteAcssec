@@ -316,3 +316,93 @@ QPushButton#emptyStateActionBtn:hover {
     background-color: #004b74;
 }
 
+/* ─── Confirm & Alert Dialog ─────────────────────────────────────────────── */
+#confirmDialogCard {
+    background-color: #ffffff;
+    border: 1px solid #dfe4ea;
+    border-radius: 16px;
+}
+
+#confirmBadge {
+    border-radius: 27px;
+    background-color: #e8f3fb;
+}
+
+#confirmBadge[badgeType="danger"] {
+    background-color: #ffdad6;
+}
+
+#confirmBadge[badgeType="warning"] {
+    background-color: #fff3cd;
+}
+
+#confirmBadge[badgeType="info"],
+#confirmBadge[badgeType="question"] {
+    background-color: #e8f3fb;
+}
+
+#confirmTitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: #191c1e;
+    background-color: transparent;
+}
+
+#confirmMessage {
+    font-size: 14px;
+    font-weight: 400;
+    color: #404850;
+    line-height: 1.4;
+    background-color: transparent;
+}
+
+QPushButton#confirmBtnCancel {
+    background-color: #ffffff;
+    border: 1px solid #bfc7d1;
+    border-radius: 8px;
+    color: #191c1e;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0px 16px;
+    min-width: 90px;
+}
+
+QPushButton#confirmBtnCancel:hover {
+    background-color: #eceef0;
+    border-color: #707881;
+}
+
+QPushButton#confirmBtnAction {
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 0px 18px;
+    min-width: 90px;
+}
+
+QPushButton#confirmBtnAction[actionRole="danger"] {
+    background-color: #ba1a1a;
+}
+
+QPushButton#confirmBtnAction[actionRole="danger"]:hover {
+    background-color: #93000a;
+}
+
+QPushButton#confirmBtnAction[actionRole="warning"] {
+    background-color: #b38600;
+}
+
+QPushButton#confirmBtnAction[actionRole="warning"]:hover {
+    background-color: #8c6800;
+}
+
+QPushButton#confirmBtnAction[actionRole="primary"] {
+    background-color: #005d90;
+}
+
+QPushButton#confirmBtnAction[actionRole="primary"]:hover {
+    background-color: #004b74;
+}
+
