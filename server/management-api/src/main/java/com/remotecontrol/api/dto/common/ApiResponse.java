@@ -17,11 +17,8 @@ public class ApiResponse<T> {
 
     @Builder.Default
     private Boolean success = true;
-
     private String errorCode;
-
     private String message;
-
     private T data;
 
     @Builder.Default

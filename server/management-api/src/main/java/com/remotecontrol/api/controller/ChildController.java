@@ -1,5 +1,6 @@
 package com.remotecontrol.api.controller;
 
+import com.remotecontrol.api.annotation.RequireRole;
 import com.remotecontrol.api.dto.common.ApiResponse;
 import com.remotecontrol.api.dto.common.InfoPrincipal;
 import com.remotecontrol.api.dto.common.UserPrincipal;
@@ -22,6 +23,7 @@ public class ChildController {
 
     private final ChildService childService;
 
+    @RequireRole("ADMIN")
     @PostMapping({"/Register", "/register"})
     public ResponseEntity<ApiResponse<ChildDto>> register(
             @RequestAttribute("currentUser") UserPrincipal currentUser,
@@ -33,17 +35,18 @@ public class ChildController {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(r);
     }
 
+    @RequireRole("ADMIN")
     @DeleteMapping("/{childUsername}")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable String childUsername,
             @RequestAttribute("currentUser") UserPrincipal currentUser) {
         ApiResponse<Void> res = childService.deleteChild(childUsername, currentUser);
-        if (res.getSuccess()) {
+        if (res.getSuccess())
             return ResponseEntity.ok(res);
-        }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
     }
 
+    @RequireRole("ADMIN")
     @GetMapping({"", "/list"})
     public ResponseEntity<ApiResponse<List<ChildDto>>> getListChildren(
             @RequestAttribute("currentUser") UserPrincipal currentUser) {
@@ -54,6 +57,7 @@ public class ChildController {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @RequireRole("CHILD")
     @PostMapping("/heartbeat")
     public ResponseEntity<ApiResponse<Void>> heartbeat(
             @RequestAttribute("currentUser") UserPrincipal currentUser,

@@ -35,9 +35,8 @@ void AuthService::onLoginReply(QNetworkReply *reply, const QString &username)
         QString role = dataObj.contains("role") ? dataObj["role"].toString() : QString();
         QString token = dataObj.contains("token") ? dataObj["token"].toString() : QString();
 
-        if (!token.isEmpty()) {
+        if (!token.isEmpty())
             ApiClient::instance().setToken(token);
-        }
 
         emit loginResult(true, role, res.message, username);
     } else {

@@ -59,10 +59,6 @@ public class ChildService {
     }
 
     public ApiResponse<List<ChildDto>> getListChildren(UserPrincipal currentUser) {
-        if (!"ADMIN".equals(currentUser.getRole())) {
-            return ApiResponse.error("FORBIDDEN", "Only admin can access children list");
-        }
-
         Optional<User> user = userRepository.findByUsername(currentUser.getUsername());
         if (user.isEmpty()) {
             return ApiResponse.error("USER_NOT_FOUND", "User not found");
@@ -108,10 +104,6 @@ public class ChildService {
     }
 
     public boolean handleHeartbeat(UserPrincipal currentUser, InfoPrincipal currentInfo, HeartbeatRequest request) {
-        if (!"CHILD".equals(currentUser.getRole())) {
-            return false;
-        }
-
         Optional<Child> c = childRepository.findByUsername(currentUser.getUsername());
         if (c.isEmpty()) {
             return false;
@@ -128,10 +120,6 @@ public class ChildService {
     }
 
     public ApiResponse<Void> deleteChild(String childUsername, UserPrincipal currentUser) {
-        if (!"ADMIN".equals(currentUser.getRole())) {
-            return ApiResponse.error("FORBIDDEN", "Only ADMIN can delete devices");
-        }
-
         Optional<Child> childOpt = childRepository.findByUsername(childUsername);
         if (childOpt.isEmpty()) {
             childOpt = childRepository.findByUsername(currentUser.getUsername() + childUsername);
