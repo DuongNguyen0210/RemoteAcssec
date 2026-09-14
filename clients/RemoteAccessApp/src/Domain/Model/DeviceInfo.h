@@ -1,39 +1,13 @@
-#ifndef DEVICEINFO_H
-#define DEVICEINFO_H
-
+#pragma once
 #include <QString>
-#include <QJsonObject>
 
-struct DeviceInfo
-{
+// One currently heartbeating login session; no persistent device inventory.
+struct DeviceInfo {
+    QString sessionId;
+    qint64 childId = 0;
     QString username;
-    QString childUsername;
-    QString password;
-    QString ipAddress;
+    QString deviceName;
     QString os;
-    bool isOnline;
-
-    DeviceInfo()
-        : isOnline(false)
-    {}
-
-    static DeviceInfo fromJson(const QJsonObject &obj)
-    {
-        DeviceInfo info;
-        info.username = obj.value(QStringLiteral("username")).toString();
-        info.childUsername = obj.value(QStringLiteral("childUsername")).toString();
-        if (info.childUsername.isEmpty()) {
-            info.childUsername = info.username;
-        }
-        if (info.username.isEmpty()) {
-            info.username = info.childUsername;
-        }
-        info.password = obj.value(QStringLiteral("password")).toString();
-        info.isOnline = obj.value(QStringLiteral("online")).toBool(false);
-        info.ipAddress = obj.value(QStringLiteral("ipAddress")).toString(QStringLiteral("Local Network"));
-        info.os = obj.value(QStringLiteral("os")).toString(QStringLiteral("Windows / Linux"));
-        return info;
-    }
+    QString ipAddress;
+    qint64 lastHeartbeatAt = 0;
 };
-
-#endif

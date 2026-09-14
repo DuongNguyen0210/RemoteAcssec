@@ -1,3 +1,5 @@
+> **Luồng này đã được thay thế.** Heartbeat hiện lưu theo UUID phiên đăng nhập, TTL 20 giây; Account và Devices dùng API riêng. Xem [luồng hiện hành và sơ đồ](../architecture/ACCOUNT_DEVICE_FLOW.md). Nội dung dưới đây là tài liệu lịch sử.
+
 # Heartbeat CHILD sử dụng JWT
 
 ## 1. Mục đích

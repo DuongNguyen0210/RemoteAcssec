@@ -26,6 +26,7 @@ public class RelayServer {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         RelayRegistry relayRegistry = new RelayRegistry();
+        var authorizer = new com.remotecontrol.relay.auth.RelayAuthorizer();
 
         try {
 
@@ -38,7 +39,7 @@ public class RelayServer {
                  protected void initChannel(SocketChannel ch) {
                      ch.pipeline().addLast(new ProtocolDecoder());
                      ch.pipeline().addLast(new ProtocolEncoder());
-                     ch.pipeline().addLast(new RelayServerHandler(relayRegistry));
+                     ch.pipeline().addLast(new RelayServerHandler(relayRegistry, authorizer));
                  }
              })
              .option(ChannelOption.SO_BACKLOG, 128)
@@ -55,7 +56,7 @@ public class RelayServer {
     }
 
     public static void main(String[] args) throws Exception {
-        int port = 8080;
+        int port = Integer.parseInt(System.getenv().getOrDefault("RELAY_PORT", "8080"));
         new RelayServer(port).start();
     }
 }

@@ -1,3 +1,5 @@
+> **REGISTER_HOST và CONNECT_REQUEST trong tài liệu này là v1.** Hợp đồng hiện hành: [RDTP v2](11_SESSION_AUTH_V2.md).
+
 # 03 - MessageType
 
 > Định nghĩa trong: `clients/RemoteAccessApp/src/Network/protocol/protocolconstants.h`

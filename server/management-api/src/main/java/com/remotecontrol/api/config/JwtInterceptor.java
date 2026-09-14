@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import com.remotecontrol.api.service.PresenceService;
+import org.springframework.dao.DataAccessException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -19,6 +21,7 @@ import java.util.List;
 public class JwtInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
+    private final PresenceService presenceService;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -32,8 +35,8 @@ public class JwtInterceptor implements HandlerInterceptor {
 
         String token = authHeader.substring(7);
         try {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             if (jwtUtil.isTokenExpired(token)) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write("{\"success\":false,\"errorCode\":\"TOKEN_EXPIRED\",\"message\":\"Token Expired\",\"data\":null}");
                 return false;
@@ -42,10 +45,18 @@ public class JwtInterceptor implements HandlerInterceptor {
             String username = jwtUtil.extractUsername(token);
             String role = jwtUtil.extractRole(token);
             String id = jwtUtil.extractId(token);
+            String sessionId = jwtUtil.extractSessionId(token);
+            if ("CHILD".equals(role) && !presenceService.isSessionActive(id, sessionId)) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"success\":false,\"errorCode\":\"SESSION_EXPIRED\",\"message\":\"Please sign in again\"}");
+                return false;
+            }
             UserPrincipal currentUser = UserPrincipal.builder()
                     .id(id)
                     .username(username)
                     .role(role)
+                    .sessionId(sessionId)
                     .build();
             request.setAttribute("currentUser", currentUser);
 
@@ -79,6 +90,9 @@ public class JwtInterceptor implements HandlerInterceptor {
             }
 
             return true;
+        } catch (DataAccessException e) {
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            return false;
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");

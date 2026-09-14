@@ -58,11 +58,18 @@ public class ChildController {
     }
 
     @RequireRole("CHILD")
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(@RequestAttribute("currentUser") UserPrincipal principal) {
+        childService.logout(principal);
+        return ApiResponse.success("Logged out");
+    }
+
+    @RequireRole("CHILD")
     @PostMapping("/heartbeat")
     public ResponseEntity<ApiResponse<Void>> heartbeat(
             @RequestAttribute("currentUser") UserPrincipal currentUser,
             @RequestAttribute("currentInfo") InfoPrincipal currentInfo,
-            @RequestBody(required = false) HeartbeatRequest heartbeatRequest) {
+            @Valid @RequestBody HeartbeatRequest heartbeatRequest) {
         boolean success = childService.handleHeartbeat(currentUser, currentInfo, heartbeatRequest);
         if (success) {
             return ResponseEntity.ok(ApiResponse.success("Heartbeat OK"));

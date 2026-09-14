@@ -5,7 +5,7 @@
 #include <QVBoxLayout>
 #include <QList>
 #include <QString>
-#include "Domain/Model/DeviceInfo.h"
+#include "Domain/Model/AccountInfo.h"
 
 class QLabel;
 class QLineEdit;
@@ -17,7 +17,7 @@ public:
     explicit AccountPage(QWidget *parent = nullptr);
 
     void showLoading();
-    void updateAccountList(const QList<DeviceInfo> &accounts);
+    void updateAccountList(const QList<AccountInfo> &accounts);
     void showError(const QString &message);
 
 signals:
@@ -37,11 +37,9 @@ private:
     void updateMetrics();
     void renderAccounts(const QString &filterText);
 
-    QList<DeviceInfo> m_allAccounts;
+    QList<AccountInfo> m_allAccounts;
 
     QLabel *m_totalAccountsVal;
-    QLabel *m_activeAccountsVal;
-    QLabel *m_inactiveAccountsVal;
 
     QLineEdit *m_searchInput;
     QVBoxLayout *m_listLayout;

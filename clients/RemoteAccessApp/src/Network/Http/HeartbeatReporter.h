@@ -21,6 +21,9 @@ public:
 
     bool isRunning() const;
 
+signals:
+    void authenticationLost();
+
 private slots:
     void sendHeartbeat();
     void onHeartbeatReply(QNetworkReply *reply);
@@ -29,9 +32,8 @@ private:
     QTimer *m_timer;
 
     QString m_deviceName;
-    QString m_deviceUid;
+    bool m_inFlight = false;
 
-    QString resolveDeviceUid() const;
 };
 
 #endif

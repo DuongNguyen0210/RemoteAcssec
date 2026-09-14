@@ -19,8 +19,7 @@ public:
     void showSuccess(const QString &message);
 
 signals:
-    void connectRequested(const QString &childUsername);
-    void removeDeviceRequested(const QString &childUsername);
+    void connectRequested(const QString &agentSessionId);
     void refreshRequested();
 
 private:
@@ -28,6 +27,7 @@ private:
 
     FlowLayout *m_flowLayout;
     QWidget *m_scrollContent;
+    class QLabel *m_refreshStatus;
 };
 
 #endif

@@ -5,7 +5,7 @@
 namespace Protocol {
 
 inline constexpr uint32_t PROTOCOL_MAGIC = 0x52445450U;
-inline constexpr uint8_t PROTOCOL_VERSION = 1U;
+inline constexpr uint8_t PROTOCOL_VERSION = 2U;
 inline constexpr uint32_t HEADER_SIZE = 24U;
 inline constexpr uint32_t MAX_PAYLOAD_LENGTH = 524288U;
 

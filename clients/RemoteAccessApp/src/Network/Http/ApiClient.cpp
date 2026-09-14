@@ -42,7 +42,7 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
 ApiClient::ApiClient(QObject *parent) 
     : QObject(parent), m_networkManager(new QNetworkAccessManager(this))
 {
-    m_baseUrl = "http://cornball-ibuprofen-polygraph.ngrok-free.dev";
+    m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://cornball-ibuprofen-polygraph.ngrok-free.dev");
 }
 
 ApiClient::~ApiClient()
@@ -63,12 +63,12 @@ QNetworkRequest ApiClient::createRequest(const QString &endpoint) const
 {
     QUrl url(m_baseUrl + endpoint);
     QNetworkRequest request(url);
+    request.setTransferTimeout(10000);
     
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setRawHeader("ngrok-skip-browser-warning", "true");
     
     if (!m_token.isEmpty()) {
-        qDebug() << "Token Request: " + m_token << '\n';
         request.setRawHeader("Authorization", ("Bearer " + m_token).toUtf8());
     }
     

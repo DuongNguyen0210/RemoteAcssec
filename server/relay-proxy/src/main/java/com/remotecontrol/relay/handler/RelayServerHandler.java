@@ -9,19 +9,26 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.Channel;
 import io.netty.channel.SimpleChannelInboundHandler;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
+import com.remotecontrol.relay.auth.RelayAuthorizer;
+import com.remotecontrol.relay.auth.RelayAuthPayload;
+import java.util.concurrent.TimeUnit;
 
 public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
     // One screen handler per channel; the registry is shared through construction.
     private final ScreenFrameHandler screenFrameHandler = new ScreenFrameHandler();
     private final RelayRegistry relayRegistry;
+    private final RelayAuthorizer authorizer;
+    private boolean authorizationPending;
+    private io.netty.util.concurrent.ScheduledFuture<?> lease;
 
     public RelayServerHandler(RelayRegistry relayRegistry) {
+        this(relayRegistry, new RelayAuthorizer());
+    }
+
+    public RelayServerHandler(RelayRegistry relayRegistry, RelayAuthorizer authorizer) {
         this.relayRegistry = relayRegistry;
+        this.authorizer = authorizer;
     }
 
     @Override
@@ -57,45 +64,19 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
     }
 
     private void handleRegisterHost(ChannelHandlerContext ctx, Protocol msg) {
-        String username = decodeRegistrationUsername(msg);
-        boolean accepted = username != null && relayRegistry.registerChild(username, ctx.channel());
-
-        sendRegisterAck(ctx, accepted);
-        System.out.println("[RelayServer] REGISTER_HOST "
-                + (accepted ? "accepted" : "rejected")
-                + (username == null ? "" : " for " + username));
-    }
-
-    private String decodeRegistrationUsername(Protocol msg) {
-        ProtocolHeader header = msg.getHeader();
-        byte[] payload = msg.getPayload();
-
-        if (header.getFlags() != 0
-                || header.getSessionId() != 0
-                || header.getSequenceNumber() != 0
-                || payload == null
-                || header.getPayloadLength() != payload.length
-                || payload.length < 2) {
-            return null;
+        var credentials = RelayAuthPayload.decode(msg, false);
+        if (credentials == null || authorizationPending || relayRegistry.hasSession(ctx.channel())) {
+            sendRegisterAck(ctx, false);
+            return;
         }
-
-        int usernameLength = ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF);
-        if (usernameLength < 1
-                || usernameLength > 200
-                || payload.length != 2 + usernameLength) {
-            return null;
-        }
-
-        try {
-            String username = StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(payload, 2, usernameLength))
-                    .toString();
-            return username.isEmpty() ? null : username;
-        } catch (CharacterCodingException exception) {
-            return null;
-        }
+        authorizationPending = true;
+        authorizer.authorize(credentials.token(), null).thenAccept(agentId -> ctx.executor().execute(() -> {
+            authorizationPending = false;
+            if (!ctx.channel().isActive()) return;
+            boolean accepted = agentId != null && relayRegistry.registerChild(agentId, ctx.channel());
+            sendRegisterAck(ctx, accepted);
+            if (accepted) startLease(ctx, credentials, agentId);
+        }));
     }
 
     private void sendRegisterAck(ChannelHandlerContext ctx, boolean accepted) {
@@ -112,63 +93,38 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
     }
 
     private void handleConnectRequest(ChannelHandlerContext ctx, Protocol msg) {
-        String targetUsername = decodeConnectTargetUsername(msg);
-        if (targetUsername == null || relayRegistry.isRegisteredChild(ctx.channel())) {
+        var credentials = RelayAuthPayload.decode(msg, true);
+        if (credentials == null || authorizationPending || relayRegistry.isRegisteredChild(ctx.channel())) {
             sendConnectResult(ctx.channel(), false, 0L);
-            System.out.println("[RelayServer] CONNECT_REQUEST rejected: invalid request");
             return;
         }
-
-        Channel childChannel = relayRegistry.findRegisteredChild(targetUsername);
-        if (childChannel == null) {
-            sendConnectResult(ctx.channel(), false, 0L);
-            System.out.println("[RelayServer] CONNECT_REQUEST rejected: CHILD not registered");
-            return;
-        }
-
-        RelayRegistry.SessionRecord session = relayRegistry.createPendingSession(
-                ctx.channel(), childChannel, targetUsername);
-        if (session == null) {
-            sendConnectResult(ctx.channel(), false, 0L);
-            System.out.println("[RelayServer] CONNECT_REQUEST rejected: ADMIN or CHILD busy");
-            return;
-        }
-
-        sendSessionRequest(childChannel, session.getSessionId());
-        System.out.println("[RelayServer] Session PENDING sessionId="
-                + session.getSessionId() + " childUsername=" + targetUsername);
+        authorizationPending = true;
+        authorizer.authorize(credentials.token(), credentials.targetSessionId()).thenAccept(agentId ->
+                ctx.executor().execute(() -> {
+            authorizationPending = false;
+            if (!ctx.channel().isActive()) return;
+            Channel child = agentId == null ? null : relayRegistry.findRegisteredChild(agentId);
+            var session = child == null ? null : relayRegistry.createPendingSession(ctx.channel(), child, agentId);
+            if (session == null) {
+                sendConnectResult(ctx.channel(), false, 0L);
+                return;
+            }
+            startLease(ctx, credentials, agentId);
+            sendSessionRequest(child, session.getSessionId());
+        }));
     }
 
-    private String decodeConnectTargetUsername(Protocol msg) {
-        ProtocolHeader header = msg.getHeader();
-        byte[] payload = msg.getPayload();
-
-        if (header.getFlags() != 0
-                || header.getSessionId() != 0
-                || header.getSequenceNumber() != 0
-                || payload == null
-                || header.getPayloadLength() != payload.length
-                || payload.length < 2) {
-            return null;
-        }
-
-        int usernameLength = ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF);
-        if (usernameLength < 1
-                || usernameLength > 200
-                || payload.length != 2 + usernameLength) {
-            return null;
-        }
-
-        try {
-            String username = StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(payload, 2, usernameLength))
-                    .toString();
-            return username.isEmpty() ? null : username;
-        } catch (CharacterCodingException exception) {
-            return null;
-        }
+    // Revocation, deletion, JWT expiry, or lost presence also terminate existing connections.
+    private void startLease(ChannelHandlerContext ctx, RelayAuthPayload credentials, String agentId) {
+        if (lease != null) lease.cancel(false);
+        lease = ctx.executor().schedule(() -> {
+            authorizer.authorize(credentials.token(), credentials.targetSessionId()).thenAccept(authorized ->
+                    ctx.executor().execute(() -> {
+                if (!ctx.channel().isActive()) return;
+                if (!agentId.equals(authorized)) ctx.close();
+                else startLease(ctx, credentials, agentId);
+            }));
+        }, 10, TimeUnit.SECONDS);
     }
 
     private void handleSessionAccept(ChannelHandlerContext ctx, Protocol msg) {
@@ -267,6 +223,7 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (lease != null) lease.cancel(false);
         relayRegistry.removeSessionForChannel(ctx.channel());
         relayRegistry.unregisterChild(ctx.channel());
         System.out.println("[RelayServer] Ket noi da dong: " + ctx.channel().remoteAddress());

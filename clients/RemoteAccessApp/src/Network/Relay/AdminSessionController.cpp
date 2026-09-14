@@ -4,6 +4,9 @@
 #include "Network/Protocol/ProtocolSerializer.h"
 
 #include <QDebug>
+#include <QUuid>
+#include "Network/Http/ApiClient.h"
+#include "Network/Protocol/RelayAuthPayload.h"
 
 namespace {
 
@@ -30,11 +33,10 @@ AdminSessionController::AdminSessionController(QObject *parent)
             this, &AdminSessionController::onRelayError);
 }
 
-void AdminSessionController::requestSession(const QString &targetChildUsername)
+void AdminSessionController::requestSession(const QString &targetAgentSessionId)
 {
-    const QByteArray usernameBytes = targetChildUsername.toUtf8();
-    if (usernameBytes.isEmpty() || usernameBytes.size() > 200) {
-        emit sessionFailed(QStringLiteral("childUsername phai dai tu 1 den 200 byte UTF-8."));
+    if (QUuid(targetAgentSessionId).isNull()) {
+        emit sessionFailed(QStringLiteral("ID phiên máy không hợp lệ."));
         return;
     }
 
@@ -43,7 +45,7 @@ void AdminSessionController::requestSession(const QString &targetChildUsername)
         return;
     }
 
-    m_pendingTargetUsername = targetChildUsername;
+    m_pendingAgentSessionId = targetAgentSessionId;
     m_requestPending = true;
 
     if (m_connected) {
@@ -53,7 +55,8 @@ void AdminSessionController::requestSession(const QString &targetChildUsername)
 
     if (!m_connecting) {
         m_connecting = true;
-        m_relayClient->ConnectToServer(RELAY_HOST, RELAY_PORT);
+        m_relayClient->ConnectToServer(qEnvironmentVariable("REMOTE_RELAY_HOST", RELAY_HOST),
+                static_cast<quint16>(qEnvironmentVariable("REMOTE_RELAY_PORT", QString::number(RELAY_PORT)).toUShort()));
     }
 }
 
@@ -95,14 +98,11 @@ void AdminSessionController::sendConnectRequest()
     if (!m_connected || !m_requestPending)
         return;
 
-    const QByteArray usernameBytes = m_pendingTargetUsername.toUtf8();
-    QByteArray payload;
-    payload.reserve(2 + usernameBytes.size());
-
-    const quint16 usernameLength = static_cast<quint16>(usernameBytes.size());
-    payload.append(static_cast<char>((usernameLength >> 8) & 0xFF));
-    payload.append(static_cast<char>(usernameLength & 0xFF));
-    payload.append(usernameBytes);
+    const QByteArray payload = Protocol::relayAuthPayload(ApiClient::instance().getToken(), m_pendingAgentSessionId);
+    if (payload.isEmpty()) {
+        failPendingRequest(QStringLiteral("Thiếu token đăng nhập"));
+        return;
+    }
 
     Protocol::ProtocolHeader header(Protocol::MessageType::CONNECT_REQUEST);
     header.payloadLength = static_cast<uint32_t>(payload.size());
@@ -116,7 +116,7 @@ void AdminSessionController::sendConnectRequest()
     }
 
     qDebug() << "[AdminSessionController] Da gui CONNECT_REQUEST cho"
-             << m_pendingTargetUsername;
+             << m_pendingAgentSessionId;
 }
 
 void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
@@ -158,7 +158,7 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 
         m_activeSessionId = static_cast<quint64>(message.header.sessionId);
         m_requestPending = false;
-        m_pendingTargetUsername.clear();
+        m_pendingAgentSessionId.clear();
         emit sessionEstablished(m_activeSessionId);
     }
 }
@@ -169,6 +169,6 @@ void AdminSessionController::failPendingRequest(const QString &reason)
         return;
 
     m_requestPending = false;
-    m_pendingTargetUsername.clear();
+    m_pendingAgentSessionId.clear();
     emit sessionFailed(reason);
 }

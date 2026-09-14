@@ -2,7 +2,7 @@ package com.remotecontrol.relay.protocol;
 
 public class ProtocolConstants {
     public static final int PROTOCOL_MAGIC = 0x52445450;
-    public static final byte PROTOCOL_VERSION = 1;
+    public static final byte PROTOCOL_VERSION = 2;
     public static final int HEADER_SIZE = 24;
     public static final int MAX_PAYLOAD_LENGTH = 524288;
 

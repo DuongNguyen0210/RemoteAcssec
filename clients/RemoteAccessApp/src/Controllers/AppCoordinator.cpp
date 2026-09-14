@@ -7,6 +7,9 @@
 #include "Network/Http/HeartbeatReporter.h"
 #include "Streaming/ScreenStreamSender.h"
 #include "Domain/Store/DeviceStore.h"
+#include "Domain/Store/AccountStore.h"
+#include "Network/Http/AccountService.h"
+#include "Network/Http/DeviceService.h"
 
 #include <QDebug>
 #include <QGuiApplication>
@@ -18,6 +21,7 @@ AppCoordinator::AppCoordinator(QObject *parent)
     , m_heartbeatReporter(nullptr)
     , m_screenStreamSender(nullptr)
     , m_deviceStore(nullptr)
+    , m_accountStore(nullptr)
     , m_devicesController(nullptr)
     , m_accountController(nullptr)
 {
@@ -32,6 +36,7 @@ AppCoordinator::~AppCoordinator()
     if (m_devicesController) m_devicesController->deleteLater();
     if (m_accountController) m_accountController->deleteLater();
     if (m_deviceStore) m_deviceStore->deleteLater();
+    if (m_accountStore) m_accountStore->deleteLater();
 }
 
 void AppCoordinator::start()
@@ -45,8 +50,9 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
 {
     if (role == "ADMIN") {
         m_deviceStore = new DeviceStore(this);
-        m_devicesController = new DevicesController(m_deviceStore, this);
-        m_accountController = new AccountController(m_deviceStore, this);
+        m_accountStore = new AccountStore(this);
+        m_devicesController = new DevicesController(m_deviceStore, new DeviceService(this), this);
+        m_accountController = new AccountController(m_accountStore, new AccountService(this), this);
 
         m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView());
 
@@ -57,7 +63,7 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
 
         m_mainWindow->show();
 
-        m_deviceStore->refresh();
+        m_accountController->fetchAccounts();
     } else {
         qDebug() << "CHILD account logged in";
 
@@ -70,6 +76,8 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
 
         if (!m_screenStreamSender) {
             m_screenStreamSender = new ScreenStreamSender(username, this);
+            connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost,
+                    m_screenStreamSender, &ScreenStreamSender::stop);
             m_screenStreamSender->start();
         }
     }
@@ -81,15 +89,12 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
 
 void AppCoordinator::handlePageSelected(int pageIndex)
 {
-    if (pageIndex == 0 || pageIndex == 4) {
-        if (m_deviceStore) {
-            m_deviceStore->refresh();
-        }
-    }
+    if (pageIndex == 0 && m_devicesController) m_devicesController->refresh();
+    if (pageIndex == 4 && m_accountController) m_accountController->fetchAccounts();
 }
 
-void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString &childUsername)
+void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString &agentSessionId)
 {
-    qDebug() << "[AppCoordinator] Remote session started for" << childUsername
+    qDebug() << "[AppCoordinator] Remote session started for" << agentSessionId
              << "sessionId=" << sessionId;
 }

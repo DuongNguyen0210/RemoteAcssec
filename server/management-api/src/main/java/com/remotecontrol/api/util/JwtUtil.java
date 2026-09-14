@@ -19,7 +19,12 @@ public class JwtUtil {
     private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 10;
 
     public String generateToken(String username, String role, String id) {
+        return generateToken(username, role, id, null);
+    }
+
+    public String generateToken(String username, String role, String id, String sessionId) {
         Map<String, Object> claims = new HashMap<>();
+        if (sessionId != null) claims.put("sessionId", sessionId);
         claims.put("role", role);
         claims.put("id", id);
 
@@ -41,6 +46,8 @@ public class JwtUtil {
     }
 
     public String extractId(String token) { return extractAllClaims(token).get("id", String.class); }
+
+    public String extractSessionId(String token) { return extractAllClaims(token).get("sessionId", String.class); }
 
     public boolean isTokenExpired(String token) {
         return extractAllClaims(token).getExpiration().before(new Date());

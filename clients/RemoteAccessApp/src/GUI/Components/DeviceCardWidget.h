@@ -10,17 +10,16 @@ class DeviceCardWidget : public QWidget
     Q_OBJECT
 public:
     explicit DeviceCardWidget(const DeviceInfo &info, QWidget *parent = nullptr);
-    explicit DeviceCardWidget(const QString &childUsername, const QString &name,
+    explicit DeviceCardWidget(const QString &agentSessionId, const QString &name,
                               const QString &OS, const QString &ip,
-                              const QString &status, const QString &uptime,
+                              const QString &status, const QString &account,
                               QWidget *parent = nullptr);
 
 signals:
-    void connectRequested(const QString &childUsername);
-    void removeRequested(const QString &childUsername);
+    void connectRequested(const QString &agentSessionId);
 
 private:
-    QString m_childUsername;
+    QString m_agentSessionId;
 };
 
 #endif

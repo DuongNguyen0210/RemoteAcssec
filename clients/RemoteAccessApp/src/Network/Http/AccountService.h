@@ -2,6 +2,8 @@
 #define ACCOUNTSERVICE_H
 
 #include <QObject>
+#include <QList>
+#include "Domain/Model/AccountInfo.h"
 #include <QString>
 #include <QNetworkReply>
 #include <QJsonArray>
@@ -18,8 +20,11 @@ public:
 
 signals:
     void createAccountResult(bool success, const QString &message);
-    void fetchListChildrenResult(bool success, const QJsonArray &children, const QString &message);
+    void fetchListChildrenResult(bool success, const QList<AccountInfo> &accounts, const QString &message);
     void deleteAccountResult(bool success, const QString &childUsername, const QString &message);
+
+private:
+    bool m_fetching = false;
 
 private slots:
     void onCreateAccountReply(QNetworkReply *reply);

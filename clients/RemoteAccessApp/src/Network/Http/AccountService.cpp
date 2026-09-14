@@ -40,12 +40,14 @@ void AccountService::onCreateAccountReply(QNetworkReply *reply)
 
 void AccountService::fetchListChildren()
 {
+    if (m_fetching) return;
     QNetworkReply *reply = ApiClient::instance().get("/api/v1/child");
     if (!reply) {
-        emit fetchListChildrenResult(false, QJsonArray(), QStringLiteral("Loi khoi tao yeu cau mang"));
+        emit fetchListChildrenResult(false, QList<AccountInfo>(), QStringLiteral("Loi khoi tao yeu cau mang"));
         return;
     }
     
+    m_fetching = true;
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
         onFetchListChildrenReply(reply);
     });
@@ -53,14 +55,28 @@ void AccountService::fetchListChildren()
 
 void AccountService::onFetchListChildrenReply(QNetworkReply *reply)
 {
+    m_fetching = false;
     reply->deleteLater();
     
     ApiParsedResponse res = ApiClient::parseReply(reply);
 
     if (res.success) {
-        emit fetchListChildrenResult(true, res.data.toArray(), res.message);
+        if (!res.data.isArray()) {
+            emit fetchListChildrenResult(false, {}, QStringLiteral("Dữ liệu tài khoản không hợp lệ"));
+            return;
+        }
+        QList<AccountInfo> accounts;
+        for (const auto &value : res.data.toArray()) {
+            auto obj = value.toObject();
+            AccountInfo account;
+            account.id = obj.value("id").toVariant().toLongLong();
+            account.username = obj.value("username").toString();
+            account.childUsername = obj.value("childUsername").toString();
+            accounts.append(account);
+        }
+        emit fetchListChildrenResult(true, accounts, res.message);
     } else {
-        emit fetchListChildrenResult(false, QJsonArray(), res.message.isEmpty() ? QStringLiteral("Không thể lấy danh sách máy con") : res.message);
+        emit fetchListChildrenResult(false, QList<AccountInfo>(), res.message.isEmpty() ? QStringLiteral("Không thể lấy danh sách máy con") : res.message);
     }
 }
 
