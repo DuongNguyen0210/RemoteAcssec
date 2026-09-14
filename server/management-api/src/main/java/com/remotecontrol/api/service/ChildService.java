@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -48,12 +47,11 @@ public class ChildService {
             return ApiResponse.error("CHILD_ALREADY_EXISTS", "Child already exists");
         }
 
-        addChild(childUsername, password, user.get());
+        Child created = addChild(childUsername, password, user.get());
         ChildDto dto = ChildDto.builder()
+                .id(created.getId())
                 .username(fullChildUsername)
                 .childUsername(childUsername)
-                .password(password)
-                .online(false)
                 .build();
         return ApiResponse.success("Accepted", dto);
     }
@@ -67,56 +65,44 @@ public class ChildService {
         List<Child> children = childRepository.findByOwner(user.get());
         List<ChildDto> childList = new ArrayList<>();
         for (Child c : children) {
-            boolean isOnline = presenceService.isDeviceOnline(currentUser.getUsername(), c.getUsername());
-            Map<Object, Object> devInfo = presenceService.getDeviceInfo(c.getUsername());
-            String ip = (devInfo != null && devInfo.get("ip") != null) ? devInfo.get("ip").toString() : null;
-            String os = (devInfo != null && devInfo.get("os") != null) ? devInfo.get("os").toString() : null;
-            String deviceUid = (devInfo != null && devInfo.get("deviceUid") != null) ? devInfo.get("deviceUid").toString() : null;
-            String deviceName = (devInfo != null && devInfo.get("deviceName") != null) ? devInfo.get("deviceName").toString() : null;
-
             String pureChildUsername = c.getUsername();
             if (pureChildUsername.startsWith(currentUser.getUsername())) {
                 pureChildUsername = pureChildUsername.substring(currentUser.getUsername().length());
             }
 
             childList.add(ChildDto.builder()
+                    .id(c.getId())
                     .username(c.getUsername())
                     .childUsername(pureChildUsername)
-                    .password(c.getPassword())
-                    .online(isOnline)
-                    .ipAddress(ip)
-                    .os(os)
-                    .deviceUid(deviceUid)
-                    .deviceName(deviceName)
                     .build());
         }
 
         return ApiResponse.success("Accepted", childList);
     }
 
-    public void addChild(String childUsername, String password, User user) {
+    public Child addChild(String childUsername, String password, User user) {
         Child newChild = Child.builder()
                 .username(user.getUsername() + childUsername)
                 .password(password)
                 .owner(user)
                 .build();
-        childRepository.save(newChild);
+        return childRepository.save(newChild);
     }
 
     public boolean handleHeartbeat(UserPrincipal currentUser, InfoPrincipal currentInfo, HeartbeatRequest request) {
-        Optional<Child> c = childRepository.findByUsername(currentUser.getUsername());
+        Optional<Child> c = childRepository.findById(Long.valueOf(currentUser.getId()));
         if (c.isEmpty()) {
             return false;
         }
 
         Child child = c.get();
         User parent = child.getOwner();
-        presenceService.markDeviceOnline(parent, currentUser, currentInfo, request);
-        return true;
+        return presenceService.markDeviceOnline(parent, currentUser, currentInfo, request);
     }
 
-    public boolean handleHeartbeat(UserPrincipal currentUser, InfoPrincipal currentInfo) {
-        return handleHeartbeat(currentUser, currentInfo, null);
+    public void logout(UserPrincipal principal) {
+        childRepository.findById(Long.valueOf(principal.getId())).ifPresent(child ->
+                presenceService.closeSession(child.getOwner().getId(), principal.getSessionId()));
     }
 
     public ApiResponse<Void> deleteChild(String childUsername, UserPrincipal currentUser) {
@@ -125,12 +111,12 @@ public class ChildService {
             childOpt = childRepository.findByUsername(currentUser.getUsername() + childUsername);
         }
         if (childOpt.isEmpty()) {
-            return ApiResponse.error("DEVICE_NOT_FOUND", "Device not found");
+            return ApiResponse.error("CHILD_NOT_FOUND", "Account not found");
         }
 
         Child child = childOpt.get();
         if (!child.getOwner().getUsername().equals(currentUser.getUsername())) {
-            return ApiResponse.error("FORBIDDEN", "Unauthorized to delete this device");
+            return ApiResponse.error("FORBIDDEN", "Unauthorized to delete this account");
         }
 
         childRepository.delete(child);

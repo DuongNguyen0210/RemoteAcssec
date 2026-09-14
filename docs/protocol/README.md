@@ -1,3 +1,5 @@
+> **Hiện tại: RDTP v2.** Xem [hợp đồng xác thực theo phiên](11_SESSION_AUTH_V2.md). Các tài liệu 01–10 bên dưới mô tả nền tảng v1; phần version và payload đăng ký/kết nối được thay thế bởi tài liệu v2.
+
 # RDTP Protocol Documentation
 
 > Tai lieu ky thuat cho RemoteAccessApp - RDTP (Remote Desktop Transfer Protocol)

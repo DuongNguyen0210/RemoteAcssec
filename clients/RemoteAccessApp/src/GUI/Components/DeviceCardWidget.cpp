@@ -8,22 +8,22 @@
 
 DeviceCardWidget::DeviceCardWidget(const DeviceInfo &info, QWidget *parent)
     : DeviceCardWidget(
-        info.childUsername,
-        info.childUsername,
+        info.sessionId,
+        info.deviceName,
         info.os,
         info.ipAddress,
-        info.isOnline ? QStringLiteral("Active") : QStringLiteral("Offline"),
-        QStringLiteral("N/A"),
+        QStringLiteral("Online"),
+        info.username,
         parent)
 {
 }
 
-DeviceCardWidget::DeviceCardWidget(const QString &childUsername, const QString &name,
+DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString &name,
                                    const QString &OS, const QString &ip,
-                                   const QString &status, const QString &uptime,
+                                   const QString &status, const QString &account,
                                    QWidget *parent)
     : QWidget(parent)
-    , m_childUsername(childUsername)
+    , m_agentSessionId(agentSessionId)
 {
     setObjectName("deviceCard");
     this->setAttribute(Qt::WA_StyledBackground, true);
@@ -50,22 +50,13 @@ DeviceCardWidget::DeviceCardWidget(const QString &childUsername, const QString &
     QLabel *lblName = new QLabel(QString("<b>%1</b>").arg(name.toHtmlEscaped()), this);
     lblName->setObjectName("deviceName");
     QLabel *lblOS = new QLabel(QString(OS), this);
+    lblOS->setTextFormat(Qt::PlainText);
     lblOS->setProperty("role", "muted");
     NameLayout->addWidget(lblName);
     NameLayout->addWidget(lblOS);
 
-    QPushButton *bttRemove = new QPushButton(this);
-    bttRemove->setObjectName("removeDeviceButton");
-    bttRemove->setCursor(Qt::PointingHandCursor);
-    bttRemove->setFixedSize(32, 32);
-    bttRemove->setIcon(QIcon(":/icons/Resources/icons/x.svg"));
-    connect(bttRemove, &QPushButton::clicked, this, [this]() {
-        emit removeRequested(m_childUsername);
-    });
-
     HeaderLayout->addWidget(lblIcon);
     HeaderLayout->addLayout(NameLayout);
-    HeaderLayout->addWidget(bttRemove);
 
     layout->addLayout(HeaderLayout);
 
@@ -110,10 +101,11 @@ DeviceCardWidget::DeviceCardWidget(const QString &childUsername, const QString &
 
     QHBoxLayout *lblUptimeLayout = new QHBoxLayout();
     lblUptimeLayout->setContentsMargins(0, 0, 0, 0);
-    QLabel *lblUptime = new QLabel("Uptime");
+    QLabel *lblUptime = new QLabel("Account");
     lblUptime->setProperty("role", "metaLabel");
 
-    QLabel *lblUptimeInfo = new QLabel(uptime);
+    QLabel *lblUptimeInfo = new QLabel(account);
+    lblUptimeInfo->setTextFormat(Qt::PlainText);
     lblUptimeInfo->setProperty("role", "strongValue");
 
     lblUptimeLayout->addWidget(lblUptime);
@@ -128,7 +120,7 @@ DeviceCardWidget::DeviceCardWidget(const QString &childUsername, const QString &
     btnConnect->setCursor(Qt::PointingHandCursor);
     btnConnect->setFixedHeight(40);
     connect(btnConnect, &QPushButton::clicked, this, [this]() {
-        emit connectRequested(m_childUsername);
+        emit connectRequested(m_agentSessionId);
     });
 
     layout->addStretch();

@@ -109,15 +109,15 @@ void SidebarWidget::setupUi()
         return btn;
     };
 
-    QPushButton *btnDevices  = createMenuItem("Devices",  ":/icons/Resources/icons/devices.svg",  0);
+    createMenuItem("Devices",  ":/icons/Resources/icons/devices.svg",  0);
     createMenuItem("Sessions", ":/icons/Resources/icons/sessions.svg", 1);
     createMenuItem("Settings", ":/icons/Resources/icons/settings.svg", 2);
     createMenuItem("Logs",     ":/icons/Resources/icons/logs.svg",     3);
-    createMenuItem("Accounts", ":/icons/Resources/icons/circle-user.svg", 4);
+    QPushButton *btnAccounts = createMenuItem("Accounts", ":/icons/Resources/icons/circle-user.svg", 4);
 
     layout->addLayout(MenuLayout);
 
     layout->addStretch();
 
-    btnDevices->setChecked(true);
+    btnAccounts->setChecked(true);
 }

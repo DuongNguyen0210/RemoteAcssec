@@ -35,3 +35,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     GUI
     Controllers
 )
+
+include(CTest)
+if(BUILD_TESTING)
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(AccountDeviceFlowTest tests/AccountDeviceFlowTest.cpp project.qrc)
+    target_link_libraries(AccountDeviceFlowTest PRIVATE
+        Controllers GUI Streaming Network Domain Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+    add_test(NAME account_device_flow COMMAND AccountDeviceFlowTest)
+    set_tests_properties(account_device_flow PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

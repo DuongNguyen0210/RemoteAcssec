@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentMap;
 public final class RelayRegistry {
 
     private final ConcurrentMap<String, Channel> childChannels = new ConcurrentHashMap<>();
-    private final ConcurrentMap<ChannelId, String> childUsernames = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ChannelId, String> agentSessionIds = new ConcurrentHashMap<>();
     private final ConcurrentMap<Long, SessionRecord> sessions = new ConcurrentHashMap<>();
     private final ConcurrentMap<ChannelId, Long> adminSessions = new ConcurrentHashMap<>();
     private final ConcurrentMap<ChannelId, Long> childSessions = new ConcurrentHashMap<>();
@@ -25,15 +25,15 @@ public final class RelayRegistry {
         private final long sessionId;
         private final Channel adminChannel;
         private final Channel childChannel;
-        private final String childUsername;
+        private final String agentSessionId;
         private SessionState state;
 
         private SessionRecord(long sessionId, Channel adminChannel,
-                              Channel childChannel, String childUsername) {
+                              Channel childChannel, String agentSessionId) {
             this.sessionId = sessionId;
             this.adminChannel = adminChannel;
             this.childChannel = childChannel;
-            this.childUsername = childUsername;
+            this.agentSessionId = agentSessionId;
             this.state = SessionState.PENDING;
         }
 
@@ -47,48 +47,52 @@ public final class RelayRegistry {
     }
 
     /**
-     * Registers a CHILD channel. Repeating the same username on the same channel
-     * is accepted idempotently; all other duplicate username/channel bindings
+     * Registers a CHILD channel. Repeating the same agentSessionId on the same channel
+     * is accepted idempotently; all other duplicate agentSessionId/channel bindings
      * are rejected without replacing the existing registration.
      */
-    public boolean registerChild(String username, Channel channel) {
-        String existingUsername = childUsernames.putIfAbsent(channel.id(), username);
-        if (existingUsername != null) {
-            return existingUsername.equals(username)
-                    && childChannels.get(username) == channel;
+    public boolean registerChild(String agentSessionId, Channel channel) {
+        String existingSessionId = agentSessionIds.putIfAbsent(channel.id(), agentSessionId);
+        if (existingSessionId != null) {
+            return existingSessionId.equals(agentSessionId)
+                    && childChannels.get(agentSessionId) == channel;
         }
 
-        Channel existingChannel = childChannels.putIfAbsent(username, channel);
+        Channel existingChannel = childChannels.putIfAbsent(agentSessionId, channel);
         if (existingChannel == null || existingChannel == channel) {
             return true;
         }
 
-        childUsernames.remove(channel.id(), username);
+        agentSessionIds.remove(channel.id(), agentSessionId);
         return false;
     }
 
     /** Removes only the binding still owned by the closing channel. */
     public void unregisterChild(Channel channel) {
-        String username = childUsernames.remove(channel.id());
-        if (username != null) {
-            childChannels.remove(username, channel);
+        String agentSessionId = agentSessionIds.remove(channel.id());
+        if (agentSessionId != null) {
+            childChannels.remove(agentSessionId, channel);
         }
     }
 
-    public Channel findRegisteredChild(String username) {
-        return childChannels.get(username);
+    public Channel findRegisteredChild(String agentSessionId) {
+        return childChannels.get(agentSessionId);
     }
 
     public boolean isRegisteredChild(Channel channel) {
-        return childUsernames.containsKey(channel.id());
+        return agentSessionIds.containsKey(channel.id());
+    }
+
+    public boolean hasSession(Channel channel) {
+        return adminSessions.containsKey(channel.id()) || childSessions.containsKey(channel.id());
     }
 
     public synchronized SessionRecord createPendingSession(
-            Channel adminChannel, Channel childChannel, String childUsername) {
+            Channel adminChannel, Channel childChannel, String agentSessionId) {
         if (isRegisteredChild(adminChannel)
                 || !adminChannel.isActive()
                 || !childChannel.isActive()
-                || childChannels.get(childUsername) != childChannel
+                || childChannels.get(agentSessionId) != childChannel
                 || adminSessions.containsKey(adminChannel.id())
                 || childSessions.containsKey(childChannel.id())) {
             return null;
@@ -96,7 +100,7 @@ public final class RelayRegistry {
 
         long sessionId = allocateSessionId();
         SessionRecord session = new SessionRecord(
-                sessionId, adminChannel, childChannel, childUsername);
+                sessionId, adminChannel, childChannel, agentSessionId);
         sessions.put(sessionId, session);
         adminSessions.put(adminChannel.id(), sessionId);
         childSessions.put(childChannel.id(), sessionId);
@@ -154,6 +158,8 @@ public final class RelayRegistry {
         SessionRecord session = sessions.get(sessionId);
         if (session != null) {
             removeSession(session);
+            Channel peer = session.adminChannel == channel ? session.childChannel : session.adminChannel;
+            peer.close(); // Both clients reset their transport/session state.
         }
     }
 

@@ -40,6 +40,7 @@ private:
     RelayClient *m_relayClient;
     uint32_t     m_frameId;
     QString      m_childUsername;
+    bool         m_running = false;
     bool         m_registered;
     uint64_t     m_currentSessionId;
     Protocol::RdtpStreamParser m_streamParser;

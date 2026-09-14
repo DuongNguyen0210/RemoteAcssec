@@ -9,6 +9,7 @@ file(GLOB_RECURSE NETWORK_SOURCES
 add_library(Network STATIC ${NETWORK_SOURCES})
 
 target_link_libraries(Network PUBLIC
+    Domain
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Core
 )

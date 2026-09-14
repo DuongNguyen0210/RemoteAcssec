@@ -1,66 +1,93 @@
 package com.remotecontrol.api.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.remotecontrol.api.dto.child.DeviceDto;
 import com.remotecontrol.api.dto.child.HeartbeatRequest;
 import com.remotecontrol.api.dto.common.InfoPrincipal;
 import com.remotecontrol.api.dto.common.UserPrincipal;
 import com.remotecontrol.api.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
-
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class PresenceService {
-
+    public static final int TTL_SECONDS = 20;
     private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
-    public void markDeviceOnline(User parent, UserPrincipal currentUser, InfoPrincipal currentInfo, HeartbeatRequest request) {
-        String key1 = "presence:" + parent.getUsername() + ":" + currentUser.getUsername();
-        redisTemplate.opsForValue().set(key1, "online", 15, TimeUnit.SECONDS);
+    // Atomic check/write: logout cannot be undone by an in-flight heartbeat.
+    private static final DefaultRedisScript<Long> HEARTBEAT = new DefaultRedisScript<>(
+            "if redis.call('GET',KEYS[1]) ~= ARGV[1] then return 0 end " +
+            "redis.call('SET',KEYS[2],ARGV[2],'EX',ARGV[3]); return 1", Long.class);
 
-        String ip = (currentInfo != null && currentInfo.getIp() != null) ? currentInfo.getIp() : "Unknown";
-        String key2 = "Ip:" + currentUser.getUsername() + ":" + ip;
-        redisTemplate.opsForValue().set(key2, "true", 15, TimeUnit.SECONDS);
+    public void openSession(Long childId, String sessionId) {
+        redisTemplate.opsForValue().set(sessionKey(sessionId), childId.toString(), Duration.ofHours(10));
+    }
 
-        String deviceKey = "device:info:" + currentUser.getUsername();
-        if (ip != null) {
-            redisTemplate.opsForHash().put(deviceKey, "ip", ip);
+    public boolean isSessionActive(String childId, String sessionId) {
+        return sessionId != null && childId != null
+                && childId.equals(redisTemplate.opsForValue().get(sessionKey(sessionId)));
+    }
+
+    public boolean markDeviceOnline(User owner, UserPrincipal principal, InfoPrincipal info,
+                                    HeartbeatRequest request) {
+        if (request == null || principal.getSessionId() == null) return false;
+        String name = request.getHostname();
+        if (name == null || name.isBlank()) name = request.getName();
+        if (name == null || name.isBlank()) name = "Unknown device";
+        DeviceDto snapshot = DeviceDto.builder()
+                .sessionId(principal.getSessionId()).childId(Long.valueOf(principal.getId()))
+                .username(principal.getUsername()).deviceName(name).os(request.getOs())
+                .ipAddress(info == null ? null : info.getIp())
+                .lastHeartbeatAt(System.currentTimeMillis()).build();
+        try {
+            return Long.valueOf(1).equals(redisTemplate.execute(HEARTBEAT,
+                    List.of(sessionKey(principal.getSessionId()), deviceKey(owner.getId(), principal.getSessionId())),
+                    principal.getId(), objectMapper.writeValueAsString(snapshot), String.valueOf(TTL_SECONDS)));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Cannot serialize device presence", e);
         }
-        if (request != null) {
-            if (request.getDeviceUid() != null) {
-                redisTemplate.opsForHash().put(deviceKey, "deviceUid", request.getDeviceUid());
-            }
-            String devName = request.getName() != null ? request.getName() : request.getHostname();
-            if (devName != null) {
-                redisTemplate.opsForHash().put(deviceKey, "deviceName", devName);
-            }
-            if (request.getOs() != null) {
-                redisTemplate.opsForHash().put(deviceKey, "os", request.getOs());
+    }
+
+    public List<DeviceDto> getDevices(Long ownerId) {
+        Set<String> keys = new HashSet<>();
+        try (var cursor = redisTemplate.scan(ScanOptions.scanOptions()
+                .match("presence:v2:" + ownerId + ":*").count(100).build())) {
+            cursor.forEachRemaining(keys::add);
+        }
+        if (keys.isEmpty()) return List.of();
+        List<String> snapshots = redisTemplate.opsForValue().multiGet(keys);
+        List<DeviceDto> devices = new ArrayList<>();
+        if (snapshots != null) {
+            for (String snapshot : snapshots) {
+                if (snapshot != null) devices.add(decode(snapshot)); // May expire between SCAN and MGET.
             }
         }
-        redisTemplate.expire(deviceKey, 15, TimeUnit.SECONDS);
+        devices.sort(Comparator.comparing(DeviceDto::getSessionId));
+        return devices;
     }
 
-    public void markDeviceOnline(User parent, UserPrincipal currentUser, InfoPrincipal currentInfo) {
-        markDeviceOnline(parent, currentUser, currentInfo, null);
+    public DeviceDto getDevice(Long ownerId, String sessionId) {
+        String snapshot = redisTemplate.opsForValue().get(deviceKey(ownerId, sessionId));
+        return snapshot == null ? null : decode(snapshot);
     }
 
-    public boolean isDeviceOnline(String adminUsername, String childUsername) {
-        String key = "presence:" + adminUsername + ":" + childUsername;
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
+    public void closeSession(Long ownerId, String sessionId) {
+        redisTemplate.delete(List.of(sessionKey(sessionId), deviceKey(ownerId, sessionId)));
     }
 
-    public Map<Object, Object> getDeviceInfo(String childUsername) {
-        String deviceKey = "device:info:" + childUsername;
-        return redisTemplate.opsForHash().entries(deviceKey);
+    private DeviceDto decode(String json) {
+        try { return objectMapper.readValue(json, DeviceDto.class); }
+        catch (JsonProcessingException e) { throw new IllegalStateException("Invalid device presence", e); }
     }
 
-    public Set<String> getOnlineChildrenOfAdmin(String adminUsername) {
-        String pattern = "presence:" + adminUsername + ":*";
-        return redisTemplate.keys(pattern);
-    }
+    private String sessionKey(String sessionId) { return "auth:child:" + sessionId; }
+    private String deviceKey(Long ownerId, String sessionId) { return "presence:v2:" + ownerId + ":" + sessionId; }
 }

@@ -21,6 +21,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final ChildRepository childRepository;
     private final JwtUtil jwtUtil;
+    private final PresenceService presenceService;
 
     public ApiResponse<LoginData> login(LoginRequest request) {
         String username = request.getUsername();
@@ -39,10 +40,13 @@ public class AuthService {
                     .build();
             return ApiResponse.success("Account Login Successful", data);
         } else if (c.isPresent() && Objects.equals(c.get().getPassword(), password)) {
-            String token = jwtUtil.generateToken(username, "CHILD", String.valueOf(c.get().getId()));
+            String sessionId = java.util.UUID.randomUUID().toString();
+            presenceService.openSession(c.get().getId(), sessionId);
+            String token = jwtUtil.generateToken(username, "CHILD", String.valueOf(c.get().getId()), sessionId);
             LoginData data = LoginData.builder()
                     .token(token)
                     .role("CHILD")
+                    .sessionId(sessionId)
                     .username(username)
                     .userId(String.valueOf(c.get().getId()))
                     .build();

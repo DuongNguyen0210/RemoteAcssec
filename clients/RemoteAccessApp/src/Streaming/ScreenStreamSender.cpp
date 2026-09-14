@@ -7,6 +7,8 @@
 #include "Network/Protocol/ProtocolSerializer.h"
 
 #include <QDebug>
+#include "Network/Http/ApiClient.h"
+#include "Network/Protocol/RelayAuthPayload.h"
 
 static const QString RELAY_HOST = QStringLiteral("localhost");
 
@@ -36,7 +38,9 @@ ScreenStreamSender::~ScreenStreamSender()
 
 void ScreenStreamSender::start()
 {
-    m_relayClient->ConnectToServer(RELAY_HOST, RELAY_PORT);
+    m_running = true;
+    m_relayClient->ConnectToServer(qEnvironmentVariable("REMOTE_RELAY_HOST", RELAY_HOST),
+            static_cast<quint16>(qEnvironmentVariable("REMOTE_RELAY_PORT", QString::number(RELAY_PORT)).toUShort()));
     m_timer->start();
     qDebug() << "[ScreenStreamSender] Started."
              << "host=" << RELAY_HOST
@@ -46,6 +50,8 @@ void ScreenStreamSender::start()
 
 void ScreenStreamSender::stop()
 {
+    m_running = false;
+    m_relayClient->DisconnectFromServer();
     if (m_timer->isActive()) {
         m_timer->stop();
         qDebug() << "[ScreenStreamSender] Stopped.";
@@ -61,6 +67,7 @@ void ScreenStreamSender::onRelayConnected()
 
 void ScreenStreamSender::onRelayDisconnected()
 {
+    if (m_running) QTimer::singleShot(1000, this, [this]() { if (m_running) start(); });
     m_registered = false;
     m_currentSessionId = 0;
     m_streamParser = Protocol::RdtpStreamParser{};
@@ -68,18 +75,11 @@ void ScreenStreamSender::onRelayDisconnected()
 
 void ScreenStreamSender::sendRegisterHost()
 {
-    const QByteArray usernameBytes = m_childUsername.toUtf8();
-    if (usernameBytes.isEmpty() || usernameBytes.size() > 200) {
-        qWarning() << "[ScreenStreamSender] Cannot register: username UTF-8 length must be 1..200 bytes.";
+    const QByteArray payload = Protocol::relayAuthPayload(ApiClient::instance().getToken());
+    if (payload.isEmpty()) {
+        qWarning() << "[ScreenStreamSender] Missing login token.";
         return;
     }
-
-    QByteArray payload;
-    payload.reserve(2 + usernameBytes.size());
-    const quint16 usernameLength = static_cast<quint16>(usernameBytes.size());
-    payload.append(static_cast<char>((usernameLength >> 8) & 0xFF));
-    payload.append(static_cast<char>(usernameLength & 0xFF));
-    payload.append(usernameBytes);
 
     Protocol::ProtocolHeader header(Protocol::MessageType::REGISTER_HOST);
     header.payloadLength = static_cast<uint32_t>(payload.size());
@@ -145,7 +145,7 @@ void ScreenStreamSender::handleSessionRequest(
         return;
     }
 
-    if (m_currentSessionId != 0) {
+    if (!m_registered || m_currentSessionId != 0) {
         sendSessionResponse(Protocol::MessageType::SESSION_REJECT,
                             message.header.sessionId);
         qWarning() << "[ScreenStreamSender] Da co phien, gui SESSION_REJECT cho sessionId="

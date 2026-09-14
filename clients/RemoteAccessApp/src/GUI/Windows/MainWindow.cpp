@@ -61,6 +61,8 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
     stackedWidget->addWidget(pageLogs);
     if (accountPage) {
         stackedWidget->addWidget(accountPage);
+        stackedWidget->setCurrentWidget(accountPage);
+        topbar->setSearchPlaceholder("Search accounts...");
     }
 
     rightLayout->addWidget(topbar);

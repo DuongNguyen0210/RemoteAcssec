@@ -1,25 +1,23 @@
 #include "AccountController.h"
 #include "GUI/Pages/AccountPage.h"
 #include "GUI/Dialogs/CreateAccountDialog.h"
-#include "Domain/Store/DeviceStore.h"
+#include "Domain/Store/AccountStore.h"
 #include "Network/Http/AccountService.h"
 #include "GUI/Dialogs/ConfirmDialog.h"
 
-AccountController::AccountController(DeviceStore *store, QObject *parent)
+AccountController::AccountController(AccountStore *store, AccountService *service, QObject *parent)
     : QObject(parent)
     , m_view(new AccountPage())
     , m_store(store)
-    , m_accountService(new AccountService(this))
+    , m_accountService(service)
     , m_createAccountDialog(nullptr)
 {
     if (m_store) {
-        connect(m_store, &DeviceStore::devicesUpdated,
-                this, &AccountController::onDevicesUpdated);
-        connect(m_store, &DeviceStore::loadFailed,
-                this, &AccountController::onLoadFailed);
+        connect(m_store, &AccountStore::accountsUpdated,
+                this, &AccountController::onAccountsUpdated);
 
-        if (!m_store->getDevices().isEmpty()) {
-            m_view->updateAccountList(m_store->getDevices());
+        if (!m_store->getAccounts().isEmpty()) {
+            m_view->updateAccountList(m_store->getAccounts());
         }
     }
 
@@ -30,6 +28,11 @@ AccountController::AccountController(DeviceStore *store, QObject *parent)
     connect(m_view, &AccountPage::loadRequested,
             this, &AccountController::fetchAccounts);
 
+    connect(m_accountService, &AccountService::fetchListChildrenResult, this,
+            [this](bool success, const QList<AccountInfo>& accounts, const QString& message) {
+        if (success) m_store->replaceAccounts(accounts);
+        else onLoadFailed(message);
+    });
     connect(m_accountService, &AccountService::createAccountResult,
             this, &AccountController::handleAccountCreated);
     connect(m_accountService, &AccountService::deleteAccountResult,
@@ -54,21 +57,20 @@ AccountPage* AccountController::getView() const
 void AccountController::fetchAccounts()
 {
     m_view->showLoading();
-    if (m_store) {
-        m_store->refresh();
-    }
+    m_accountService->fetchListChildren();
 }
 
-void AccountController::onDevicesUpdated(const QList<DeviceInfo> &devices)
+void AccountController::onAccountsUpdated(const QList<AccountInfo> &accounts)
 {
     if (m_view) {
-        m_view->updateAccountList(devices);
+        m_view->updateAccountList(accounts);
     }
 }
 
 void AccountController::onLoadFailed(const QString &message)
 {
     if (m_view) {
+        m_view->updateAccountList(m_store->getAccounts());
         m_view->showError(message);
     }
 }
@@ -111,7 +113,7 @@ void AccountController::handleAccountCreated(bool success, const QString &messag
     }
 
     if (success && m_store) {
-        m_store->refresh();
+        fetchAccounts();
     }
 }
 
@@ -133,7 +135,7 @@ void AccountController::handleAccountDeleted(bool success, const QString &childU
     if (success) {
         ConfirmDialog::showInfo(m_view, QStringLiteral("Thành công"), message);
         if (m_store) {
-            m_store->refresh();
+            fetchAccounts();
         }
     } else {
         if (m_view) {

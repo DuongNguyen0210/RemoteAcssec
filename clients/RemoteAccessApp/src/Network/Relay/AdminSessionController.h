@@ -16,7 +16,7 @@ class AdminSessionController : public QObject
 public:
     explicit AdminSessionController(QObject *parent = nullptr);
 
-    void requestSession(const QString &targetChildUsername);
+    void requestSession(const QString &targetAgentSessionId);
 
 signals:
     void sessionEstablished(quint64 sessionId);
@@ -34,7 +34,7 @@ private:
 
     RelayClient *m_relayClient;
     Protocol::RdtpStreamParser m_streamParser;
-    QString m_pendingTargetUsername;
+    QString m_pendingAgentSessionId;
     quint64 m_activeSessionId;
     bool m_connected;
     bool m_connecting;

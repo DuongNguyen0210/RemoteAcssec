@@ -1,6 +1,8 @@
 #include "DevicesPage.h"
 
 #include <QLabel>
+#include <QPushButton>
+#include <QDateTime>
 #include <QDebug>
 #include <QLayoutItem>
 #include <QScrollArea>
@@ -14,6 +16,7 @@ DevicesPage::DevicesPage(QWidget *parent)
     : QWidget{parent}
     , m_flowLayout(nullptr)
     , m_scrollContent(nullptr)
+    , m_refreshStatus(nullptr)
 {
     setupUi();
 }
@@ -30,11 +33,20 @@ void DevicesPage::setupUi()
     QLabel *lblTitle = new QLabel("Devices", this);
     lblTitle->setProperty("role", "pageTitle");
 
-    QLabel *lblSubtitle = new QLabel("Monitor and manage all registered remote devices.", this);
+    QLabel *lblSubtitle = new QLabel("Machines with a recent heartbeat. Refresh to update the list.", this);
     lblSubtitle->setProperty("role", "pageSubtitle");
 
     mainLayout->addWidget(lblTitle);
     mainLayout->addWidget(lblSubtitle);
+    auto *refresh = new QPushButton("Refresh devices", this);
+    refresh->setFixedHeight(38);
+    refresh->setCursor(Qt::PointingHandCursor);
+    refresh->setProperty("role", "primaryActionButton");
+    connect(refresh, &QPushButton::clicked, this, &DevicesPage::refreshRequested);
+    mainLayout->addWidget(refresh, 0, Qt::AlignLeft);
+    m_refreshStatus = new QLabel("Open this page or refresh to load active machines.", this);
+    m_refreshStatus->setProperty("role", "metaLabel");
+    mainLayout->addWidget(m_refreshStatus);
 
     QScrollArea *scrollArea = new QScrollArea(this);
     scrollArea->setProperty("role", "scrollArea");
@@ -53,6 +65,7 @@ void DevicesPage::setupUi()
 void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
 {
     if (!m_flowLayout) return;
+    m_refreshStatus->setText("Last refreshed: " + QDateTime::currentDateTime().toString("HH:mm:ss"));
 
     while (QLayoutItem *item = m_flowLayout->takeAt(0)) {
         if (item->widget())
@@ -77,8 +90,6 @@ void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
         DeviceCardWidget *card = new DeviceCardWidget(device, m_scrollContent);
         connect(card, &DeviceCardWidget::connectRequested,
                 this, &DevicesPage::connectRequested);
-        connect(card, &DeviceCardWidget::removeRequested,
-                this, &DevicesPage::removeDeviceRequested);
         m_flowLayout->addWidget(card);
     }
 
@@ -87,6 +98,7 @@ void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
 
 void DevicesPage::showError(const QString &message)
 {
+    m_refreshStatus->setText("Refresh failed. Displayed devices may be outdated.");
     ConfirmDialog::showWarning(this, QStringLiteral("Lỗi"), message);
 }
 

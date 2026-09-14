@@ -26,8 +26,6 @@ QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 AccountPage::AccountPage(QWidget *parent)
     : QWidget{parent}
     , m_totalAccountsVal(nullptr)
-    , m_activeAccountsVal(nullptr)
-    , m_inactiveAccountsVal(nullptr)
     , m_searchInput(nullptr)
     , m_listLayout(nullptr)
     , m_scrollContent(nullptr)
@@ -58,7 +56,7 @@ void AccountPage::showLoading()
     m_listLayout->addStretch();
 }
 
-void AccountPage::updateAccountList(const QList<DeviceInfo> &accounts)
+void AccountPage::updateAccountList(const QList<AccountInfo> &accounts)
 {
     m_allAccounts = accounts;
     updateMetrics();
@@ -67,24 +65,7 @@ void AccountPage::updateAccountList(const QList<DeviceInfo> &accounts)
 
 void AccountPage::updateMetrics()
 {
-    int total = m_allAccounts.size();
-    int active = 0;
-    for (const DeviceInfo &acc : m_allAccounts) {
-        if (acc.isOnline) {
-            active++;
-        }
-    }
-    int inactive = total - active;
-
-    if (m_totalAccountsVal) {
-        m_totalAccountsVal->setText(QString::number(total));
-    }
-    if (m_activeAccountsVal) {
-        m_activeAccountsVal->setText(QString::number(active));
-    }
-    if (m_inactiveAccountsVal) {
-        m_inactiveAccountsVal->setText(QString::number(inactive));
-    }
+    if (m_totalAccountsVal) m_totalAccountsVal->setText(QString::number(m_allAccounts.size()));
 }
 
 void AccountPage::onSearchTextChanged(const QString &text)
@@ -118,8 +99,8 @@ void AccountPage::renderAccounts(const QString &filterText)
     }
 
     QString query = filterText.trimmed();
-    QList<DeviceInfo> filtered;
-    for (const DeviceInfo &acc : m_allAccounts) {
+    QList<AccountInfo> filtered;
+    for (const AccountInfo &acc : m_allAccounts) {
         QString username = acc.childUsername.isEmpty() ? acc.username : acc.childUsername;
         if (query.isEmpty() || username.contains(query, Qt::CaseInsensitive)) {
             filtered.append(acc);
@@ -140,10 +121,8 @@ void AccountPage::renderAccounts(const QString &filterText)
         return;
     }
 
-    for (const DeviceInfo &acc : filtered) {
+    for (const AccountInfo &acc : filtered) {
         AccountCardWidget *card = new AccountCardWidget(acc, m_scrollContent);
-        connect(card, &AccountCardWidget::editRequested,
-                this, &AccountPage::editAccountRequested);
         connect(card, &AccountCardWidget::deleteRequested,
                 this, &AccountPage::deleteAccountRequested);
         m_listLayout->addWidget(card);
@@ -170,7 +149,7 @@ void AccountPage::setupUi()
     header->setContentsMargins(0, 0, 0, 8);
     header->setSpacing(4);
     header->addWidget(label("Sub-Accounts",   "pageTitle",    this));
-    header->addWidget(label("Manage sub-accounts linked to your administrator account. You can add, edit, or remove them below.",
+    header->addWidget(label("Manage sub-accounts linked to your administrator account. You can add or remove them below.",
                             "pageSubtitle", this));
     mainLayout->addLayout(header);
 
@@ -204,8 +183,6 @@ void AccountPage::setupUi()
     };
 
     metrics->addWidget(createMetricCard("0", "Total sub-accounts", "Under your administrator account", m_totalAccountsVal), 0, 0);
-    metrics->addWidget(createMetricCard("0", "Active accounts", "Currently enabled", m_activeAccountsVal), 0, 1);
-    metrics->addWidget(createMetricCard("0", "Inactive accounts", "Disabled or suspended", m_inactiveAccountsVal), 0, 2);
     mainLayout->addLayout(metrics);
 
     QFrame *toolbar = new QFrame(this);

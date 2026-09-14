@@ -1,35 +1,19 @@
-#ifndef DEVICESTORE_H
-#define DEVICESTORE_H
-
+#pragma once
 #include <QObject>
 #include <QList>
-#include <QJsonArray>
 #include "Domain/Model/DeviceInfo.h"
 
-class AccountService;
-
-class DeviceStore : public QObject
-{
+class DeviceStore : public QObject {
     Q_OBJECT
 public:
-    explicit DeviceStore(QObject *parent = nullptr);
-    ~DeviceStore();
-
-    void refresh();
-    QList<DeviceInfo> getDevices() const;
-    DeviceInfo getDevice(const QString &childUsername) const;
-    void updateDeviceStatus(const QString &childUsername, bool isOnline);
-
+    explicit DeviceStore(QObject *parent = nullptr) : QObject(parent) {}
+    const QList<DeviceInfo>& getDevices() const { return m_devices; }
+    void replaceDevices(const QList<DeviceInfo>& values) {
+        m_devices = values;
+        emit devicesUpdated(m_devices);
+    }
 signals:
-    void devicesUpdated(const QList<DeviceInfo> &devices);
-    void loadFailed(const QString &errorMessage);
-
-private slots:
-    void handleFetchResult(bool success, const QJsonArray &children, const QString &message);
-
+    void devicesUpdated(const QList<DeviceInfo>& values);
 private:
-    AccountService *m_service;
     QList<DeviceInfo> m_devices;
 };
-
-#endif

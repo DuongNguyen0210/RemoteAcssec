@@ -10,6 +10,7 @@ class MainWindow;
 class HeartbeatReporter;
 class ScreenStreamSender;
 class DeviceStore;
+class AccountStore;
 class DevicesController;
 class AccountController;
 
@@ -24,7 +25,7 @@ public:
 
 private slots:
     void handleLoginSuccess(const QString &role, const QString &username);
-    void handleRemoteSessionStarted(quint64 sessionId, const QString &childUsername);
+    void handleRemoteSessionStarted(quint64 sessionId, const QString &agentSessionId);
     void handlePageSelected(int pageIndex);
 
 private:
@@ -34,6 +35,7 @@ private:
     ScreenStreamSender *m_screenStreamSender;
 
     DeviceStore *m_deviceStore;
+    AccountStore *m_accountStore;
     DevicesController *m_devicesController;
     AccountController *m_accountController;
 };
