@@ -77,8 +77,8 @@ void LogsPage::setupUi()
     QVBoxLayout *header = new QVBoxLayout();
     header->setContentsMargins(0, 0, 0, 8);
     header->setSpacing(4);
-    header->addWidget(label("Activity Logs", "pageTitle", this));
-    header->addWidget(label("Review connection events, administrator actions, and device health changes.", "pageSubtitle", this));
+    header->addWidget(label("Nhật ký", "pageTitle", this));
+    header->addWidget(label("Lịch sử hoạt động của hệ thống.", "pageSubtitle", this));
     mainLayout->addLayout(header);
 
     QFrame *toolbar = new QFrame(this);
@@ -90,13 +90,15 @@ void LogsPage::setupUi()
 
     QLineEdit *search = new QLineEdit(toolbar);
     search->setProperty("role", "panelSearchInput");
-    search->setPlaceholderText("Search logs...");
+    search->setPlaceholderText("Tìm nhật ký");
     search->setClearButtonEnabled(true);
+    search->setEnabled(false);
+    search->setPlaceholderText("Tìm nhật ký — Sắp có");
     search->setFixedHeight(38);
     toolbarLayout->addWidget(search, 1);
-    toolbarLayout->addWidget(filterButton("All", true, toolbar));
-    toolbarLayout->addWidget(filterButton("Warnings", false, toolbar));
-    toolbarLayout->addWidget(filterButton("Errors", false, toolbar));
+    toolbarLayout->addWidget(filterButton("Tất cả", true, toolbar));
+    toolbarLayout->addWidget(filterButton("Cảnh báo", false, toolbar));
+    toolbarLayout->addWidget(filterButton("Lỗi", false, toolbar));
     mainLayout->addWidget(toolbar);
 
     QScrollArea *scrollArea = new QScrollArea(this);
@@ -109,13 +111,19 @@ void LogsPage::setupUi()
     QVBoxLayout *logs = new QVBoxLayout(scrollContent);
     logs->setContentsMargins(0, 0, 0, 0);
     logs->setSpacing(10);
-    logs->addWidget(logRow("09:42:18", "Remote session started", "SRV-APOLLO-01 by j.doe@company.com", "Info", "active", scrollContent));
-    logs->addWidget(logRow("09:39:07", "Connection quality degraded", "MBP-SARAH-DESIGN reported packet loss", "Warning", "warning", scrollContent));
-    logs->addWidget(logRow("09:12:54", "Device came online", "WKSTN-DEV-04 at 192.168.1.104", "Info", "active", scrollContent));
-    logs->addWidget(logRow("08:58:31", "Authentication failed", "Admin console login from 10.0.0.18", "Error", "error", scrollContent));
-    logs->addWidget(logRow("08:44:10", "Settings updated", "Session timeout changed to 30 minutes", "Audit", "neutral", scrollContent));
+    logs->addWidget(logRow("09:42:18", "Bắt đầu phiên kết nối", "SRV-APOLLO-01 — j.doe@company.com", "Thông tin", "active", scrollContent));
+    logs->addWidget(logRow("09:39:07", "Kết nối yếu", "MBP-SARAH-DESIGN bị mất gói tin", "Cảnh báo", "warning", scrollContent));
+    logs->addWidget(logRow("09:12:54", "Thiết bị trực tuyến", "WKSTN-DEV-04 tại 192.168.1.104", "Thông tin", "active", scrollContent));
+    logs->addWidget(logRow("08:58:31", "Đăng nhập thất bại", "Đăng nhập quản trị từ 10.0.0.18", "Lỗi", "error", scrollContent));
+    logs->addWidget(logRow("08:44:10", "Đã cập nhật cài đặt", "Thời gian chờ đổi thành 30 phút", "Thay đổi", "neutral", scrollContent));
     logs->addStretch();
 
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea, 1);
+    for (auto *button : findChildren<QPushButton*>()) {
+        button->setEnabled(false);
+        button->setText(button->text() + " · Sắp có");
+        button->setToolTip("Sắp có");
+    }
+
 }

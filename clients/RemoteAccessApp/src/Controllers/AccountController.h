@@ -10,6 +10,7 @@ class AccountPage;
 class AccountStore;
 class AccountService;
 class CreateAccountDialog;
+class EditAccountDialog;
 
 class AccountController : public QObject
 {
@@ -27,6 +28,7 @@ private slots:
     void onAccountsUpdated(const QList<AccountInfo> &devices);
     void onLoadFailed(const QString &errorMessage);
     void onAddAccountRequested();
+    void onEditAccountRequested(const QString &username);
     void onDeleteAccountRequested(const QString &username);
     void handleRegisterRequested(const QString &childUsername, const QString &password);
     void handleAccountCreated(bool success, const QString &message);
@@ -37,6 +39,7 @@ private:
     AccountStore *m_store;
     AccountService *m_accountService;
     QPointer<CreateAccountDialog> m_createAccountDialog;
+    QPointer<EditAccountDialog> m_editAccountDialog;
 };
 
 #endif

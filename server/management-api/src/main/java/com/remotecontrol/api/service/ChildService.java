@@ -105,6 +105,36 @@ public class ChildService {
                 presenceService.closeSession(child.getOwner().getId(), principal.getSessionId()));
     }
 
+    @org.springframework.transaction.annotation.Transactional
+    public ApiResponse<ChildDto> updateChild(Long id,
+            com.remotecontrol.api.dto.child.UpdateChildRequest request, UserPrincipal principal) {
+        var found = childRepository.findById(id);
+        if (found.isEmpty()) return ApiResponse.error("CHILD_NOT_FOUND", "Account not found");
+        Child child = found.get();
+        if (!"ADMIN".equals(principal.getRole())
+                || !String.valueOf(child.getOwner().getId()).equals(principal.getId())) {
+            return ApiResponse.error("FORBIDDEN", "Unauthorized to edit this account");
+        }
+        String suffix = request.getChildUsername() == null ? "" : request.getChildUsername().trim();
+        String username = child.getOwner().getUsername() + suffix;
+        String password = request.getNewPassword();
+        if (suffix.isBlank() || username.length() > 50
+                || (password != null && !password.isEmpty() && (password.isBlank() || password.length() > 255))) {
+            return ApiResponse.error("INVALID_INPUT", "Invalid account name or password");
+        }
+        var duplicate = childRepository.findByUsername(username);
+        if (duplicate.isPresent() && !duplicate.get().getId().equals(id)) {
+            return ApiResponse.error("CHILD_ALREADY_EXISTS", "Account name already exists");
+        }
+        child.setUsername(username);
+        if (password != null && !password.isEmpty()) {
+            child.setPassword(com.remotecontrol.api.util.ChildPasswords.encode(password));
+        }
+        childRepository.saveAndFlush(child);
+        return ApiResponse.success("Account updated", ChildDto.builder()
+                .id(id).username(username).childUsername(suffix).build());
+    }
+
     public ApiResponse<Void> deleteChild(String childUsername, UserPrincipal currentUser) {
         Optional<Child> childOpt = childRepository.findByUsername(childUsername);
         if (childOpt.isEmpty()) {

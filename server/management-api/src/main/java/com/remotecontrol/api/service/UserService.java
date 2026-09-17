@@ -20,7 +20,7 @@ public class UserService {
 
     public ApiResponse<UserDto> getProfile(UserPrincipal currentUser) {
         Optional<User> userOpt = userRepository.findByUsername(currentUser.getUsername());
-        if (!userOpt.isPresent()) {
+        if (userOpt.isEmpty()) {
             return ApiResponse.error("USER_NOT_FOUND", "User not found");
         }
         User user = userOpt.get();
@@ -35,7 +35,7 @@ public class UserService {
 
     public ApiResponse<Void> changePassword(ChangePasswordRequest request, UserPrincipal currentUser) {
         Optional<User> userOpt = userRepository.findByUsername(currentUser.getUsername());
-        if (!userOpt.isPresent()) {
+        if (userOpt.isEmpty()) {
             return ApiResponse.error("USER_NOT_FOUND", "User not found");
         }
         User user = userOpt.get();

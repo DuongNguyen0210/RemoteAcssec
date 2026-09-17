@@ -18,7 +18,10 @@ public:
     void fetchListChildren();
     void deleteSubAccount(const QString &childUsername);
 
+    void updateSubAccount(qint64 id, const QString &childUsername, const QString &newPassword);
+
 signals:
+    void updateAccountResult(qint64 id, bool success, const QString &message);
     void createAccountResult(bool success, const QString &message);
     void fetchListChildrenResult(bool success, const QList<AccountInfo> &accounts, const QString &message);
     void deleteAccountResult(bool success, const QString &childUsername, const QString &message);

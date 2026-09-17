@@ -14,7 +14,7 @@ MainWindow::MainWindow(DevicesPage *devicesPage, AccountPage *accountPage, QWidg
 {
     setObjectName("mainWindow");
     resize(1200, 800);
-    setWindowTitle("Remote Access App");
+    setWindowTitle("RemoteAccess");
     setupUi(devicesPage, accountPage);
 }
 
@@ -62,7 +62,7 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
     if (accountPage) {
         stackedWidget->addWidget(accountPage);
         stackedWidget->setCurrentWidget(accountPage);
-        topbar->setSearchPlaceholder("Search accounts...");
+        topbar->setSearchPlaceholder("Tìm tài khoản");
     }
 
     rightLayout->addWidget(topbar);
@@ -76,11 +76,11 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
         emit pageSelected(pageIndex);
 
         const QStringList placeholders = {
-            "Search devices...",
-            "Search sessions...",
-            "Search settings...",
-            "Search logs...",
-            "Search accounts..."
+            "Tìm thiết bị",
+            "Tìm phiên kết nối",
+            "Tìm cài đặt",
+            "Tìm nhật ký",
+            "Tìm tài khoản"
         };
         if (pageIndex >= 0 && pageIndex < placeholders.size()) {
             topbar->setSearchPlaceholder(placeholders.at(pageIndex));

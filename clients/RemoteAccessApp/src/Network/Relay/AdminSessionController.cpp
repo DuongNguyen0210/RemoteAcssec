@@ -41,7 +41,7 @@ void AdminSessionController::requestSession(const QString &targetAgentSessionId)
     }
 
     if (m_requestPending || m_activeSessionId != 0) {
-        emit sessionFailed(QStringLiteral("ADMIN da co phien dang cho hoac dang hoat dong."));
+        emit sessionFailed(QStringLiteral("Đang có phiên kết nối."));
         return;
     }
 
@@ -80,17 +80,18 @@ void AdminSessionController::onRelayDisconnected()
     m_streamParser = Protocol::RdtpStreamParser{};
 
     if (m_requestPending) {
-        failPendingRequest(QStringLiteral("Ket noi Relay da dong truoc khi tao phien."));
+        failPendingRequest(QStringLiteral("Kết nối đã đóng trước khi tạo phiên."));
     } else if (hadActiveSession) {
-        emit sessionFailed(QStringLiteral("Ket noi Relay cua phien dang hoat dong da dong."));
+        emit sessionFailed(QStringLiteral("Phiên kết nối đã đóng."));
     }
 }
 
 void AdminSessionController::onRelayError(const QString &message)
 {
+    Q_UNUSED(message);
     m_connecting = false;
     if (m_requestPending)
-        failPendingRequest(QStringLiteral("Loi ket noi Relay: %1").arg(message));
+        failPendingRequest(QStringLiteral("Không kết nối được máy chủ relay."));
 }
 
 void AdminSessionController::sendConnectRequest()
@@ -100,7 +101,7 @@ void AdminSessionController::sendConnectRequest()
 
     const QByteArray payload = Protocol::relayAuthPayload(ApiClient::instance().getToken(), m_pendingAgentSessionId);
     if (payload.isEmpty()) {
-        failPendingRequest(QStringLiteral("Thiếu token đăng nhập"));
+        failPendingRequest(QStringLiteral("Vui lòng đăng nhập lại."));
         return;
     }
 
@@ -111,7 +112,7 @@ void AdminSessionController::sendConnectRequest()
     packet.append(payload);
 
     if (m_relayClient->sendRawPacket(packet) < 0) {
-        failPendingRequest(QStringLiteral("Khong the gui CONNECT_REQUEST."));
+        failPendingRequest(QStringLiteral("Không gửi được yêu cầu kết nối."));
         return;
     }
 
@@ -123,7 +124,7 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 {
     const Protocol::RdtpStreamParser::FeedResult result = m_streamParser.feed(data);
     if (result.error != Protocol::RdtpStreamParser::Error::None) {
-        failPendingRequest(QStringLiteral("Du lieu RDTP tu Relay khong hop le."));
+        failPendingRequest(QStringLiteral("Dữ liệu kết nối không hợp lệ."));
         return;
     }
 
@@ -139,7 +140,7 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 
         if (!validCommonFields || !m_requestPending) {
             if (m_requestPending)
-                failPendingRequest(QStringLiteral("CONNECT_RESULT khong hop le."));
+                failPendingRequest(QStringLiteral("Phản hồi kết nối không hợp lệ."));
             continue;
         }
 
@@ -147,12 +148,12 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
         const bool validResult = (accepted && message.header.sessionId != 0)
                 || (!accepted && message.header.sessionId == 0);
         if (!validResult) {
-            failPendingRequest(QStringLiteral("CONNECT_RESULT khong hop le."));
+            failPendingRequest(QStringLiteral("Phản hồi kết nối không hợp lệ."));
             continue;
         }
 
         if (!accepted) {
-            failPendingRequest(QStringLiteral("Relay tu choi yeu cau ket noi CHILD."));
+            failPendingRequest(QStringLiteral("Yêu cầu kết nối bị từ chối."));
             continue;
         }
 

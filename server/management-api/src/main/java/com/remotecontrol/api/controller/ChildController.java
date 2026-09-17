@@ -36,6 +36,28 @@ public class ChildController {
     }
 
     @RequireRole("ADMIN")
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<ChildDto>> update(
+            @PathVariable Long id,
+            @RequestAttribute("currentUser") UserPrincipal currentUser,
+            @Valid @RequestBody com.remotecontrol.api.dto.child.UpdateChildRequest request) {
+        ApiResponse<ChildDto> result;
+        try {
+            result = childService.updateChild(id, request, currentUser);
+        } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error("CHILD_ALREADY_EXISTS", "Account name already exists"));
+        }
+        if (result.getSuccess()) return ResponseEntity.ok(result);
+        return ResponseEntity.status(switch (result.getErrorCode()) {
+            case "CHILD_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "FORBIDDEN" -> HttpStatus.FORBIDDEN;
+            case "CHILD_ALREADY_EXISTS" -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        }).body(result);
+    }
+
+    @RequireRole("ADMIN")
     @DeleteMapping("/{childUsername}")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable String childUsername,

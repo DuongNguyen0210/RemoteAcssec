@@ -28,6 +28,7 @@ public:
     QString getToken() const;
 
     QNetworkReply* post(const QString &endpoint, const QJsonObject &data);
+    QNetworkReply* put(const QString &endpoint, const QJsonObject &data);
     QNetworkReply* get(const QString &endpoint);
     QNetworkReply* deleteResource(const QString &endpoint);
 

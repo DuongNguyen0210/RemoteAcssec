@@ -1,6 +1,7 @@
 #include "AccountController.h"
+#include "GUI/Components/Accounts/EditAccountDialog.h"
 #include "GUI/Pages/AccountPage.h"
-#include "GUI/Dialogs/CreateAccountDialog.h"
+#include "GUI/Components/Accounts/CreateAccountDialog.h"
 #include "Domain/Store/AccountStore.h"
 #include "Network/Http/AccountService.h"
 #include "GUI/Dialogs/ConfirmDialog.h"
@@ -21,6 +22,8 @@ AccountController::AccountController(AccountStore *store, AccountService *servic
         }
     }
 
+    connect(m_view, &AccountPage::editAccountRequested,
+            this, &AccountController::onEditAccountRequested);
     connect(m_view, &AccountPage::deleteAccountRequested,
             this, &AccountController::onDeleteAccountRequested);
     connect(m_view, &AccountPage::requestAddAccount,
@@ -33,6 +36,8 @@ AccountController::AccountController(AccountStore *store, AccountService *servic
         if (success) m_store->replaceAccounts(accounts);
         else onLoadFailed(message);
     });
+    connect(m_accountService, &AccountService::updateAccountResult, this,
+            [this](qint64, bool success, const QString &) { if (success) fetchAccounts(); });
     connect(m_accountService, &AccountService::createAccountResult,
             this, &AccountController::handleAccountCreated);
     connect(m_accountService, &AccountService::deleteAccountResult,
@@ -70,8 +75,7 @@ void AccountController::onAccountsUpdated(const QList<AccountInfo> &accounts)
 void AccountController::onLoadFailed(const QString &message)
 {
     if (m_view) {
-        m_view->updateAccountList(m_store->getAccounts());
-        m_view->showError(message);
+        m_view->showLoadError(message);
     }
 }
 
@@ -106,7 +110,7 @@ void AccountController::handleAccountCreated(bool success, const QString &messag
 {
     if (m_createAccountDialog) {
         if (success) {
-            m_createAccountDialog->showSuccess(message);
+            m_createAccountDialog->accept();
         } else {
             m_createAccountDialog->showError(message);
         }
@@ -122,18 +126,19 @@ void AccountController::onDeleteAccountRequested(const QString &username)
     if (!ConfirmDialog::confirmDelete(
             m_view,
             QStringLiteral("Xác nhận xóa tài khoản"),
-            QStringLiteral("Bạn có chắc chắn muốn xóa tài khoản con \"%1\" không? Hành động này không thể hoàn tác.").arg(username))) {
+            QStringLiteral("Xóa tài khoản \"%1\"? Không thể hoàn tác.").arg(username))) {
         return;
     }
 
+    m_view->setActionsEnabled(false);
     m_accountService->deleteSubAccount(username);
 }
 
 void AccountController::handleAccountDeleted(bool success, const QString &childUsername, const QString &message)
 {
     Q_UNUSED(childUsername);
+    m_view->setActionsEnabled(true);
     if (success) {
-        ConfirmDialog::showInfo(m_view, QStringLiteral("Thành công"), message);
         if (m_store) {
             fetchAccounts();
         }
@@ -141,5 +146,30 @@ void AccountController::handleAccountDeleted(bool success, const QString &childU
         if (m_view) {
             m_view->showError(message);
         }
+    }
+}
+
+void AccountController::onEditAccountRequested(const QString &username)
+{
+    if (m_editAccountDialog) {
+        m_editAccountDialog->raise();
+        m_editAccountDialog->activateWindow();
+        return;
+    }
+    for (const auto &account : m_store->getAccounts()) {
+        if (account.username != username) continue;
+        auto *dialog = new EditAccountDialog(account, m_view);
+        m_editAccountDialog = dialog;
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dialog, &EditAccountDialog::saveRequested,
+                m_accountService, &AccountService::updateSubAccount);
+        connect(m_accountService, &AccountService::updateAccountResult, dialog,
+                [this, dialog, id = account.id](qint64 updatedId, bool success, const QString &message) {
+            if (updatedId != id) return;
+            if (success) dialog->accept();
+            else dialog->showError(message);
+        });
+        dialog->show();
+        return;
     }
 }

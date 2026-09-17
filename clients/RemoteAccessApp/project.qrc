@@ -1,4 +1,7 @@
 <RCC>
+    <qresource prefix="/translations">
+        <file alias="qt_vi.qm">Resources/translations/qt_vi.qm</file>
+    </qresource>
     <qresource prefix="/styles">
         <file>Resources/styles/main.qss</file>
         <file>Resources/styles/sidebar.qss</file>
@@ -8,6 +11,12 @@
         <file>Resources/styles/registerwindow.qss</file>
     </qresource>
     <qresource prefix="/icons">
+        <file>Resources/icons/account-user.svg</file>
+        <file>Resources/icons/account-clock.svg</file>
+        <file>Resources/icons/account-eye.svg</file>
+        <file>Resources/icons/account-edit.svg</file>
+        <file>Resources/icons/account-delete.svg</file>
+
         <file>Resources/icons/bell.svg</file>
         <file>Resources/icons/circle-question-mark.svg</file>
         <file>Resources/icons/circle-user.svg</file>

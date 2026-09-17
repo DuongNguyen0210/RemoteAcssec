@@ -1,7 +1,5 @@
 #include "AccountPage.h"
-
 #include <QFrame>
-#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -10,225 +8,153 @@
 #include <QVBoxLayout>
 #include "GUI/Dialogs/ConfirmDialog.h"
 #include "GUI/Components/EmptyStateWidget.h"
-#include "GUI/Components/AccountCardWidget.h"
+#include "GUI/Components/Accounts/AccountCardWidget.h"
 
-namespace {
-
-QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
-{
-    QLabel *lbl = new QLabel(text, parent);
-    lbl->setProperty("role", objectName);
-    return lbl;
-}
-
-}
-
-AccountPage::AccountPage(QWidget *parent)
-    : QWidget{parent}
-    , m_totalAccountsVal(nullptr)
-    , m_searchInput(nullptr)
-    , m_listLayout(nullptr)
-    , m_scrollContent(nullptr)
+AccountPage::AccountPage(QWidget *parent) : QWidget(parent)
 {
     setupUi();
+    renderAccounts();
 }
 
-void AccountPage::loadData()
-{
-    emit loadRequested();
-}
-
+void AccountPage::loadData() { emit loadRequested(); }
 void AccountPage::showLoading()
 {
-    if (!m_listLayout || !m_scrollContent) return;
-
-    QLayoutItem *child;
-    while ((child = m_listLayout->takeAt(0)) != nullptr) {
-        if (child->widget()) {
-            child->widget()->deleteLater();
-        }
-        delete child;
-    }
-
-    QLabel *lbl = new QLabel("Đang tải dữ liệu...", m_scrollContent);
-    lbl->setProperty("role", "metaLabel");
-    m_listLayout->addWidget(lbl);
-    m_listLayout->addStretch();
+    m_loading = true;
+    m_loadError.clear();
+    renderAccounts();
 }
-
 void AccountPage::updateAccountList(const QList<AccountInfo> &accounts)
 {
+    m_loading = false;
+    m_loadError.clear();
     m_allAccounts = accounts;
-    updateMetrics();
-    renderAccounts(m_searchInput ? m_searchInput->text() : QString());
+    m_totalAccountsVal->setText(QString::number(accounts.size()));
+    renderAccounts();
 }
-
-void AccountPage::updateMetrics()
+void AccountPage::showLoadError(const QString &message)
 {
-    if (m_totalAccountsVal) m_totalAccountsVal->setText(QString::number(m_allAccounts.size()));
+    m_loading = false;
+    m_loadError = message;
+    renderAccounts();
 }
-
-void AccountPage::onSearchTextChanged(const QString &text)
-{
-    renderAccounts(text);
-}
-
-void AccountPage::renderAccounts(const QString &filterText)
-{
-    if (!m_listLayout || !m_scrollContent) return;
-
-    QLayoutItem *child;
-    while ((child = m_listLayout->takeAt(0)) != nullptr) {
-        if (child->widget()) {
-            child->widget()->deleteLater();
-        }
-        delete child;
-    }
-
-    if (m_allAccounts.isEmpty()) {
-        EmptyStateWidget *emptyState = new EmptyStateWidget(
-            "Chưa có tài khoản con nào",
-            "Bạn chưa tạo tài khoản máy con nào. Hãy nhấn nút Thêm tài khoản để bắt đầu.",
-            "Thêm tài khoản",
-            m_scrollContent
-        );
-        connect(emptyState, &EmptyStateWidget::actionClicked,
-                this, &AccountPage::requestAddAccount);
-        m_listLayout->addWidget(emptyState);
-        return;
-    }
-
-    QString query = filterText.trimmed();
-    QList<AccountInfo> filtered;
-    for (const AccountInfo &acc : m_allAccounts) {
-        QString username = acc.childUsername.isEmpty() ? acc.username : acc.childUsername;
-        if (query.isEmpty() || username.contains(query, Qt::CaseInsensitive)) {
-            filtered.append(acc);
-        }
-    }
-
-    if (filtered.isEmpty()) {
-        EmptyStateWidget *emptyState = new EmptyStateWidget(
-            "Không tìm thấy tài khoản",
-            QString("Không có tài khoản nào khớp với \"%1\".").arg(query),
-            "Xóa bộ lọc",
-            m_scrollContent
-        );
-        connect(emptyState, &EmptyStateWidget::actionClicked, this, [this]() {
-            if (m_searchInput) m_searchInput->clear();
-        });
-        m_listLayout->addWidget(emptyState);
-        return;
-    }
-
-    for (const AccountInfo &acc : filtered) {
-        AccountCardWidget *card = new AccountCardWidget(acc, m_scrollContent);
-        connect(card, &AccountCardWidget::deleteRequested,
-                this, &AccountPage::deleteAccountRequested);
-        m_listLayout->addWidget(card);
-    }
-
-    m_listLayout->addStretch();
-}
-
 void AccountPage::showError(const QString &message)
 {
-    ConfirmDialog::showWarning(this, QStringLiteral("Lỗi"), message);
+    ConfirmDialog::showWarning(this, QStringLiteral("Không thực hiện được"), message);
+}
+void AccountPage::setActionsEnabled(bool enabled)
+{
+    m_toolbar->setEnabled(enabled);
+    m_scrollContent->setEnabled(enabled);
+}
+
+void AccountPage::renderAccounts()
+{
+    while (auto *item = m_listLayout->takeAt(0)) {
+        if (item->widget()) {
+            item->widget()->hide();
+            item->widget()->deleteLater();
+        }
+        delete item;
+    }
+    const bool hasAccounts = !m_allAccounts.isEmpty();
+    m_toolbar->setVisible(hasAccounts && !m_loading);
+    m_metrics->setVisible(hasAccounts && !m_loading);
+    if (m_loading) {
+        auto *state = new EmptyStateWidget("Đang tải tài khoản…", "", "", m_scrollContent);
+        state->setIconText("…");
+        m_listLayout->addWidget(state, 1);
+        return;
+    }
+    if (!m_loadError.isEmpty()) {
+        auto *state = new EmptyStateWidget("Chưa tải được tài khoản", m_loadError,
+                                          "Thử lại", m_scrollContent);
+        state->setIconText("!");
+        connect(state, &EmptyStateWidget::actionClicked, this, &AccountPage::loadRequested);
+        m_listLayout->addWidget(state, hasAccounts ? 0 : 1);
+        if (!hasAccounts) return;
+    }
+    if (!hasAccounts) {
+        auto *state = new EmptyStateWidget("Chưa có tài khoản", "Thêm tài khoản để kết nối máy con.",
+                                          "Thêm tài khoản", m_scrollContent);
+        connect(state, &EmptyStateWidget::actionClicked, this, &AccountPage::requestAddAccount);
+        m_listLayout->addWidget(state, 1);
+        return;
+    }
+    const QString query = m_searchInput->text().trimmed();
+    int count = 0;
+    for (const auto &account : m_allAccounts) {
+        if (!query.isEmpty() && !account.username.contains(query, Qt::CaseInsensitive)
+                && !account.childUsername.contains(query, Qt::CaseInsensitive)) continue;
+        auto *card = new AccountCardWidget(account, m_scrollContent);
+        connect(card, &AccountCardWidget::editRequested, this, &AccountPage::editAccountRequested);
+        connect(card, &AccountCardWidget::deleteRequested, this, &AccountPage::deleteAccountRequested);
+        m_listLayout->addWidget(card);
+        ++count;
+    }
+    if (!count) {
+        auto *state = new EmptyStateWidget("Không tìm thấy tài khoản", "Thử tên khác hoặc xóa tìm kiếm.",
+                                          "Xóa tìm kiếm", m_scrollContent);
+        connect(state, &EmptyStateWidget::actionClicked, m_searchInput, &QLineEdit::clear);
+        m_listLayout->addWidget(state, 1);
+    } else {
+        m_listLayout->addStretch();
+    }
 }
 
 void AccountPage::setupUi()
 {
     setObjectName("accountPage");
     setAttribute(Qt::WA_StyledBackground, true);
-
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 24, 24, 24);
-    mainLayout->setSpacing(16);
-
-    QVBoxLayout *header = new QVBoxLayout();
-    header->setContentsMargins(0, 0, 0, 8);
-    header->setSpacing(4);
-    header->addWidget(label("Sub-Accounts",   "pageTitle",    this));
-    header->addWidget(label("Manage sub-accounts linked to your administrator account. You can add or remove them below.",
-                            "pageSubtitle", this));
-    mainLayout->addLayout(header);
-
-    QGridLayout *metrics = new QGridLayout();
-    metrics->setHorizontalSpacing(16);
-    metrics->setVerticalSpacing(16);
-
-    auto createMetricCard = [this](const QString &initialValue, const QString &title,
-                                   const QString &detail, QLabel *&valLabelTarget) -> QFrame *
-    {
-        QFrame *card = new QFrame(this);
-        card->setProperty("role", "metricCard");
-        card->setAttribute(Qt::WA_StyledBackground, true);
-        QVBoxLayout *l = new QVBoxLayout(card);
-        l->setContentsMargins(16, 14, 16, 14);
-        l->setSpacing(4);
-
-        valLabelTarget = new QLabel(initialValue, card);
-        valLabelTarget->setProperty("role", "metricValue");
-
-        QLabel *titleLbl = new QLabel(title, card);
-        titleLbl->setProperty("role", "metricTitle");
-
-        QLabel *detailLbl = new QLabel(detail, card);
-        detailLbl->setProperty("role", "metricDetail");
-
-        l->addWidget(valLabelTarget);
-        l->addWidget(titleLbl);
-        l->addWidget(detailLbl);
-        return card;
-    };
-
-    metrics->addWidget(createMetricCard("0", "Total sub-accounts", "Under your administrator account", m_totalAccountsVal), 0, 0);
-    mainLayout->addLayout(metrics);
-
-    QFrame *toolbar = new QFrame(this);
-    toolbar->setProperty("role", "toolbarCard");
-    toolbar->setAttribute(Qt::WA_StyledBackground, true);
-    QHBoxLayout *toolbarLayout = new QHBoxLayout(toolbar);
-    toolbarLayout->setContentsMargins(12, 12, 12, 12);
-    toolbarLayout->setSpacing(8);
-
-    m_searchInput = new QLineEdit(toolbar);
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(24, 24, 24, 24);
+    layout->setSpacing(16);
+    auto *title = new QLabel("Tài khoản", this);
+    title->setProperty("role", "pageTitle");
+    layout->addWidget(title);
+    m_metrics = new QFrame(this);
+    m_metrics->setProperty("role", "metricCard");
+    auto *metrics = new QVBoxLayout(m_metrics);
+    metrics->setContentsMargins(16, 14, 16, 14);
+    metrics->setSpacing(4);
+    m_totalAccountsVal = new QLabel("0", m_metrics);
+    m_totalAccountsVal->setObjectName("accountCount");
+    m_totalAccountsVal->setProperty("role", "metricValue");
+    auto *caption = new QLabel("Tổng tài khoản", m_metrics);
+    caption->setProperty("role", "metricTitle");
+    metrics->addWidget(m_totalAccountsVal);
+    metrics->addWidget(caption);
+    layout->addWidget(m_metrics);
+    m_toolbar = new QFrame(this);
+    m_toolbar->setProperty("role", "toolbarCard");
+    auto *toolbar = new QHBoxLayout(m_toolbar);
+    toolbar->setContentsMargins(12, 12, 12, 12);
+    toolbar->setSpacing(8);
+    m_searchInput = new QLineEdit(m_toolbar);
+    m_searchInput->setObjectName("accountSearch");
     m_searchInput->setProperty("role", "panelSearchInput");
-    m_searchInput->setPlaceholderText("Search accounts...");
+    m_searchInput->setPlaceholderText("Tìm tài khoản");
+    m_searchInput->setAccessibleName("Tìm tài khoản");
     m_searchInput->setClearButtonEnabled(true);
     m_searchInput->setFixedHeight(38);
-    toolbarLayout->addWidget(m_searchInput, 1);
-
-    connect(m_searchInput, &QLineEdit::textChanged,
-            this, &AccountPage::onSearchTextChanged);
-
-    QPushButton *addButton = new QPushButton("Add Account", toolbar);
-    addButton->setProperty("role", "primaryActionButton");
-    addButton->setCursor(Qt::PointingHandCursor);
-    addButton->setFixedHeight(38);
-    toolbarLayout->addWidget(addButton);
-
-    connect(addButton, &QPushButton::clicked, this, [this](){
-        emit requestAddAccount();
-    });
-
-    mainLayout->addWidget(toolbar);
-
-    QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setProperty("role", "scrollArea");
-    scrollArea->setWidgetResizable(true);
-
-    m_scrollContent = new QWidget(scrollArea);
+    connect(m_searchInput, &QLineEdit::textChanged, this, &AccountPage::renderAccounts);
+    toolbar->addWidget(m_searchInput, 1);
+    auto *add = new QPushButton("Thêm tài khoản", m_toolbar);
+    add->setObjectName("addAccountButton");
+    add->setProperty("role", "primaryActionButton");
+    add->setFixedHeight(38);
+    add->setCursor(Qt::PointingHandCursor);
+    connect(add, &QPushButton::clicked, this, &AccountPage::requestAddAccount);
+    toolbar->addWidget(add);
+    layout->addWidget(m_toolbar);
+    auto *scroll = new QScrollArea(this);
+    scroll->setProperty("role", "scrollArea");
+    scroll->setWidgetResizable(true);
+    m_scrollContent = new QWidget(scroll);
     m_scrollContent->setProperty("role", "scrollContent");
     m_scrollContent->setAttribute(Qt::WA_StyledBackground, true);
-
     m_listLayout = new QVBoxLayout(m_scrollContent);
     m_listLayout->setContentsMargins(0, 0, 0, 0);
-    m_listLayout->setSpacing(14);
-
-    m_listLayout->addWidget(label("Đang tải dữ liệu...", "metaLabel", m_scrollContent));
-    m_listLayout->addStretch();
-
-    scrollArea->setWidget(m_scrollContent);
-    mainLayout->addWidget(scrollArea, 1);
+    m_listLayout->setSpacing(16);
+    scroll->setWidget(m_scrollContent);
+    layout->addWidget(scroll, 1);
 }

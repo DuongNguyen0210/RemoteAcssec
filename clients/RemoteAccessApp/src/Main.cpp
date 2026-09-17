@@ -2,6 +2,8 @@
 #include <QFile>
 #include <QStringList>
 #include <QDebug>
+#include <QTranslator>
+#include <QLocale>
 #include "Controllers/AppCoordinator.h"
 
 static QString loadStyleSheet()
@@ -30,6 +32,9 @@ static QString loadStyleSheet()
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    QLocale::setDefault(QLocale(QLocale::Vietnamese, QLocale::Vietnam));
+    QTranslator inputTranslation;
+    if (inputTranslation.load(":/translations/qt_vi.qm")) app.installTranslator(&inputTranslation);
     app.setStyleSheet(loadStyleSheet());
 
     AppCoordinator coordinator;

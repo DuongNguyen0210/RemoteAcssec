@@ -45,17 +45,19 @@ void EmptyStateWidget::setupUi()
 
     m_titleLabel = new QLabel(this);
     m_titleLabel->setObjectName("emptyStateTitle");
+    m_titleLabel->setTextFormat(Qt::PlainText);
     m_titleLabel->setAlignment(Qt::AlignCenter);
 
     m_descLabel = new QLabel(this);
     m_descLabel->setObjectName("emptyStateDesc");
+    m_descLabel->setTextFormat(Qt::PlainText);
     m_descLabel->setAlignment(Qt::AlignCenter);
     m_descLabel->setWordWrap(true);
 
     m_actionButton = new QPushButton(this);
     m_actionButton->setObjectName("emptyStateActionBtn");
     m_actionButton->setCursor(Qt::PointingHandCursor);
-    m_actionButton->setFixedHeight(36);
+    m_actionButton->setFixedHeight(38);
     m_actionButton->hide();
 
     connect(m_actionButton, &QPushButton::clicked, this, &EmptyStateWidget::actionClicked);
@@ -80,6 +82,7 @@ void EmptyStateWidget::setDescription(const QString &description)
 {
     if (m_descLabel) {
         m_descLabel->setText(description);
+        m_descLabel->setVisible(!description.isEmpty());
     }
 }
 

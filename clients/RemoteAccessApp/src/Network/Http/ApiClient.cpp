@@ -3,6 +3,7 @@
 #include <QUrl>
 #include <QNetworkRequest>
 #include <QDebug>
+#include <QHash>
 
 ApiClient& ApiClient::instance()
 {
@@ -17,7 +18,9 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
 
     if (reply->error() != QNetworkReply::NoError && result.httpStatusCode == 0) {
         result.success = false;
-        result.message = reply->errorString();
+        result.message = reply->error() == QNetworkReply::TimeoutError
+            ? QStringLiteral("Kết nối quá hạn. Thử lại.")
+            : QStringLiteral("Không kết nối được máy chủ. Kiểm tra mạng và thử lại.");
         result.errorCode = QStringLiteral("NETWORK_ERROR");
         return result;
     }
@@ -36,6 +39,29 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
         result.message = result.success ? QStringLiteral("OK") : QString::fromUtf8(body);
     }
 
+    if (result.success) {
+        result.message = QStringLiteral("Đã thực hiện");
+    } else {
+        static const QHash<QString, QString> messages = {
+            {"AUTH_FAILED", "Sai tên đăng nhập hoặc mật khẩu."},
+            {"CHILD_ALREADY_EXISTS", "Tên tài khoản đã tồn tại."},
+            {"USER_ALREADY_EXISTS", "Tên đăng nhập đã tồn tại."},
+            {"CHILD_NOT_FOUND", "Tài khoản không còn tồn tại."},
+            {"USER_NOT_FOUND", "Không tìm thấy tài khoản."},
+            {"LIMIT_EXCEEDED", "Đã đạt giới hạn tài khoản."},
+            {"FORBIDDEN", "Bạn không có quyền thực hiện."},
+            {"UNAUTHORIZED", "Phiên đã hết hạn. Đăng nhập lại."},
+            {"INVALID_INPUT", "Kiểm tra lại tên tài khoản và mật khẩu."},
+            {"VALIDATION_ERROR", "Thông tin chưa hợp lệ. Kiểm tra lại."},
+            {"INVALID_OLD_PASSWORD", "Mật khẩu cũ không đúng."},
+            {"SERVICE_UNAVAILABLE", "Máy chủ tạm không hoạt động. Thử lại sau."}
+        };
+        QString fallback = QStringLiteral("Không thực hiện được. Thử lại sau.");
+        if (result.httpStatusCode == 401) fallback = QStringLiteral("Phiên đã hết hạn. Đăng nhập lại.");
+        if (result.httpStatusCode == 403) fallback = QStringLiteral("Bạn không có quyền thực hiện.");
+        if (result.httpStatusCode == 409) fallback = QStringLiteral("Tên tài khoản đã tồn tại.");
+        result.message = messages.value(result.errorCode, fallback);
+    }
     return result;
 }
 
@@ -92,4 +118,9 @@ QNetworkReply* ApiClient::deleteResource(const QString &endpoint)
 {
     QNetworkRequest request = createRequest(endpoint);
     return m_networkManager->deleteResource(request);
+}
+
+QNetworkReply* ApiClient::put(const QString &endpoint, const QJsonObject &data)
+{
+    return m_networkManager->put(createRequest(endpoint), QJsonDocument(data).toJson());
 }

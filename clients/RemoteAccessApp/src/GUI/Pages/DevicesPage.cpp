@@ -30,21 +30,21 @@ void DevicesPage::setupUi()
     mainLayout->setContentsMargins(24, 24, 24, 24);
     mainLayout->setSpacing(16);
 
-    QLabel *lblTitle = new QLabel("Devices", this);
+    QLabel *lblTitle = new QLabel("Thiết bị", this);
     lblTitle->setProperty("role", "pageTitle");
 
-    QLabel *lblSubtitle = new QLabel("Machines with a recent heartbeat. Refresh to update the list.", this);
+    QLabel *lblSubtitle = new QLabel("Các máy đang hoạt động.", this);
     lblSubtitle->setProperty("role", "pageSubtitle");
 
     mainLayout->addWidget(lblTitle);
     mainLayout->addWidget(lblSubtitle);
-    auto *refresh = new QPushButton("Refresh devices", this);
+    auto *refresh = new QPushButton("Làm mới", this);
     refresh->setFixedHeight(38);
     refresh->setCursor(Qt::PointingHandCursor);
     refresh->setProperty("role", "primaryActionButton");
     connect(refresh, &QPushButton::clicked, this, &DevicesPage::refreshRequested);
     mainLayout->addWidget(refresh, 0, Qt::AlignLeft);
-    m_refreshStatus = new QLabel("Open this page or refresh to load active machines.", this);
+    m_refreshStatus = new QLabel("Đang chờ cập nhật", this);
     m_refreshStatus->setProperty("role", "metaLabel");
     mainLayout->addWidget(m_refreshStatus);
 
@@ -65,7 +65,7 @@ void DevicesPage::setupUi()
 void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
 {
     if (!m_flowLayout) return;
-    m_refreshStatus->setText("Last refreshed: " + QDateTime::currentDateTime().toString("HH:mm:ss"));
+    m_refreshStatus->setText("Cập nhật lúc: " + QDateTime::currentDateTime().toString("HH:mm:ss"));
 
     while (QLayoutItem *item = m_flowLayout->takeAt(0)) {
         if (item->widget())
@@ -98,7 +98,7 @@ void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
 
 void DevicesPage::showError(const QString &message)
 {
-    m_refreshStatus->setText("Refresh failed. Displayed devices may be outdated.");
+    m_refreshStatus->setText("Chưa cập nhật được. Dữ liệu có thể đã cũ.");
     ConfirmDialog::showWarning(this, QStringLiteral("Lỗi"), message);
 }
 

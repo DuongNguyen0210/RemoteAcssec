@@ -22,11 +22,14 @@ void TopBarWidget::setupUi()
 
     searchInput = new QLineEdit(this);
     searchInput->setObjectName("topbarSearchInput");
-    searchInput->setPlaceholderText("Search devices...");
+    searchInput->setPlaceholderText("Tìm thiết bị");
     searchInput->setClearButtonEnabled(true);
     searchInput->setMinimumWidth(280);
     searchInput->setMaximumWidth(440);
     searchInput->setFixedHeight(40);
+    searchInput->setEnabled(false);
+    searchInput->setPlaceholderText("Tìm kiếm chung — Sắp có");
+    searchInput->setToolTip("Sắp có. Dùng ô tìm kiếm trong từng trang.");
     layout->addWidget(searchInput, 1, Qt::AlignVCenter);
 
     QHBoxLayout *BttLayout = new QHBoxLayout();
@@ -44,6 +47,13 @@ void TopBarWidget::setupUi()
     ProfileBtt->setIcon(QIcon(":/icons/Resources/icons/circle-user.svg"));
     ProfileBtt->setIconSize(QSize(20, 20));
 
+    NotifyBtt->setToolTip("Thông báo — Sắp có");
+    HelpBtt->setToolTip("Trợ giúp — Sắp có");
+    ProfileBtt->setToolTip("Hồ sơ — Sắp có");
+    for (auto *button : {NotifyBtt, HelpBtt, ProfileBtt}) {
+        button->setEnabled(false);
+        button->setAccessibleName(button->toolTip());
+    }
     BttLayout->addWidget(NotifyBtt);
     BttLayout->addWidget(HelpBtt);
     BttLayout->addWidget(ProfileBtt);
@@ -54,7 +64,8 @@ void TopBarWidget::setupUi()
 void TopBarWidget::setSearchPlaceholder(const QString &placeholder)
 {
     if (searchInput) {
-        searchInput->setPlaceholderText(placeholder);
+        Q_UNUSED(placeholder);
+        searchInput->setPlaceholderText("Tìm kiếm chung — Sắp có");
         searchInput->clear();
     }
 }
