@@ -1,0 +1,5 @@
+.git
+**/target
+**/build
+**/.idea
+**/.env

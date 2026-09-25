@@ -19,7 +19,7 @@ void RelayClient::ConnectToServer(const QString& host, quint16 port)
 
 void RelayClient::DisconnectFromServer()
 {
-    m_socket->disconnectFromHost();
+    m_socket->abort();
 }
 
 void RelayClient::onConnected() {

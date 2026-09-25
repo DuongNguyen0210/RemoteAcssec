@@ -25,19 +25,14 @@ HeartbeatReporter::~HeartbeatReporter()
 void HeartbeatReporter::start()
 {
     m_deviceName = QHostInfo::localHostName();
-
-    qDebug() << "[HeartbeatReporter] Starting for device=" << m_deviceName;
-
     sendHeartbeat();
     m_timer->start();
 }
 
 void HeartbeatReporter::stop()
 {
-    if (m_timer->isActive()) {
+    if (m_timer->isActive())
         m_timer->stop();
-        qDebug() << "[HeartbeatReporter] Timer stopped.";
-    }
 }
 
 bool HeartbeatReporter::isRunning() const
@@ -49,8 +44,8 @@ void HeartbeatReporter::sendHeartbeat()
 {
     if (m_inFlight) return;
     QJsonObject body;
-    body[QStringLiteral("hostname")]      = m_deviceName;
-    body[QStringLiteral("os")]        = QSysInfo::prettyProductName();
+    body[QStringLiteral("hostname")] = m_deviceName;
+    body[QStringLiteral("os")] = QSysInfo::prettyProductName();
 
     QNetworkReply *reply = ApiClient::instance().post("/api/v1/child/heartbeat", body);
     if (!reply) {
@@ -73,17 +68,16 @@ void HeartbeatReporter::onHeartbeatReply(QNetworkReply *reply)
         return;
     }
 
-    if (res.success) {
-        qDebug() << "[HeartbeatReporter] Heartbeat (HTTP" << res.httpStatusCode << "):" << res.message;
+    if (res.success)
         return;
-    }
 
-    if (res.httpStatusCode == 404 || res.httpStatusCode == 401 || res.httpStatusCode == 403 || res.httpStatusCode == 400) {
-        qWarning() << "[HeartbeatReporter] Stopping heartbeat. Status:" << res.httpStatusCode << "Message:" << res.message;
+    if (res.httpStatusCode == 404 ||
+        res.httpStatusCode == 401 ||
+        res.httpStatusCode == 403 ||
+        res.httpStatusCode == 400)
+    {
         stop();
         emit authenticationLost();
         return;
     }
-
-    qWarning() << "[HeartbeatReporter] Unexpected HTTP" << res.httpStatusCode;
 }

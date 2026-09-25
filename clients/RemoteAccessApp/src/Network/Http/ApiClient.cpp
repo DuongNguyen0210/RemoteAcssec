@@ -28,13 +28,16 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
     QByteArray body = reply->readAll();
     QJsonDocument doc = QJsonDocument::fromJson(body);
 
-    if (doc.isObject()) {
+    if (doc.isObject())
+    {
         QJsonObject root = doc.object();
         result.success = root.value(QStringLiteral("success")).toBool(result.httpStatusCode >= 200 && result.httpStatusCode < 300);
         result.message = root.value(QStringLiteral("message")).toString();
         result.errorCode = root.value(QStringLiteral("errorCode")).toString();
         result.data = root.value(QStringLiteral("data"));
-    } else {
+    }
+    else
+    {
         result.success = (result.httpStatusCode >= 200 && result.httpStatusCode < 300);
         result.message = result.success ? QStringLiteral("OK") : QString::fromUtf8(body);
     }

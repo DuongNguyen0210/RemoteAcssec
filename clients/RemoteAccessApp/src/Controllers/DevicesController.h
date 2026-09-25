@@ -10,6 +10,7 @@ class DevicesPage;
 class DeviceStore;
 class DeviceService;
 class AdminSessionController;
+class RelayEndpointProvider;
 
 class DevicesController : public QObject
 {
@@ -35,6 +36,8 @@ private:
     DeviceStore *m_store;
     DeviceService *m_deviceService;
     AdminSessionController *m_sessionController;
+    RelayEndpointProvider *m_endpointProvider;
+    bool m_resolving = false;
     QString m_connectingAgentSessionId;
 };
 

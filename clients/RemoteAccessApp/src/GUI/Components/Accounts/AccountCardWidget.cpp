@@ -81,11 +81,11 @@ AccountCardWidget::AccountCardWidget(const AccountInfo &info, QWidget *parent)
     auto *eye = new QToolButton(this);
     eye->setProperty("role", "accountEye");
     eye->setIcon(icon("eye"));
+    eye->setEnabled(true);
     eye->setIconSize(QSize(16, 16));
     eye->setFixedSize(32, 36);
-    eye->setEnabled(false);
     eye->setAccessibleName(QStringLiteral("Không thể xem mật khẩu hiện tại"));
-    const QString passwordHint = QStringLiteral("Chọn Sửa để đổi mật khẩu.");
+    const QString passwordHint = QStringLiteral("Chọn để xem mật khẩu.");
     masked->setToolTip(passwordHint);
     eye->setToolTip(passwordHint);
     passwordRow->addWidget(eye);

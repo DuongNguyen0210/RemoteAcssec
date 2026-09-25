@@ -23,6 +23,11 @@ AdminSessionController::AdminSessionController(QObject *parent)
     , m_connecting(false)
     , m_requestPending(false)
 {
+    m_timeout.setSingleShot(true);
+    m_timeout.setInterval(15000);
+    connect(&m_timeout, &QTimer::timeout, this, [this] {
+        failPendingRequest(QStringLiteral("Hết thời gian chờ tạo phiên."));
+    });
     connect(m_relayClient, &RelayClient::connected,
             this, &AdminSessionController::onRelayConnected);
     connect(m_relayClient, &RelayClient::disconnected,
@@ -35,6 +40,16 @@ AdminSessionController::AdminSessionController(QObject *parent)
 
 void AdminSessionController::requestSession(const QString &targetAgentSessionId)
 {
+    requestSession(targetAgentSessionId, qEnvironmentVariable("REMOTE_RELAY_HOST", RELAY_HOST),
+            qEnvironmentVariable("REMOTE_RELAY_PORT", QString::number(RELAY_PORT)).toUShort());
+}
+
+void AdminSessionController::requestSession(const QString &targetAgentSessionId, const QString &host, quint16 port)
+{
+    if (host.trimmed().isEmpty() || port == 0) {
+        emit sessionFailed(QStringLiteral("Endpoint Relay không hợp lệ."));
+        return;
+    }
     if (QUuid(targetAgentSessionId).isNull()) {
         emit sessionFailed(QStringLiteral("ID phiên máy không hợp lệ."));
         return;
@@ -45,19 +60,39 @@ void AdminSessionController::requestSession(const QString &targetAgentSessionId)
         return;
     }
 
+    endSession();
     m_pendingAgentSessionId = targetAgentSessionId;
     m_requestPending = true;
+    m_connecting = true;
+    m_timeout.start();
+    m_relayClient->ConnectToServer(host, port);
+}
 
-    if (m_connected) {
-        sendConnectRequest();
-        return;
-    }
+void AdminSessionController::endSession()
+{
+    m_timeout.stop();
+    m_requestPending = false;
+    m_pendingAgentSessionId.clear();
+    const bool wasActive = m_activeSessionId != 0;
+    m_activeSessionId = 0;
+    m_connected = false;
+    m_connecting = false;
+    m_streamParser = {};
+    m_relayClient->DisconnectFromServer();
+    if (wasActive) emit sessionEnded();
+}
 
-    if (!m_connecting) {
-        m_connecting = true;
-        m_relayClient->ConnectToServer(qEnvironmentVariable("REMOTE_RELAY_HOST", RELAY_HOST),
-                static_cast<quint16>(qEnvironmentVariable("REMOTE_RELAY_PORT", QString::number(RELAY_PORT)).toUShort()));
-    }
+bool AdminSessionController::sendInput(Protocol::MessageType type, const QByteArray &payload)
+{
+    using T = Protocol::MessageType;
+    if (!m_connected || m_activeSessionId == 0 || !(type == T::MOUSE_MOVE || type == T::MOUSE_BUTTON_DOWN
+            || type == T::MOUSE_BUTTON_UP || type == T::MOUSE_WHEEL || type == T::KEY_PRESS || type == T::KEY_RELEASE)
+            || payload.size() > Protocol::MAX_PAYLOAD_LENGTH || m_relayClient->pendingBytes() > 1024 * 1024) return false;
+    Protocol::ProtocolHeader header(type);
+    header.sessionId = m_activeSessionId;
+    header.payloadLength = static_cast<uint32_t>(payload.size());
+    const auto packet = Protocol::ProtocolSerializer::serializeHeader(header) + payload;
+    return m_relayClient->sendRawPacket(packet) == packet.size();
 }
 
 void AdminSessionController::onRelayConnected()
@@ -72,6 +107,7 @@ void AdminSessionController::onRelayConnected()
 
 void AdminSessionController::onRelayDisconnected()
 {
+    m_timeout.stop();
     const bool hadActiveSession = m_activeSessionId != 0;
 
     m_connected = false;
@@ -82,6 +118,7 @@ void AdminSessionController::onRelayDisconnected()
     if (m_requestPending) {
         failPendingRequest(QStringLiteral("Kết nối đã đóng trước khi tạo phiên."));
     } else if (hadActiveSession) {
+        emit sessionEnded();
         emit sessionFailed(QStringLiteral("Phiên kết nối đã đóng."));
     }
 }
@@ -124,11 +161,17 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 {
     const Protocol::RdtpStreamParser::FeedResult result = m_streamParser.feed(data);
     if (result.error != Protocol::RdtpStreamParser::Error::None) {
-        failPendingRequest(QStringLiteral("Dữ liệu kết nối không hợp lệ."));
+        if (m_requestPending) failPendingRequest(QStringLiteral("Dữ liệu kết nối không hợp lệ."));
+        else endSession();
         return;
     }
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
+        if (message.header.type == Protocol::MessageType::SCREEN_FRAME && m_activeSessionId != 0
+                && message.header.sessionId == m_activeSessionId) {
+            emit screenReceived(message.header, message.payload);
+            continue;
+        }
         if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
             continue;
 
@@ -157,6 +200,7 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
             continue;
         }
 
+        m_timeout.stop();
         m_activeSessionId = static_cast<quint64>(message.header.sessionId);
         m_requestPending = false;
         m_pendingAgentSessionId.clear();
@@ -171,5 +215,6 @@ void AdminSessionController::failPendingRequest(const QString &reason)
 
     m_requestPending = false;
     m_pendingAgentSessionId.clear();
+    endSession();
     emit sessionFailed(reason);
 }

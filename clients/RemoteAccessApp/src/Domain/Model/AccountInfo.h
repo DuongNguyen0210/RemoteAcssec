@@ -5,4 +5,5 @@ struct AccountInfo {
     qint64 id = 0;
     QString username;
     QString childUsername;
+    QString password;
 };

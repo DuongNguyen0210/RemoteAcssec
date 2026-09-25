@@ -15,18 +15,17 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 public class RelayServer {
 
-    private final int port;
+    private final com.remotecontrol.relay.config.RelayConfig config;
 
-    public RelayServer(int port) {
-        this.port = port;
-    }
+    public RelayServer(com.remotecontrol.relay.config.RelayConfig config) { this.config = config; }
 
     public void start() throws InterruptedException {
 
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         RelayRegistry relayRegistry = new RelayRegistry();
-        var authorizer = new com.remotecontrol.relay.auth.RelayAuthorizer();
+        var authorizer = new com.remotecontrol.relay.auth.RelayAuthorizer(config);
+        var reporter = new RelayNodeReporter(config, relayRegistry);
 
         try {
 
@@ -43,20 +42,23 @@ public class RelayServer {
                  }
              })
              .option(ChannelOption.SO_BACKLOG, 128)
-             .childOption(ChannelOption.SO_KEEPALIVE, true);
+             .childOption(ChannelOption.SO_KEEPALIVE, true)
+             .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,
+                     new io.netty.channel.WriteBufferWaterMark(1024 * 1024, 2 * 1024 * 1024));
 
-            ChannelFuture f = b.bind(port).sync();
+            ChannelFuture f = b.bind(config.port()).sync();
+            if (config.discoveryEnabled()) reporter.start();
             f.channel().closeFuture().sync();
             
         }
         finally {
+            reporter.close();
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
         }
     }
 
     public static void main(String[] args) throws Exception {
-        int port = Integer.parseInt(System.getenv().getOrDefault("RELAY_PORT", "8080"));
-        new RelayServer(port).start();
+        new RelayServer(com.remotecontrol.relay.config.RelayConfig.fromEnvironment()).start();
     }
 }

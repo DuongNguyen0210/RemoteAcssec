@@ -17,8 +17,18 @@ import java.util.UUID;
 public class RelayAuthorizationController {
     private final ChildRepository children;
     private final PresenceService presence;
+    private final com.remotecontrol.api.service.RelayDispatchService dispatch;
 
     @GetMapping(value = "/agent", produces = "text/plain")
+    @RequireRole("CHILD")
+    public String assignedAgent(@RequestAttribute("currentUser") UserPrincipal principal,
+            @RequestParam(defaultValue = "") String instanceId, @RequestParam(defaultValue = "") String bootId) {
+        String id = agent(principal);
+        if (!instanceId.isEmpty()) dispatch.lookup(id, instanceId, bootId);
+        return id;
+    }
+
+
     @RequireRole("CHILD")
     public String agent(@RequestAttribute("currentUser") UserPrincipal principal) {
         if (!children.existsById(Long.valueOf(principal.getId())))
@@ -27,6 +37,15 @@ public class RelayAuthorizationController {
     }
 
     @GetMapping(value = "/targets/{sessionId}", produces = "text/plain")
+    @RequireRole("ADMIN")
+    public String assignedTarget(@RequestAttribute("currentUser") UserPrincipal principal, @PathVariable UUID sessionId,
+            @RequestParam(defaultValue = "") String instanceId, @RequestParam(defaultValue = "") String bootId) {
+        String id = target(principal, sessionId);
+        if (!instanceId.isEmpty()) dispatch.lookup(id, instanceId, bootId);
+        return id;
+    }
+
+
     @RequireRole("ADMIN")
     public String target(@RequestAttribute("currentUser") UserPrincipal principal, @PathVariable UUID sessionId) {
         Long ownerId = Long.valueOf(principal.getId());

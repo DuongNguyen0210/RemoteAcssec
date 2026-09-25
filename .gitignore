@@ -96,3 +96,6 @@ Thumbs.db
 # AI / Code Knowledge Graph
 # =========================
 .codegraph/
+
+# Local deployment secrets
+infrastructure/.env

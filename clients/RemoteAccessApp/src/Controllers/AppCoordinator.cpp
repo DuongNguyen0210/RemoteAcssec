@@ -6,6 +6,9 @@
 #include "GUI/Windows/MainWindow.h"
 #include "Network/Http/HeartbeatReporter.h"
 #include "Streaming/ScreenStreamSender.h"
+#include "Network/Relay/ChildSessionController.h"
+#include "Network/Relay/StaticRelayEndpointProvider.h"
+#include "Network/Relay/DynamicRelayEndpointProvider.h"
 #include "Domain/Store/DeviceStore.h"
 #include "Domain/Store/AccountStore.h"
 #include "Network/Http/AccountService.h"
@@ -48,7 +51,8 @@ void AppCoordinator::start()
 
 void AppCoordinator::handleLoginSuccess(const QString &role, const QString &username)
 {
-    if (role == "ADMIN") {
+    if (role == "ADMIN")
+    {
         m_deviceStore = new DeviceStore(this);
         m_accountStore = new AccountStore(this);
         m_devicesController = new DevicesController(m_deviceStore, new DeviceService(this), this);
@@ -64,21 +68,31 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
         m_mainWindow->show();
 
         m_accountController->fetchAccounts();
-    } else {
-        qDebug() << "CHILD account logged in";
-
+    }
+    else
+    {
         QGuiApplication::setQuitOnLastWindowClosed(false);
 
-        if (!m_heartbeatReporter) {
+        if (!m_heartbeatReporter)
+        {
             m_heartbeatReporter = new HeartbeatReporter(this);
             m_heartbeatReporter->start();
         }
 
-        if (!m_screenStreamSender) {
-            m_screenStreamSender = new ScreenStreamSender(username, this);
+        if (!m_screenStreamSender)
+        {
+            RelayEndpointProvider *provider = qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
+                    ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider(this))
+                    : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider(this));
+            auto *session = new ChildSessionController(provider, this);
+            m_screenStreamSender = new ScreenStreamSender(session, this);
+            session->setParent(m_screenStreamSender);
+            provider->setParent(session);
             connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost,
-                    m_screenStreamSender, &ScreenStreamSender::stop);
-            m_screenStreamSender->start();
+                    session, &ChildSessionController::stop);
+            connect(session, &ChildSessionController::sessionFailed, this,
+                    [](const QString &reason) { qWarning() << "Child Relay:" << reason; });
+            session->start();
         }
     }
 

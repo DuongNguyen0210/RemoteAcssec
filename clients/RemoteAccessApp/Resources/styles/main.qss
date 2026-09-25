@@ -197,6 +197,7 @@ QLabel[role="stateChip"][state="neutral"] {
 
 /* ─── Action buttons & inputs ────────────────────────────────────────────── */
 QPushButton[role="secondaryActionButton"],
+QPushButton[role="TertiaryActionButton"],
 QPushButton[role="filterButton"],
 QLineEdit[role="panelSearchInput"],
 *[role="settingsInput"] {
@@ -209,6 +210,7 @@ QLineEdit[role="panelSearchInput"],
 }
 
 QPushButton[role="secondaryActionButton"]:hover,
+QPushButton[role="TertiaryActionButton"]:hover,
 QPushButton[role="filterButton"]:hover,
 QLineEdit[role="panelSearchInput"]:hover,
 *[role="settingsInput"]:hover {
@@ -237,7 +239,8 @@ QPushButton[role="primaryActionButton"]:hover {
     background-color: #004b74;
 }
 
-QPushButton[role="secondaryActionButton"] {
+QPushButton[role="secondaryActionButton"],
+QPushButton[role="TertiaryActionButton"]{
     font-weight: 700;
 }
 
@@ -505,6 +508,7 @@ QFrame[role="accountCard"] QPushButton[role="dangerActionButton"]:pressed {
 
 QPushButton[role="primaryActionButton"]:disabled,
 QPushButton[role="secondaryActionButton"]:disabled,
+QPushButton[role="TertiaryActionButton"]:disabled,
 QPushButton[role="dangerActionButton"]:disabled,
 QPushButton[role="filterButton"]:disabled {
     background-color: #eceef0;
@@ -513,6 +517,7 @@ QPushButton[role="filterButton"]:disabled {
 }
 QPushButton[role="primaryActionButton"]:focus,
 QPushButton[role="secondaryActionButton"]:focus,
+QPushButton[role="TertiaryActionButton"]:focus,
 QPushButton#emptyStateActionBtn:focus {
     border: 2px solid #2779bd;
 }
