@@ -6,7 +6,7 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent)
 {
     setObjectName("loginWindow");
     setFixedSize(800, 600);
-    setWindowTitle("Remote Access - Đăng Nhập");
+    setWindowTitle("RemoteAccess — Đăng nhập");
 
     setupUi();
 }
@@ -24,22 +24,22 @@ void LoginWindow::setupUi()
     boxLayout->setSpacing(20);
     boxLayout->setContentsMargins(40, 40, 40, 40);
 
-    QLabel* titleLabel = new QLabel("ĐĂNG NHẬP", loginBox);
+    QLabel* titleLabel = new QLabel("Đăng nhập", loginBox);
     titleLabel->setObjectName("loginTitle");
     titleLabel->setAlignment(Qt::AlignCenter);
 
     usernameInput = new QLineEdit(loginBox);
     usernameInput->setObjectName("usernameInput");
-    usernameInput->setPlaceholderText("Tên đăng nhập...");
+    usernameInput->setPlaceholderText("Tên đăng nhập");
     usernameInput->setFixedHeight(40);
 
     passwordInput = new QLineEdit(loginBox);
     passwordInput->setObjectName("passwordInput");
-    passwordInput->setPlaceholderText("Mật khẩu...");
+    passwordInput->setPlaceholderText("Mật khẩu");
     passwordInput->setEchoMode(QLineEdit::Password);
     passwordInput->setFixedHeight(40);
 
-    loginButton = new QPushButton("Đăng Nhập", loginBox);
+    loginButton = new QPushButton("Đăng nhập", loginBox);
     loginButton->setObjectName("loginButton");
     loginButton->setFixedHeight(45);
     loginButton->setCursor(Qt::PointingHandCursor);

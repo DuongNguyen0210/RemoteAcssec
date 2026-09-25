@@ -1,4 +1,5 @@
 #include "ScreenStreamSender.h"
+#include "Network/Relay/ChildSessionController.h"
 
 #include "ScreenCapture.h"
 #include "ScreenEncoder.h"
@@ -29,6 +30,28 @@ ScreenStreamSender::ScreenStreamSender(const QString &childUsername, QObject *pa
             this, &ScreenStreamSender::onRelayDisconnected);
     connect(m_relayClient, &RelayClient::bytesReceived,
             this, &ScreenStreamSender::onRelayBytesReceived);
+}
+
+ScreenStreamSender::ScreenStreamSender(ChildSessionController *session, QObject *parent)
+    : QObject(parent)
+    , m_timer(new QTimer(this))
+    , m_relayClient(session->relayClient())
+    , m_frameId(1)
+    , m_registered(false)
+    , m_currentSessionId(0)
+{
+    m_timer->setInterval(STREAM_INTERVAL_MS);
+    connect(m_timer, &QTimer::timeout, this, &ScreenStreamSender::onTick);
+    connect(session, &ChildSessionController::sessionStarted, this, [this](quint64 id) {
+        m_currentSessionId = id;
+        m_registered = true;
+        m_timer->start();
+    });
+    connect(session, &ChildSessionController::sessionEnded, this, [this] {
+        m_currentSessionId = 0;
+        m_registered = false;
+        m_timer->stop();
+    });
 }
 
 ScreenStreamSender::~ScreenStreamSender()

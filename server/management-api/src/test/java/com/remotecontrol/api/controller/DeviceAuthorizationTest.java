@@ -30,7 +30,7 @@ class DeviceAuthorizationTest {
                 DeviceDto.builder().sessionId("a").childId(12L).build(),
                 DeviceDto.builder().sessionId("b").childId(99L).build()));
         var deviceService = new DeviceService(presence, children, users);
-        var mvc = MockMvcBuilders.standaloneSetup(new DeviceController(deviceService))
+        var mvc = MockMvcBuilders.standaloneSetup(new DeviceController(deviceService, new RelayAuthorizationController(children, presence, mock(com.remotecontrol.api.service.RelayDispatchService.class)), mock(com.remotecontrol.api.service.RelayDispatchService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).addInterceptors(new JwtInterceptor(jwt, presence)).build();
         mvc.perform(get("/api/v1/devices")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/devices").header("Authorization", "Bearer invalid"))
@@ -55,7 +55,7 @@ class DeviceAuthorizationTest {
         when(presence.getDevice(1L, sid)).thenReturn(DeviceDto.builder().childId(12L).sessionId(sid).build());
         when(children.findById(12L)).thenReturn(Optional.of(Child.builder().id(12L).owner(owner).build()));
         when(presence.isSessionActive("12", sid)).thenReturn(true);
-        var mvc = MockMvcBuilders.standaloneSetup(new RelayAuthorizationController(children, presence))
+        var mvc = MockMvcBuilders.standaloneSetup(new RelayAuthorizationController(children, presence, mock(com.remotecontrol.api.service.RelayDispatchService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).addInterceptors(new JwtInterceptor(jwt, presence)).build();
         mvc.perform(get("/api/v1/relay/targets/" + sid).header("Authorization", "Bearer " + jwt.generateToken("owner", "ADMIN", "1")))
                 .andExpect(status().isOk()).andExpect(content().string(sid));

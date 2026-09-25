@@ -1,6 +1,8 @@
 #include "DeviceService.h"
 #include "ApiClient.h"
 #include <QJsonArray>
+#include <QUuid>
+#include <QTimer>
 
 void DeviceService::fetchDevices()
 {
@@ -38,5 +40,46 @@ void DeviceService::fetchDevices()
             devices.append(device);
         }
         emit devicesResult(true, devices, response.message);
+    });
+}
+
+void DeviceService::allocateRelay(RelayEndpointProvider::Callback callback)
+{
+    receiveEndpoint(ApiClient::instance().post("/api/v1/relay/allocations", {}), std::move(callback));
+}
+
+void DeviceService::fetchRelayEndpoint(const QString &id, RelayEndpointProvider::Callback callback)
+{
+    if (QUuid(id).isNull()) {
+        callback({}, QStringLiteral("ID phiên máy không hợp lệ."));
+        return;
+    }
+    receiveEndpoint(ApiClient::instance().get("/api/v1/devices/" + QUuid(id).toString(QUuid::WithoutBraces)
+                    + "/relay"), std::move(callback));
+}
+
+void DeviceService::receiveEndpoint(QNetworkReply *reply, RelayEndpointProvider::Callback callback)
+{
+    if (!reply) { callback({}, QStringLiteral("Không thể gửi yêu cầu Relay.")); return; }
+    auto *timeout = new QTimer(reply);
+    timeout->setSingleShot(true);
+    connect(timeout, &QTimer::timeout, reply, &QNetworkReply::abort);
+    timeout->start(8000);
+    connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
+    connect(reply, &QNetworkReply::finished, this, [reply, callback = std::move(callback)]() {
+        const auto response = ApiClient::parseReply(reply);
+        const auto obj = response.data.toObject();
+        const double portValue = obj.value("port").toDouble(-1);
+        const int port = obj.value("port").toInt(-1);
+        RelayEndpoint endpoint{obj.value("instanceId").toString(), obj.value("host").toString(),
+            static_cast<quint16>(port > 0 && port <= 65535 ? port : 0),
+            obj.value("expiresAt").toVariant().toLongLong()};
+        if (!response.success || endpoint.instanceId.isEmpty() || !endpoint.isValid()
+                || endpoint.expiresAt <= 0 || portValue != port) {
+            callback({}, response.success ? QStringLiteral("Endpoint Relay không hợp lệ hoặc đã hết hạn.")
+                    : (response.message.isEmpty() ? QStringLiteral("Không có Relay khả dụng.") : response.message));
+            return;
+        }
+        callback(endpoint, {});
     });
 }

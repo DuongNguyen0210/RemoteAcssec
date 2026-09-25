@@ -13,6 +13,7 @@ class DeviceStore;
 class AccountStore;
 class DevicesController;
 class AccountController;
+class AccountCsvReader;
 
 class AppCoordinator : public QObject
 {

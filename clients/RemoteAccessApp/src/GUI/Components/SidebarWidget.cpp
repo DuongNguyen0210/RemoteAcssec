@@ -38,7 +38,7 @@ void SidebarWidget::setupUi()
     avatarLabel->setAlignment(Qt::AlignCenter);
     QLabel *logoLabel = new QLabel("<b>RemoteAccess</b>", this);
     logoLabel->setObjectName("lblName");
-    QLabel *roleLabel = new QLabel("IT Administrator", this);
+    QLabel *roleLabel = new QLabel("Quản trị viên", this);
     roleLabel->setObjectName("lblRole");
 
     QVBoxLayout *brandTextLayout = new QVBoxLayout();
@@ -55,11 +55,13 @@ void SidebarWidget::setupUi()
 
     QVBoxLayout *ConnLayout = new QVBoxLayout();
     ConnLayout->setContentsMargins(16, 16, 16, 16);
-    QPushButton *btnNewConn = new QPushButton("New Connection", this);
+    QPushButton *btnNewConn = new QPushButton("Kết nối mới · Sắp có", this);
     btnNewConn->setIcon(QIcon(":/icons/Resources/icons/add-fill.svg"));
     btnNewConn->setObjectName("newConnButton");
     btnNewConn->setCursor(Qt::PointingHandCursor);
     btnNewConn->setFixedHeight(44);
+    btnNewConn->setEnabled(false);
+    btnNewConn->setToolTip("Sắp có. Chọn thiết bị để kết nối.");
     ConnLayout->addWidget(btnNewConn);
     layout->addLayout(ConnLayout);
 
@@ -81,6 +83,7 @@ void SidebarWidget::setupUi()
 
         QPushButton *btn = new QPushButton(text, row);
         btn->setObjectName("menuButton");
+        btn->setProperty("pageIndex", pageIndex);
         btn->setIcon(QIcon(iconPath));
         btn->setIconSize(QSize(20, 20));
         btn->setCheckable(true);
@@ -109,11 +112,11 @@ void SidebarWidget::setupUi()
         return btn;
     };
 
-    createMenuItem("Devices",  ":/icons/Resources/icons/devices.svg",  0);
-    createMenuItem("Sessions", ":/icons/Resources/icons/sessions.svg", 1);
-    createMenuItem("Settings", ":/icons/Resources/icons/settings.svg", 2);
-    createMenuItem("Logs",     ":/icons/Resources/icons/logs.svg",     3);
-    QPushButton *btnAccounts = createMenuItem("Accounts", ":/icons/Resources/icons/circle-user.svg", 4);
+    createMenuItem("Thiết bị",  ":/icons/Resources/icons/devices.svg",  0);
+    createMenuItem("Phiên kết nối", ":/icons/Resources/icons/sessions.svg", 1);
+    createMenuItem("Cài đặt", ":/icons/Resources/icons/settings.svg", 2);
+    createMenuItem("Nhật ký",     ":/icons/Resources/icons/logs.svg",     3);
+    QPushButton *btnAccounts = createMenuItem("Tài khoản", ":/icons/Resources/icons/circle-user.svg", 4);
 
     layout->addLayout(MenuLayout);
 

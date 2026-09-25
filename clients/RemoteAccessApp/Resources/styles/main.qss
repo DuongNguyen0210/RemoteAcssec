@@ -197,6 +197,7 @@ QLabel[role="stateChip"][state="neutral"] {
 
 /* ─── Action buttons & inputs ────────────────────────────────────────────── */
 QPushButton[role="secondaryActionButton"],
+QPushButton[role="TertiaryActionButton"],
 QPushButton[role="filterButton"],
 QLineEdit[role="panelSearchInput"],
 *[role="settingsInput"] {
@@ -209,6 +210,7 @@ QLineEdit[role="panelSearchInput"],
 }
 
 QPushButton[role="secondaryActionButton"]:hover,
+QPushButton[role="TertiaryActionButton"]:hover,
 QPushButton[role="filterButton"]:hover,
 QLineEdit[role="panelSearchInput"]:hover,
 *[role="settingsInput"]:hover {
@@ -237,7 +239,8 @@ QPushButton[role="primaryActionButton"]:hover {
     background-color: #004b74;
 }
 
-QPushButton[role="secondaryActionButton"] {
+QPushButton[role="secondaryActionButton"],
+QPushButton[role="TertiaryActionButton"]{
     font-weight: 700;
 }
 
@@ -307,8 +310,8 @@ QPushButton#emptyStateActionBtn {
     color: #ffffff;
     border: none;
     border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
     padding: 0px 16px;
 }
 
@@ -406,3 +409,115 @@ QPushButton#confirmBtnAction[actionRole="primary"]:hover {
     background-color: #004b74;
 }
 
+
+/* Account cards */
+QFrame[role="accountCard"] {
+    background-color: #ffffff;
+    border: 1px solid #dfe4ea;
+    border-radius: 12px;
+}
+QLabel[role="accountFieldLabel"] {
+    color: #52606d;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+}
+QLabel[role="accountName"] {
+    color: #191c1e;
+    font-size: 20px;
+    font-weight: 600;
+    background: transparent;
+}
+QLabel[role="accountValue"] {
+    color: #303840;
+    font-size: 14px;
+    background: transparent;
+}
+QLineEdit[role="accountPassword"] {
+    background: #f7f9fb;
+    color: #303840;
+    border: 1px solid #dfe4ea;
+    border-radius: 6px;
+    padding: 0 12px;
+    font-size: 14px;
+    selection-background-color: #d6e9ff;
+    selection-color: #191c1e;
+}
+QPushButton[role="accountToggle"],
+QPushButton[role="accountEdit"],
+QPushButton[role="accountDelete"] {
+    border: 1px solid #bfc7d1;
+    border-radius: 6px;
+    padding: 0 12px;
+    background: #ffffff;
+    color: #303840;
+    font-size: 13px;
+    font-weight: 600;
+}
+QPushButton[role="accountEdit"] {
+    background: #005fb8;
+    border-color: #005fb8;
+    color: #ffffff;
+}
+QPushButton[role="accountEdit"]:hover { background: #004c94; }
+QPushButton[role="accountToggle"]:hover { background: #edf3f8; }
+QPushButton[role="accountDelete"] { color: #b42318; border-color: #efb5b0; }
+QPushButton[role="accountDelete"]:hover { background: #fff0ee; }
+QPushButton[role="accountToggle"]:checked { background: #e5eff9; }
+QPushButton[role="accountToggle"]:disabled { color: #697680; background: #f0f3f6; border-color: #dfe4ea; }
+QPushButton[role="accountToggle"]:focus,
+QPushButton[role="accountEdit"]:focus,
+QPushButton[role="accountDelete"]:focus,
+QLineEdit[role="accountPassword"]:focus { border: 2px solid #2779bd; }
+QPushButton[role="accountEdit"]:pressed { background: #003c75; }
+QPushButton[role="accountDelete"]:pressed { background: #fce0dc; }
+QPushButton[role="accountToggle"]:pressed { background: #d6e4f0; }
+
+#createAccountDialog,
+#editAccountDialog { background: #ffffff; }
+QLabel[role="accountError"] { color: #b42318; font-size: 13px; }
+
+/* Account summaries share typography and action styles with the other pages. */
+QLabel[role="accountAvatar"] {
+    color: #005d90;
+    background-color: #e8f3fb;
+    border: 1px solid #dfe4ea;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+}
+QFrame[role="accountUsernameBadge"] {
+    background-color: #f7f9fb;
+    border: 1px solid #dfe4ea;
+    border-radius: 8px;
+}
+QToolButton[role="accountEye"] {
+    border: none;
+    background: transparent;
+    padding: 4px;
+}
+QFrame[role="accountCard"] QPushButton:focus {
+    border: 2px solid #2779bd;
+}
+QFrame[role="accountCard"] QPushButton[role="primaryActionButton"]:pressed {
+    background-color: #001d32;
+}
+QFrame[role="accountCard"] QPushButton[role="dangerActionButton"]:pressed {
+    background-color: #f4c8c3;
+}
+
+QPushButton[role="primaryActionButton"]:disabled,
+QPushButton[role="secondaryActionButton"]:disabled,
+QPushButton[role="TertiaryActionButton"]:disabled,
+QPushButton[role="dangerActionButton"]:disabled,
+QPushButton[role="filterButton"]:disabled {
+    background-color: #eceef0;
+    border: 1px solid #dfe4ea;
+    color: #707881;
+}
+QPushButton[role="primaryActionButton"]:focus,
+QPushButton[role="secondaryActionButton"]:focus,
+QPushButton[role="TertiaryActionButton"]:focus,
+QPushButton#emptyStateActionBtn:focus {
+    border: 2px solid #2779bd;
+}

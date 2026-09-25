@@ -67,7 +67,7 @@ QFrame *sessionCard(const QString &device, const QString &address, const QString
     titleLayout->addWidget(label(address, "cardSubtitle", card));
     header->addLayout(titleLayout, 1);
 
-    QLabel *status = label("In Use", "stateChip", card);
+    QLabel *status = label("Đang kết nối", "stateChip", card);
     status->setProperty("state", "active");
     status->setAlignment(Qt::AlignCenter);
     header->addWidget(status);
@@ -76,9 +76,9 @@ QFrame *sessionCard(const QString &device, const QString &address, const QString
     QGridLayout *details = new QGridLayout();
     details->setHorizontalSpacing(24);
     details->setVerticalSpacing(4);
-    details->addWidget(label("USER", "metaLabel", card), 0, 0);
-    details->addWidget(label("DURATION", "metaLabel", card), 0, 1);
-    details->addWidget(label("QUALITY", "metaLabel", card), 0, 2);
+    details->addWidget(label("NGƯỜI DÙNG", "metaLabel", card), 0, 0);
+    details->addWidget(label("THỜI LƯỢNG", "metaLabel", card), 0, 1);
+    details->addWidget(label("CHẤT LƯỢNG", "metaLabel", card), 0, 2);
     details->addWidget(label(user, "strongText", card), 1, 0);
     details->addWidget(label(duration, "strongText", card), 1, 1);
     details->addWidget(label(quality, "strongText", card), 1, 2);
@@ -91,8 +91,8 @@ QFrame *sessionCard(const QString &device, const QString &address, const QString
 
     QHBoxLayout *actions = new QHBoxLayout();
     actions->setSpacing(12);
-    actions->addWidget(actionButton("View Stream", "secondaryActionButton", card));
-    actions->addWidget(actionButton("Disconnect", "dangerActionButton", card));
+    actions->addWidget(actionButton("Xem màn hình", "secondaryActionButton", card));
+    actions->addWidget(actionButton("Ngắt kết nối", "dangerActionButton", card));
     layout->addLayout(actions);
 
     return card;
@@ -118,16 +118,16 @@ void SessionsPage::setupUi()
     QVBoxLayout *header = new QVBoxLayout();
     header->setContentsMargins(0, 0, 0, 8);
     header->setSpacing(4);
-    header->addWidget(label("Active Sessions", "pageTitle", this));
-    header->addWidget(label("Monitor and manage currently active remote desktop connections.", "pageSubtitle", this));
+    header->addWidget(label("Phiên kết nối", "pageTitle", this));
+    header->addWidget(label("Các phiên đang kết nối.", "pageSubtitle", this));
     mainLayout->addLayout(header);
 
     QGridLayout *metrics = new QGridLayout();
     metrics->setHorizontalSpacing(16);
     metrics->setVerticalSpacing(16);
-    metrics->addWidget(metricCard("2", "Active sessions", "1 administrator watching", this), 0, 0);
-    metrics->addWidget(metricCard("98%", "Stream health", "All active links stable", this), 0, 1);
-    metrics->addWidget(metricCard("01:30", "Average duration", "Across live sessions", this), 0, 2);
+    metrics->addWidget(metricCard("2", "Phiên đang hoạt động", "1 quản trị viên đang xem", this), 0, 0);
+    metrics->addWidget(metricCard("98%", "Chất lượng truyền", "Kết nối ổn định", this), 0, 1);
+    metrics->addWidget(metricCard("01:30", "Thời lượng trung bình", "Các phiên đang hoạt động", this), 0, 2);
     mainLayout->addLayout(metrics);
 
     QScrollArea *scrollArea = new QScrollArea(this);
@@ -140,10 +140,16 @@ void SessionsPage::setupUi()
     QVBoxLayout *sessions = new QVBoxLayout(scrollContent);
     sessions->setContentsMargins(0, 0, 0, 0);
     sessions->setSpacing(16);
-    sessions->addWidget(sessionCard("SRV-APOLLO-01", "192.168.1.105", "j.doe@company.com", "02:45:12", "Excellent", scrollContent));
-    sessions->addWidget(sessionCard("MBP-SARAH-DESIGN", "10.0.0.42", "s.smith@company.com", "00:15:30", "Good", scrollContent));
+    sessions->addWidget(sessionCard("SRV-APOLLO-01", "192.168.1.105", "j.doe@company.com", "02:45:12", "Rất tốt", scrollContent));
+    sessions->addWidget(sessionCard("MBP-SARAH-DESIGN", "10.0.0.42", "s.smith@company.com", "00:15:30", "Tốt", scrollContent));
     sessions->addStretch();
 
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea, 1);
+    for (auto *button : findChildren<QPushButton*>()) {
+        button->setEnabled(false);
+        button->setText(button->text() + " · Sắp có");
+        button->setToolTip("Sắp có");
+    }
+
 }

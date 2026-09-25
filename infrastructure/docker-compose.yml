@@ -1,27 +1,104 @@
-version: '3.8'
+name: remote-access
 
 services:
-  nginx-lb:
-    image: nginx:latest
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: remote_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U admin -d remote_db']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  management-api:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/management-api.Dockerfile
+    environment:
+      SERVER_PORT: 9090
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/remote_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-local-development-password}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      RELAY_NODE_TOKEN: ${RELAY_NODE_TOKEN:?Set RELAY_NODE_TOKEN in infrastructure/.env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:9090/health]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  relay-proxy-1:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/relay-proxy.Dockerfile
+    environment: &relay-environment
+      RELAY_INSTANCE_ID: relay-proxy-1
+      RELAY_PORT: 8080
+      RELAY_ADVERTISED_HOST: ${RELAY_ADVERTISED_HOST:-localhost}
+      RELAY_ADVERTISED_PORT: 9091
+      RELAY_CAPACITY: ${RELAY_CAPACITY:-1000}
+      RELAY_DISCOVERY_ENABLED: 'true'
+      RELAY_NODE_TOKEN: ${RELAY_NODE_TOKEN:?Set RELAY_NODE_TOKEN in infrastructure/.env}
+      MANAGEMENT_API_URL: http://management-api:9090
     ports:
-      - "80:80"
-      - "8080:8080" # Relay TCP Load Balancing
+      - '9091:8080'
+    depends_on:
+      management-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  relay-proxy-2:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/relay-proxy.Dockerfile
+    environment:
+      <<: *relay-environment
+      RELAY_INSTANCE_ID: relay-proxy-2
+      RELAY_ADVERTISED_PORT: 9092
+    ports:
+      - '9092:8080'
+    depends_on:
+      management-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.28-alpine
+    ports:
+      - '${MANAGEMENT_PUBLIC_PORT:-80}:80'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - management-api
-      - relay-proxy-1
-      - relay-proxy-2
+      management-api:
+        condition: service_healthy
+    restart: unless-stopped
 
-  management-api:
-    image: openjdk:17-alpine
-    # This is a placeholder. Normally we'd build the jar and mount/copy it.
-    command: tail -f /dev/null
-
-  relay-proxy-1:
-    image: openjdk:17-alpine
-    command: tail -f /dev/null
-  
-  relay-proxy-2:
-    image: openjdk:17-alpine
-    command: tail -f /dev/null
+volumes:
+  postgres-data:
+  redis-data:

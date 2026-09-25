@@ -77,3 +77,5 @@
 #newConnButton:pressed {
     background-color: #001d32;
 }
+
+#newConnButton:disabled { background-color: #eceef0; color: #707881; }

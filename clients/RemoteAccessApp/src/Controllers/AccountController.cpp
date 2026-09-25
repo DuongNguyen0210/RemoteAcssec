@@ -1,9 +1,11 @@
 #include "AccountController.h"
+#include "GUI/Components/Accounts/EditAccountDialog.h"
 #include "GUI/Pages/AccountPage.h"
-#include "GUI/Dialogs/CreateAccountDialog.h"
+#include "GUI/Components/Accounts/CreateAccountDialog.h"
 #include "Domain/Store/AccountStore.h"
 #include "Network/Http/AccountService.h"
 #include "GUI/Dialogs/ConfirmDialog.h"
+#include "Utils/AccountCsvReader.h"
 
 AccountController::AccountController(AccountStore *store, AccountService *service, QObject *parent)
     : QObject(parent)
@@ -21,6 +23,8 @@ AccountController::AccountController(AccountStore *store, AccountService *servic
         }
     }
 
+    connect(m_view, &AccountPage::editAccountRequested,
+            this, &AccountController::onEditAccountRequested);
     connect(m_view, &AccountPage::deleteAccountRequested,
             this, &AccountController::onDeleteAccountRequested);
     connect(m_view, &AccountPage::requestAddAccount,
@@ -33,6 +37,8 @@ AccountController::AccountController(AccountStore *store, AccountService *servic
         if (success) m_store->replaceAccounts(accounts);
         else onLoadFailed(message);
     });
+    connect(m_accountService, &AccountService::updateAccountResult, this,
+            [this](qint64, bool success, const QString &) { if (success) fetchAccounts(); });
     connect(m_accountService, &AccountService::createAccountResult,
             this, &AccountController::handleAccountCreated);
     connect(m_accountService, &AccountService::deleteAccountResult,
@@ -70,8 +76,7 @@ void AccountController::onAccountsUpdated(const QList<AccountInfo> &accounts)
 void AccountController::onLoadFailed(const QString &message)
 {
     if (m_view) {
-        m_view->updateAccountList(m_store->getAccounts());
-        m_view->showError(message);
+        m_view->showLoadError(message);
     }
 }
 
@@ -90,23 +95,79 @@ void AccountController::onAddAccountRequested()
     m_createAccountDialog->show();
 }
 
-void AccountController::handleRegisterRequested(const QString &childUsername, const QString &password)
+void AccountController::handleRegisterRequested(const QString &childUsername, const QString &password, const QString &filepath)
 {
-    if (childUsername.isEmpty() || password.isEmpty()) {
+    qDebug() << "Register requested - Filepath:" << filepath;
+
+    // 1. Trường hợp tạo lẻ 1 tài khoản thủ công:
+    if (filepath.isEmpty())
+    {
+        m_pendingImportCount = 0;
+        m_accountService->createSubAccount(childUsername, password);
+        return;
+    }
+
+    // 2. Trường hợp nhập danh sách từ file CSV:
+    QString errorMessage;
+    QList<AccountInfo> listAccounts = AccountCsvReader::readAccounts(filepath, &errorMessage);
+
+    if (listAccounts.isEmpty())
+    {
         if (m_createAccountDialog) {
-            m_createAccountDialog->showError(QStringLiteral("Vui lòng nhập đầy đủ thông tin!"));
+            m_createAccountDialog->showError(errorMessage.isEmpty() ? QStringLiteral("File không có tài khoản hợp lệ.") : errorMessage);
         }
         return;
     }
 
-    m_accountService->createSubAccount(childUsername, password);
+    m_pendingImportCount = listAccounts.size();
+    m_successImportCount = 0;
+    m_failedImportCount = 0;
+    m_importErrors.clear();
+
+    for (const auto &acc : listAccounts) {
+        m_accountService->createSubAccount(acc.childUsername, acc.password);
+    }
 }
 
 void AccountController::handleAccountCreated(bool success, const QString &message)
 {
+    // Nếu đang trong quá trình import danh sách tài khoản
+    if (m_pendingImportCount > 0) {
+        m_pendingImportCount--;
+        if (success) {
+            m_successImportCount++;
+        } else {
+            m_failedImportCount++;
+            if (!message.isEmpty() && !m_importErrors.contains(message)) {
+                m_importErrors.append(message);
+            }
+        }
+
+        // Khi toàn bộ danh sách đã được xử lý xong:
+        if (m_pendingImportCount == 0) {
+            if (m_successImportCount > 0 && m_store) {
+                fetchAccounts();
+            }
+
+            if (m_createAccountDialog) {
+                if (m_failedImportCount == 0) {
+                    m_createAccountDialog->accept();
+                } else {
+                    QString statusMsg = QString("Đã thêm %1 tài khoản. Thất bại %2: %3")
+                                            .arg(m_successImportCount)
+                                            .arg(m_failedImportCount)
+                                            .arg(m_importErrors.join(", "));
+                    m_createAccountDialog->showError(statusMsg);
+                }
+            }
+        }
+        return;
+    }
+
+    // Trường hợp tạo 1 tài khoản đơn lẻ bình thường:
     if (m_createAccountDialog) {
         if (success) {
-            m_createAccountDialog->showSuccess(message);
+            m_createAccountDialog->accept();
         } else {
             m_createAccountDialog->showError(message);
         }
@@ -122,18 +183,19 @@ void AccountController::onDeleteAccountRequested(const QString &username)
     if (!ConfirmDialog::confirmDelete(
             m_view,
             QStringLiteral("Xác nhận xóa tài khoản"),
-            QStringLiteral("Bạn có chắc chắn muốn xóa tài khoản con \"%1\" không? Hành động này không thể hoàn tác.").arg(username))) {
+            QStringLiteral("Xóa tài khoản \"%1\"? Không thể hoàn tác.").arg(username))) {
         return;
     }
 
+    m_view->setActionsEnabled(false);
     m_accountService->deleteSubAccount(username);
 }
 
 void AccountController::handleAccountDeleted(bool success, const QString &childUsername, const QString &message)
 {
     Q_UNUSED(childUsername);
+    m_view->setActionsEnabled(true);
     if (success) {
-        ConfirmDialog::showInfo(m_view, QStringLiteral("Thành công"), message);
         if (m_store) {
             fetchAccounts();
         }
@@ -141,5 +203,30 @@ void AccountController::handleAccountDeleted(bool success, const QString &childU
         if (m_view) {
             m_view->showError(message);
         }
+    }
+}
+
+void AccountController::onEditAccountRequested(const QString &username)
+{
+    if (m_editAccountDialog) {
+        m_editAccountDialog->raise();
+        m_editAccountDialog->activateWindow();
+        return;
+    }
+    for (const auto &account : m_store->getAccounts()) {
+        if (account.username != username) continue;
+        auto *dialog = new EditAccountDialog(account, m_view);
+        m_editAccountDialog = dialog;
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dialog, &EditAccountDialog::saveRequested,
+                m_accountService, &AccountService::updateSubAccount);
+        connect(m_accountService, &AccountService::updateAccountResult, dialog,
+                [this, dialog, id = account.id](qint64 updatedId, bool success, const QString &message) {
+            if (updatedId != id) return;
+            if (success) dialog->accept();
+            else dialog->showError(message);
+        });
+        dialog->show();
+        return;
     }
 }

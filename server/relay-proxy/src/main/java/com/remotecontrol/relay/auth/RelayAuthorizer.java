@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 public class RelayAuthorizer {
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     private final String baseUrl;
+    private String nodeQuery = "";
 
     public RelayAuthorizer() {
         this(System.getenv().getOrDefault("MANAGEMENT_API_URL", "http://localhost:9090"));
@@ -19,11 +20,16 @@ public class RelayAuthorizer {
 
     public RelayAuthorizer(String baseUrl) { this.baseUrl = baseUrl; }
 
+    public RelayAuthorizer(com.remotecontrol.relay.config.RelayConfig config) {
+        this(config.managementApiUrl());
+        if (config.discoveryEnabled()) nodeQuery = "?instanceId=" + config.instanceId() + "&bootId=" + config.bootId();
+    }
+
     public CompletableFuture<String> authorize(String token, String targetSessionId) {
         try {
             String path = targetSessionId == null ? "/api/v1/relay/agent"
                     : "/api/v1/relay/targets/" + UUID.fromString(targetSessionId);
-            var request = HttpRequest.newBuilder(URI.create(baseUrl + path))
+            var request = HttpRequest.newBuilder(URI.create(baseUrl + path + nodeQuery))
                     .timeout(Duration.ofSeconds(5)).header("Authorization", "Bearer " + token).GET().build();
             return client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
                 if (response.statusCode() != 200) return null;

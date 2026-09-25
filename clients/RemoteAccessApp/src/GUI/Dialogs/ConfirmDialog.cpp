@@ -54,11 +54,13 @@ void ConfirmDialog::setupUI()
     m_titleLabel->setObjectName(QStringLiteral("confirmTitle"));
     m_titleLabel->setAlignment(Qt::AlignCenter);
     m_titleLabel->setWordWrap(true);
+    m_titleLabel->setTextFormat(Qt::PlainText);
 
     m_messageLabel = new QLabel(m_cardFrame);
     m_messageLabel->setObjectName(QStringLiteral("confirmMessage"));
     m_messageLabel->setAlignment(Qt::AlignCenter);
     m_messageLabel->setWordWrap(true);
+    m_messageLabel->setTextFormat(Qt::PlainText);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(12);

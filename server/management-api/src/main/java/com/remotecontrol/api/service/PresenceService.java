@@ -22,7 +22,6 @@ public class PresenceService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    // Atomic check/write: logout cannot be undone by an in-flight heartbeat.
     private static final DefaultRedisScript<Long> HEARTBEAT = new DefaultRedisScript<>(
             "if redis.call('GET',KEYS[1]) ~= ARGV[1] then return 0 end " +
             "redis.call('SET',KEYS[2],ARGV[2],'EX',ARGV[3]); return 1", Long.class);
@@ -43,14 +42,23 @@ public class PresenceService {
         if (name == null || name.isBlank()) name = request.getName();
         if (name == null || name.isBlank()) name = "Unknown device";
         DeviceDto snapshot = DeviceDto.builder()
-                .sessionId(principal.getSessionId()).childId(Long.valueOf(principal.getId()))
-                .username(principal.getUsername()).deviceName(name).os(request.getOs())
+                .sessionId(principal.getSessionId())
+                .childId(Long.valueOf(principal.getId()))
+                .username(principal.getUsername())
+                .deviceName(name).os(request.getOs())
                 .ipAddress(info == null ? null : info.getIp())
                 .lastHeartbeatAt(System.currentTimeMillis()).build();
         try {
-            return Long.valueOf(1).equals(redisTemplate.execute(HEARTBEAT,
-                    List.of(sessionKey(principal.getSessionId()), deviceKey(owner.getId(), principal.getSessionId())),
-                    principal.getId(), objectMapper.writeValueAsString(snapshot), String.valueOf(TTL_SECONDS)));
+            return Long.valueOf(1).equals(redisTemplate.execute(
+                    HEARTBEAT,
+                    List.of(
+                            sessionKey(principal.getSessionId()),
+                            deviceKey(owner.getId(), principal.getSessionId())
+                    ),
+                    principal.getId(),
+                    objectMapper.writeValueAsString(snapshot),
+                    String.valueOf(TTL_SECONDS)
+            ));
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Cannot serialize device presence", e);
         }
@@ -59,7 +67,7 @@ public class PresenceService {
     public List<DeviceDto> getDevices(Long ownerId) {
         Set<String> keys = new HashSet<>();
         try (var cursor = redisTemplate.scan(ScanOptions.scanOptions()
-                .match("presence:v2:" + ownerId + ":*").count(100).build())) {
+                .match("presence:" + ownerId + ":*").count(100).build())) {
             cursor.forEachRemaining(keys::add);
         }
         if (keys.isEmpty()) return List.of();
@@ -67,7 +75,8 @@ public class PresenceService {
         List<DeviceDto> devices = new ArrayList<>();
         if (snapshots != null) {
             for (String snapshot : snapshots) {
-                if (snapshot != null) devices.add(decode(snapshot)); // May expire between SCAN and MGET.
+                if (snapshot != null)
+                    devices.add(decode(snapshot));
             }
         }
         devices.sort(Comparator.comparing(DeviceDto::getSessionId));
@@ -89,5 +98,5 @@ public class PresenceService {
     }
 
     private String sessionKey(String sessionId) { return "auth:child:" + sessionId; }
-    private String deviceKey(Long ownerId, String sessionId) { return "presence:v2:" + ownerId + ":" + sessionId; }
+    private String deviceKey(Long ownerId, String sessionId) { return "presence:" + ownerId + ":" + sessionId; }
 }

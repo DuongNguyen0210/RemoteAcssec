@@ -163,6 +163,26 @@ public final class RelayRegistry {
         }
     }
 
+    public record ForwardTarget(Channel channel, boolean fromChild) {}
+
+    public synchronized ForwardTarget findActivePeer(long sessionId, Channel sourceChannel) {
+        SessionRecord session = sessions.get(sessionId);
+        if (sessionId == 0 || session == null || session.state != SessionState.ACTIVE
+                || !session.adminChannel.isActive() || !session.childChannel.isActive()) return null;
+        if (sourceChannel == session.childChannel) return new ForwardTarget(session.adminChannel, true);
+        if (sourceChannel == session.adminChannel) return new ForwardTarget(session.childChannel, false);
+        return null;
+    }
+
+    public int registeredChildCount() {
+        return (int) childChannels.values().stream().filter(Channel::isActive).count();
+    }
+
+    public synchronized int activeSessionCount() {
+        return (int) sessions.values().stream().filter(s -> s.state == SessionState.ACTIVE
+                && s.adminChannel.isActive() && s.childChannel.isActive()).count();
+    }
+
     private long allocateSessionId() {
         if (nextSessionId <= 0) {
             throw new IllegalStateException("Relay session ID space exhausted");

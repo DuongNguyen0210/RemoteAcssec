@@ -9,6 +9,7 @@
 #include "Network/Protocol/RdtpStreamParser.h"
 
 class RelayClient;
+class ChildSessionController;
 
 class ScreenStreamSender : public QObject
 {
@@ -20,6 +21,7 @@ public:
     static constexpr quint16 RELAY_PORT = 8080;
 
     explicit ScreenStreamSender(const QString &childUsername, QObject *parent = nullptr);
+    explicit ScreenStreamSender(ChildSessionController *session, QObject *parent = nullptr);
     ~ScreenStreamSender();
 
     void start();

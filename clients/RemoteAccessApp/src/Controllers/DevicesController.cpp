@@ -29,6 +29,14 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
 
     connect(m_sessionController, &AdminSessionController::sessionEstablished,
             this, &DevicesController::handleSessionEstablished);
+
+    connect(m_sessionController, &AdminSessionController::requestFailed,
+            this, [this](const QString &agentSessionId, const QString &reason)
+            {
+                Q_UNUSED(agentSessionId);
+                handleSessionFailed(reason);
+            });
+
     connect(m_sessionController, &AdminSessionController::sessionFailed,
             this, &DevicesController::handleSessionFailed);
 
@@ -65,13 +73,12 @@ void DevicesController::onDevicesUpdated(const QList<DeviceInfo> &devices)
 
 void DevicesController::onConnectRequested(const QString &agentSessionId)
 {
-    m_connectingAgentSessionId = agentSessionId;
     m_sessionController->requestSession(agentSessionId);
 }
 
-void DevicesController::handleSessionEstablished(quint64 sessionId)
+void DevicesController::handleSessionEstablished(quint64 remoteSessionId, const QString &agentSessionId)
 {
-    emit remoteSessionStarted(sessionId, m_connectingAgentSessionId);
+    emit remoteSessionStarted(remoteSessionId, agentSessionId);
 }
 
 void DevicesController::handleSessionFailed(const QString &reason)

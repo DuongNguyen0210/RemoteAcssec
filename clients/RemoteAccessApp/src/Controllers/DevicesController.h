@@ -27,7 +27,7 @@ signals:
 private slots:
     void onDevicesUpdated(const QList<DeviceInfo> &devices);
     void onConnectRequested(const QString &agentSessionId);
-    void handleSessionEstablished(quint64 sessionId);
+    void handleSessionEstablished(quint64 remoteSessionId, const QString &agentSessionId);
     void handleSessionFailed(const QString &reason);
 
 private:
@@ -35,7 +35,6 @@ private:
     DeviceStore *m_store;
     DeviceService *m_deviceService;
     AdminSessionController *m_sessionController;
-    QString m_connectingAgentSessionId;
 };
 
 #endif

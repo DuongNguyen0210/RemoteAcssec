@@ -67,9 +67,10 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
 
     QHBoxLayout *lblStatusLayout = new QHBoxLayout();
     lblStatusLayout->setContentsMargins(0, 0, 0, 0);
-    QLabel *lblStatus = new QLabel("Status");
+    QLabel *lblStatus = new QLabel("Trạng thái");
     lblStatus->setProperty("role", "metaLabel");
-    QLabel *lblStatusInfo = new QLabel(status);
+    QLabel *lblStatusInfo = new QLabel(status.compare("Online", Qt::CaseInsensitive) == 0 ? QStringLiteral("Trực tuyến")
+        : status.compare("Offline", Qt::CaseInsensitive) == 0 ? QStringLiteral("Ngoại tuyến") : status);
     lblStatusInfo->setObjectName("statusChip");
     QString normalizedStatus = status.toLower().replace(" ", "");
     lblStatusInfo->setProperty("status", normalizedStatus);
@@ -85,7 +86,7 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
 
     QHBoxLayout *lblIpLayout = new QHBoxLayout();
     lblIpLayout->setContentsMargins(0, 0, 0, 0);
-    QLabel *lblIp = new QLabel("IP Address");
+    QLabel *lblIp = new QLabel("Địa chỉ IP");
     lblIp->setProperty("role", "metaLabel");
     QLabel *lblIpInfo = new QLabel(ip);
     lblIpInfo->setProperty("role", "strongValue");
@@ -101,7 +102,7 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
 
     QHBoxLayout *lblUptimeLayout = new QHBoxLayout();
     lblUptimeLayout->setContentsMargins(0, 0, 0, 0);
-    QLabel *lblUptime = new QLabel("Account");
+    QLabel *lblUptime = new QLabel("Tài khoản");
     lblUptime->setProperty("role", "metaLabel");
 
     QLabel *lblUptimeInfo = new QLabel(account);
@@ -115,7 +116,7 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
 
     layout->addLayout(infoLayout);
 
-    QPushButton *btnConnect = new QPushButton("Connect", this);
+    QPushButton *btnConnect = new QPushButton("Kết nối", this);
     btnConnect->setObjectName("connectButton");
     btnConnect->setCursor(Qt::PointingHandCursor);
     btnConnect->setFixedHeight(40);

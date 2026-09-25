@@ -79,8 +79,8 @@ void SettingsPage::setupUi()
     QVBoxLayout *header = new QVBoxLayout();
     header->setContentsMargins(0, 0, 0, 8);
     header->setSpacing(4);
-    header->addWidget(label("Settings", "pageTitle", this));
-    header->addWidget(label("Configure administrator profile, security policy, and remote connection defaults.", "pageSubtitle", this));
+    header->addWidget(label("Cài đặt", "pageTitle", this));
+    header->addWidget(label("Thiết lập tài khoản và kết nối.", "pageSubtitle", this));
     mainLayout->addLayout(header);
 
     QScrollArea *scrollArea = new QScrollArea(this);
@@ -94,17 +94,17 @@ void SettingsPage::setupUi()
     content->setContentsMargins(0, 0, 0, 0);
     content->setSpacing(16);
 
-    QFrame *profileCard = settingsCard("Administrator Profile", "Visible identity and contact details for audit records.", scrollContent);
+    QFrame *profileCard = settingsCard("Hồ sơ quản trị", "Thông tin người quản trị.", scrollContent);
     QGridLayout *profileGrid = new QGridLayout();
     profileGrid->setHorizontalSpacing(16);
     profileGrid->setVerticalSpacing(12);
-    addField(profileGrid, 0, "Display name", lineEdit("IT Administrator", profileCard), profileCard);
+    addField(profileGrid, 0, "Tên hiển thị", lineEdit("Quản trị viên", profileCard), profileCard);
     addField(profileGrid, 1, "Email", lineEdit("admin@company.com", profileCard), profileCard);
-    addField(profileGrid, 2, "Organization", lineEdit("RemoteAccess Operations", profileCard), profileCard);
+    addField(profileGrid, 2, "Đơn vị", lineEdit("Quản trị RemoteAccess", profileCard), profileCard);
     qobject_cast<QVBoxLayout *>(profileCard->layout())->addLayout(profileGrid);
     content->addWidget(profileCard);
 
-    QFrame *securityCard = settingsCard("Security Policy", "Defaults for remote sessions and console access.", scrollContent);
+    QFrame *securityCard = settingsCard("Bảo mật", "Quyền truy cập và thời gian chờ.", scrollContent);
     QGridLayout *securityGrid = new QGridLayout();
     securityGrid->setHorizontalSpacing(16);
     securityGrid->setVerticalSpacing(12);
@@ -112,36 +112,36 @@ void SettingsPage::setupUi()
     QSpinBox *timeout = new QSpinBox(securityCard);
     timeout->setProperty("role", "settingsInput");
     timeout->setRange(5, 240);
-    timeout->setSuffix(" min");
+    timeout->setSuffix(" phút");
     timeout->setValue(30);
     timeout->setFixedHeight(38);
-    addField(securityGrid, 0, "Idle timeout", timeout, securityCard);
+    addField(securityGrid, 0, "Thời gian chờ", timeout, securityCard);
 
     QComboBox *approval = new QComboBox(securityCard);
     approval->setProperty("role", "settingsInput");
-    approval->addItems({"Ask before control", "Allow view only", "Allow full control"});
+    approval->addItems({"Hỏi trước khi điều khiển", "Chỉ xem", "Cho phép điều khiển"});
     approval->setFixedHeight(38);
-    addField(securityGrid, 1, "Session approval", approval, securityCard);
+    addField(securityGrid, 1, "Quyền điều khiển", approval, securityCard);
 
     qobject_cast<QVBoxLayout *>(securityCard->layout())->addLayout(securityGrid);
-    qobject_cast<QVBoxLayout *>(securityCard->layout())->addWidget(checkBox("Require two-factor authentication for administrator actions", true, securityCard));
-    qobject_cast<QVBoxLayout *>(securityCard->layout())->addWidget(checkBox("Record session metadata for audit logs", true, securityCard));
-    qobject_cast<QVBoxLayout *>(securityCard->layout())->addWidget(checkBox("Notify when a device starts an unattended session", false, securityCard));
+    qobject_cast<QVBoxLayout *>(securityCard->layout())->addWidget(checkBox("Yêu cầu xác thực hai bước", true, securityCard));
+    qobject_cast<QVBoxLayout *>(securityCard->layout())->addWidget(checkBox("Lưu nhật ký phiên kết nối", true, securityCard));
+    qobject_cast<QVBoxLayout *>(securityCard->layout())->addWidget(checkBox("Báo khi có kết nối không cần xác nhận", false, securityCard));
     content->addWidget(securityCard);
 
-    QFrame *connectionCard = settingsCard("Connection Defaults", "Network and quality preferences for new remote sessions.", scrollContent);
+    QFrame *connectionCard = settingsCard("Kết nối", "Chất lượng hình ảnh và máy chủ.", scrollContent);
     QGridLayout *connectionGrid = new QGridLayout();
     connectionGrid->setHorizontalSpacing(16);
     connectionGrid->setVerticalSpacing(12);
     QComboBox *quality = new QComboBox(connectionCard);
     quality->setProperty("role", "settingsInput");
-    quality->addItems({"Balanced", "High quality", "Low bandwidth"});
+    quality->addItems({"Cân bằng", "Chất lượng cao", "Tiết kiệm băng thông"});
     quality->setFixedHeight(38);
-    addField(connectionGrid, 0, "Stream quality", quality, connectionCard);
-    addField(connectionGrid, 1, "Relay server", lineEdit("relay.company.local", connectionCard), connectionCard);
+    addField(connectionGrid, 0, "Chất lượng hình ảnh", quality, connectionCard);
+    addField(connectionGrid, 1, "Máy chủ relay", lineEdit("relay.company.local", connectionCard), connectionCard);
     qobject_cast<QVBoxLayout *>(connectionCard->layout())->addLayout(connectionGrid);
 
-    QPushButton *saveButton = new QPushButton("Save Changes", connectionCard);
+    QPushButton *saveButton = new QPushButton("Lưu thay đổi", connectionCard);
     saveButton->setProperty("role", "primaryActionButton");
     saveButton->setCursor(Qt::PointingHandCursor);
     saveButton->setFixedHeight(40);
@@ -151,4 +151,15 @@ void SettingsPage::setupUi()
     content->addStretch();
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea, 1);
+    for (auto *button : findChildren<QPushButton*>()) {
+        button->setEnabled(false);
+        button->setText(button->text() + " · Sắp có");
+        button->setToolTip("Sắp có");
+    }
+
+    for (auto *input : findChildren<QLineEdit*>()) input->setEnabled(false);
+    for (auto *input : findChildren<QComboBox*>()) input->setEnabled(false);
+    for (auto *input : findChildren<QSpinBox*>()) input->setEnabled(false);
+    for (auto *input : findChildren<QCheckBox*>()) input->setEnabled(false);
+
 }

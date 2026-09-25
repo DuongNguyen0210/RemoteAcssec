@@ -1,6 +1,7 @@
 package com.remotecontrol.api.service;
 
 import com.remotecontrol.api.dto.child.DeviceDto;
+import com.remotecontrol.api.dto.common.ApiResponse;
 import com.remotecontrol.api.dto.common.UserPrincipal;
 import com.remotecontrol.api.entity.Child;
 import com.remotecontrol.api.entity.User;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -27,12 +29,14 @@ public class DeviceService {
 
     public List<DeviceDto> getDevices(UserPrincipal principal) {
 
-        User owner = userRepository.findById(Long.valueOf(principal.getId()))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-        Set<Long> ownedIds = childRepository.findByOwner(owner).stream()
+        Optional<User> owner = userRepository.findById(Long.valueOf(principal.getId()));
+        if(owner.isEmpty())
+            return List.of();
+        Set<Long> ownedIds = childRepository.findByOwner(owner.get()).stream()
                 .map(Child::getId)
                 .collect(Collectors.toSet());
-        return presenceService.getDevices(owner.getId()).stream()
+
+        return presenceService.getDevices(owner.get().getId()).stream()
                 .filter(d -> ownedIds.contains(d.getChildId()))
                 .toList();
     }

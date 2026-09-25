@@ -10,6 +10,8 @@ class AccountPage;
 class AccountStore;
 class AccountService;
 class CreateAccountDialog;
+class EditAccountDialog;
+class AccountCsvReader;
 
 class AccountController : public QObject
 {
@@ -27,8 +29,9 @@ private slots:
     void onAccountsUpdated(const QList<AccountInfo> &devices);
     void onLoadFailed(const QString &errorMessage);
     void onAddAccountRequested();
+    void onEditAccountRequested(const QString &username);
     void onDeleteAccountRequested(const QString &username);
-    void handleRegisterRequested(const QString &childUsername, const QString &password);
+    void handleRegisterRequested(const QString &childUsername, const QString &password, const QString &filepath);
     void handleAccountCreated(bool success, const QString &message);
     void handleAccountDeleted(bool success, const QString &childUsername, const QString &message);
 
@@ -37,6 +40,12 @@ private:
     AccountStore *m_store;
     AccountService *m_accountService;
     QPointer<CreateAccountDialog> m_createAccountDialog;
+    QPointer<EditAccountDialog> m_editAccountDialog;
+
+    int m_pendingImportCount = 0;
+    int m_successImportCount = 0;
+    int m_failedImportCount = 0;
+    QStringList m_importErrors;
 };
 
 #endif

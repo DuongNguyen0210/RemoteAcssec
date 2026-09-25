@@ -1,6 +1,5 @@
 package com.remotecontrol.relay.handler;
 
-import com.remotecontrol.relay.handler.screen.ScreenFrameHandler;
 import com.remotecontrol.relay.protocol.Protocol;
 import com.remotecontrol.relay.protocol.ProtocolConstants;
 import com.remotecontrol.relay.protocol.ProtocolHeader;
@@ -15,8 +14,6 @@ import java.util.concurrent.TimeUnit;
 
 public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
-    // One screen handler per channel; the registry is shared through construction.
-    private final ScreenFrameHandler screenFrameHandler = new ScreenFrameHandler();
     private final RelayRegistry relayRegistry;
     private final RelayAuthorizer authorizer;
     private boolean authorizationPending;
@@ -53,14 +50,17 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
             return;
         }
 
-        if (msg.getHeader().getType() == ProtocolConstants.MessageType.SCREEN_FRAME.getValue()) {
-            handleScreenFrame(ctx, msg);
-            return;
+        var target = relayRegistry.findActivePeer(msg.getHeader().getSessionId(), ctx.channel());
+        if (target != null && RelayForwardingPolicy.allows(msg.getHeader().getType(), target.fromChild())) {
+            // Keep header, flags, sequence and payload unchanged. Never decode/reassemble video here.
+            if (!target.channel().isWritable()) {
+                ctx.close(); // Bound memory without silently dropping input or frame fragments.
+                return;
+            }
+            target.channel().writeAndFlush(msg).addListener(future -> {
+                if (!future.isSuccess()) ctx.close();
+            });
         }
-
-        System.out.println("[RelayServer] Nhan duoc goi tin tu Client: " + ctx.channel().remoteAddress());
-        System.out.println("Noi dung Header: " + msg.toString());
-
     }
 
     private void handleRegisterHost(ChannelHandlerContext ctx, Protocol msg) {
@@ -195,24 +195,6 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
                 accepted ? sessionId : 0L,
                 0);
         adminChannel.writeAndFlush(new Protocol(header, payload));
-    }
-
-    private void handleScreenFrame(ChannelHandlerContext ctx, Protocol msg) {
-        long sessionId = msg.getHeader().getSessionId();
-        RelayRegistry.SessionRecord session = relayRegistry.findActiveSessionForChild(
-                sessionId, ctx.channel());
-        if (session == null) {
-            System.out.println("[RelayServer] SCREEN_FRAME rejected: invalid session or source");
-            return;
-        }
-
-        session.getAdminChannel().writeAndFlush(msg);
-        System.out.println("[RelayServer] SCREEN_FRAME forwarded sessionId=" + sessionId
-                + " sequenceNumber=" + msg.getHeader().getSequenceNumber()
-                + " payloadBytes=" + msg.getHeader().getPayloadLength());
-
-        // Existing reassembly remains diagnostic-only; forwarding above uses the original message.
-        screenFrameHandler.handle(msg);
     }
 
     @Override

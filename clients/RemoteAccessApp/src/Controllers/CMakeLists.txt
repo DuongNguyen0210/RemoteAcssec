@@ -16,6 +16,7 @@ target_link_libraries(Controllers PUBLIC
     Domain
     Network
     Streaming
+    Utils
 )
 
 target_include_directories(Controllers PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

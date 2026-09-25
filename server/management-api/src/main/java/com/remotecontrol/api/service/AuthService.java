@@ -39,7 +39,8 @@ public class AuthService {
                     .userId(String.valueOf(u.get().getId()))
                     .build();
             return ApiResponse.success("Account Login Successful", data);
-        } else if (c.isPresent() && Objects.equals(c.get().getPassword(), password)) {
+        }
+        else if (c.isPresent() && com.remotecontrol.api.util.ChildPasswords.matches(password, c.get().getPassword())) {
             String sessionId = java.util.UUID.randomUUID().toString();
             presenceService.openSession(c.get().getId(), sessionId);
             String token = jwtUtil.generateToken(username, "CHILD", String.valueOf(c.get().getId()), sessionId);
@@ -57,9 +58,9 @@ public class AuthService {
     }
 
     public ApiResponse<Void> registerAdmin(LoginRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (userRepository.existsByUsername(request.getUsername()))
             return ApiResponse.error("USER_ALREADY_EXISTS", "Username already exists");
-        }
+
         User user = User.builder()
                 .username(request.getUsername())
                 .password(request.getPassword())

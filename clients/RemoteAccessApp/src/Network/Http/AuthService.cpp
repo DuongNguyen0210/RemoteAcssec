@@ -15,7 +15,7 @@ void AuthService::login(const QString &username, const QString &password)
 
     QNetworkReply *reply = ApiClient::instance().post("/api/v1/auth/login", json);
     if (!reply) {
-        emit loginResult(false, QString(), QStringLiteral("Loi khoi tao yeu cau mang"), username);
+        emit loginResult(false, QString(), QStringLiteral("Không gửi được yêu cầu. Thử lại."), username);
         return;
     }
 
@@ -30,7 +30,8 @@ void AuthService::onLoginReply(QNetworkReply *reply, const QString &username)
 
     ApiParsedResponse res = ApiClient::parseReply(reply);
 
-    if (res.success) {
+    if (res.success)
+    {
         QJsonObject dataObj = res.data.toObject();
         QString role = dataObj.contains("role") ? dataObj["role"].toString() : QString();
         QString token = dataObj.contains("token") ? dataObj["token"].toString() : QString();
@@ -39,8 +40,10 @@ void AuthService::onLoginReply(QNetworkReply *reply, const QString &username)
             ApiClient::instance().setToken(token);
 
         emit loginResult(true, role, res.message, username);
-    } else {
-        QString msg = res.message.isEmpty() ? QStringLiteral("Authentication Failed") : res.message;
+    }
+    else
+    {
+        QString msg = res.message.isEmpty() ? QStringLiteral("Đăng nhập thất bại") : res.message;
         emit loginResult(false, "", msg, username);
     }
 }

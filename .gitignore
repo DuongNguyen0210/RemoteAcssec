@@ -50,6 +50,7 @@ ui_*.h
 build-*/
 build/
 build_cli/
+build_tests/
 release/
 debug/
 
@@ -96,3 +97,6 @@ Thumbs.db
 # AI / Code Knowledge Graph
 # =========================
 .codegraph/
+
+# Local deployment secrets
+infrastructure/.env
