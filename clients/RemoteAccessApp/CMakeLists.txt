@@ -44,4 +44,34 @@ if(BUILD_TESTING)
         Controllers GUI Streaming Network Domain Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME account_device_flow COMMAND AccountDeviceFlowTest)
     set_tests_properties(account_device_flow PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(ProtocolContractTest
+        tests/ProtocolContractTest.cpp
+    )
+
+    target_link_libraries(ProtocolContractTest PRIVATE
+        Network
+        Qt${QT_VERSION_MAJOR}::Test
+        Qt${QT_VERSION_MAJOR}::Core
+    )
+
+    add_test(
+        NAME protocol_contract
+        COMMAND ProtocolContractTest
+    )
+
+    add_executable(AdminSessionCorrelationTest
+        tests/AdminSessionCorrelationTest.cpp
+    )
+
+    target_link_libraries(AdminSessionCorrelationTest PRIVATE
+        Network
+        Qt${QT_VERSION_MAJOR}::Test
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Network
+    )
+
+    add_test(
+        NAME admin_session_correlation
+        COMMAND AdminSessionCorrelationTest
+    )
 endif()

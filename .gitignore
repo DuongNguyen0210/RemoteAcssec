@@ -50,6 +50,7 @@ ui_*.h
 build-*/
 build/
 build_cli/
+build_tests/
 release/
 debug/
 

@@ -38,12 +38,11 @@ AdminSessionController::AdminSessionController(QObject *parent)
 void AdminSessionController::requestSession(const QString &targetAgentSessionId)
 {
     if (QUuid(targetAgentSessionId).isNull()) {
-        emit sessionFailed(QStringLiteral("ID phiên máy không hợp lệ."));
+        emit requestFailed(targetAgentSessionId, QStringLiteral("ID phiên máy không hợp lệ."));
         return;
     }
-
     if (m_requestPending || m_activeSessionId != 0) {
-        emit sessionFailed(QStringLiteral("ADMIN da co phien dang cho hoac dang hoat dong."));
+        emit requestFailed(targetAgentSessionId, QStringLiteral("ADMIN da co phien dang cho hoac dang hoat dong."));
         return;
     }
 
@@ -80,6 +79,7 @@ void AdminSessionController::onRelayDisconnected()
     m_connected = false;
     m_connecting = false;
     m_activeSessionId = 0;
+    m_activeAgentSessionId.clear();
     m_streamParser = Protocol::RdtpStreamParser{};
     m_frameAssemblies.clear();
 
@@ -210,9 +210,10 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
         }
 
         m_activeSessionId = static_cast<quint64>(message.header.sessionId);
+        m_activeAgentSessionId = m_pendingAgentSessionId;
         m_requestPending = false;
         m_pendingAgentSessionId.clear();
-        emit sessionEstablished(m_activeSessionId);
+        emit sessionEstablished(m_activeSessionId, m_activeAgentSessionId);
     }
 }
 
@@ -220,8 +221,9 @@ void AdminSessionController::failPendingRequest(const QString &reason)
 {
     if (!m_requestPending)
         return;
+    const QString failedAgentSessionId  = m_pendingAgentSessionId;
 
     m_requestPending = false;
     m_pendingAgentSessionId.clear();
-    emit sessionFailed(reason);
+    emit requestFailed(failedAgentSessionId, reason);
 }
