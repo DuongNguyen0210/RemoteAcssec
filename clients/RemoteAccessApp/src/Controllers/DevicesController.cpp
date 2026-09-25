@@ -3,8 +3,6 @@
 #include "Domain/Store/DeviceStore.h"
 #include "Network/Http/DeviceService.h"
 #include "Network/Relay/AdminSessionController.h"
-#include "Network/Relay/DynamicRelayEndpointProvider.h"
-#include "Network/Relay/StaticRelayEndpointProvider.h"
 
 DevicesController::DevicesController(DeviceStore *store, DeviceService *service, QObject *parent)
     : QObject(parent)
@@ -13,9 +11,6 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
     , m_deviceService(service)
     , m_sessionController(new AdminSessionController(this))
 {
-    m_endpointProvider = qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
-            ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider(this))
-            : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider(this));
     if (m_store) {
         connect(m_store, &DeviceStore::devicesUpdated,
                 this, &DevicesController::onDevicesUpdated);
@@ -34,6 +29,14 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
 
     connect(m_sessionController, &AdminSessionController::sessionEstablished,
             this, &DevicesController::handleSessionEstablished);
+
+    connect(m_sessionController, &AdminSessionController::requestFailed,
+            this, [this](const QString &agentSessionId, const QString &reason)
+            {
+                Q_UNUSED(agentSessionId);
+                handleSessionFailed(reason);
+            });
+
     connect(m_sessionController, &AdminSessionController::sessionFailed,
             this, &DevicesController::handleSessionFailed);
 
@@ -70,24 +73,12 @@ void DevicesController::onDevicesUpdated(const QList<DeviceInfo> &devices)
 
 void DevicesController::onConnectRequested(const QString &agentSessionId)
 {
-    if (m_resolving || m_sessionController->isBusy()) return;
-    m_resolving = true;
-    QPointer<DevicesController> self(this);
-    m_endpointProvider->lookup(agentSessionId, [self, agentSessionId](const RelayEndpoint &endpoint, const QString &error) {
-        if (!self) return;
-        self->m_resolving = false;
-        if (!error.isEmpty() || !endpoint.isValid()) {
-            self->handleSessionFailed(error.isEmpty() ? QStringLiteral("Relay hết hạn.") : error);
-            return;
-        }
-        self->m_connectingAgentSessionId = agentSessionId;
-        self->m_sessionController->requestSession(agentSessionId, endpoint.host, endpoint.port);
-    });
+    m_sessionController->requestSession(agentSessionId);
 }
 
-void DevicesController::handleSessionEstablished(quint64 sessionId)
+void DevicesController::handleSessionEstablished(quint64 remoteSessionId, const QString &agentSessionId)
 {
-    emit remoteSessionStarted(sessionId, m_connectingAgentSessionId);
+    emit remoteSessionStarted(remoteSessionId, agentSessionId);
 }
 
 void DevicesController::handleSessionFailed(const QString &reason)

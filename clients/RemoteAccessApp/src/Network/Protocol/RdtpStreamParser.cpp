@@ -4,7 +4,7 @@
 #include "ProtocolSerializer.h"
 
 namespace Protocol {
-
+// Nhận byte thô từ TCP, ghép cho đủ rồi gom thành các RDTP Message hoàn chỉnh.
 RdtpStreamParser::FeedResult RdtpStreamParser::feed(const QByteArray &bytes)
 {
     m_buffer.append(bytes);

@@ -2,7 +2,9 @@
 
 #include "Network/Relay/RelayClient.h"
 #include "Network/Protocol/ProtocolSerializer.h"
+#include "Network/Protocol/ScreenFramePacketizer.h"
 
+#include <QtEndian>
 #include <QDebug>
 #include <QUuid>
 #include "Network/Http/ApiClient.h"
@@ -23,11 +25,6 @@ AdminSessionController::AdminSessionController(QObject *parent)
     , m_connecting(false)
     , m_requestPending(false)
 {
-    m_timeout.setSingleShot(true);
-    m_timeout.setInterval(15000);
-    connect(&m_timeout, &QTimer::timeout, this, [this] {
-        failPendingRequest(QStringLiteral("Hết thời gian chờ tạo phiên."));
-    });
     connect(m_relayClient, &RelayClient::connected,
             this, &AdminSessionController::onRelayConnected);
     connect(m_relayClient, &RelayClient::disconnected,
@@ -40,59 +37,28 @@ AdminSessionController::AdminSessionController(QObject *parent)
 
 void AdminSessionController::requestSession(const QString &targetAgentSessionId)
 {
-    requestSession(targetAgentSessionId, qEnvironmentVariable("REMOTE_RELAY_HOST", RELAY_HOST),
-            qEnvironmentVariable("REMOTE_RELAY_PORT", QString::number(RELAY_PORT)).toUShort());
-}
-
-void AdminSessionController::requestSession(const QString &targetAgentSessionId, const QString &host, quint16 port)
-{
-    if (host.trimmed().isEmpty() || port == 0) {
-        emit sessionFailed(QStringLiteral("Endpoint Relay không hợp lệ."));
-        return;
-    }
     if (QUuid(targetAgentSessionId).isNull()) {
-        emit sessionFailed(QStringLiteral("ID phiên máy không hợp lệ."));
+        emit requestFailed(targetAgentSessionId, QStringLiteral("ID phiên máy không hợp lệ."));
         return;
     }
-
     if (m_requestPending || m_activeSessionId != 0) {
-        emit sessionFailed(QStringLiteral("Đang có phiên kết nối."));
+        emit requestFailed(targetAgentSessionId, QStringLiteral("ADMIN da co phien dang cho hoac dang hoat dong."));
         return;
     }
 
-    endSession();
     m_pendingAgentSessionId = targetAgentSessionId;
     m_requestPending = true;
-    m_connecting = true;
-    m_timeout.start();
-    m_relayClient->ConnectToServer(host, port);
-}
 
-void AdminSessionController::endSession()
-{
-    m_timeout.stop();
-    m_requestPending = false;
-    m_pendingAgentSessionId.clear();
-    const bool wasActive = m_activeSessionId != 0;
-    m_activeSessionId = 0;
-    m_connected = false;
-    m_connecting = false;
-    m_streamParser = {};
-    m_relayClient->DisconnectFromServer();
-    if (wasActive) emit sessionEnded();
-}
+    if (m_connected) {
+        sendConnectRequest();
+        return;
+    }
 
-bool AdminSessionController::sendInput(Protocol::MessageType type, const QByteArray &payload)
-{
-    using T = Protocol::MessageType;
-    if (!m_connected || m_activeSessionId == 0 || !(type == T::MOUSE_MOVE || type == T::MOUSE_BUTTON_DOWN
-            || type == T::MOUSE_BUTTON_UP || type == T::MOUSE_WHEEL || type == T::KEY_PRESS || type == T::KEY_RELEASE)
-            || payload.size() > Protocol::MAX_PAYLOAD_LENGTH || m_relayClient->pendingBytes() > 1024 * 1024) return false;
-    Protocol::ProtocolHeader header(type);
-    header.sessionId = m_activeSessionId;
-    header.payloadLength = static_cast<uint32_t>(payload.size());
-    const auto packet = Protocol::ProtocolSerializer::serializeHeader(header) + payload;
-    return m_relayClient->sendRawPacket(packet) == packet.size();
+    if (!m_connecting) {
+        m_connecting = true;
+        m_relayClient->ConnectToServer(qEnvironmentVariable("REMOTE_RELAY_HOST", RELAY_HOST),
+                static_cast<quint16>(qEnvironmentVariable("REMOTE_RELAY_PORT", QString::number(RELAY_PORT)).toUShort()));
+    }
 }
 
 void AdminSessionController::onRelayConnected()
@@ -100,6 +66,7 @@ void AdminSessionController::onRelayConnected()
     m_connected = true;
     m_connecting = false;
     m_streamParser = Protocol::RdtpStreamParser{};
+    m_frameAssemblies.clear();
 
     if (m_requestPending)
         sendConnectRequest();
@@ -107,28 +74,27 @@ void AdminSessionController::onRelayConnected()
 
 void AdminSessionController::onRelayDisconnected()
 {
-    m_timeout.stop();
     const bool hadActiveSession = m_activeSessionId != 0;
 
     m_connected = false;
     m_connecting = false;
     m_activeSessionId = 0;
+    m_activeAgentSessionId.clear();
     m_streamParser = Protocol::RdtpStreamParser{};
+    m_frameAssemblies.clear();
 
     if (m_requestPending) {
-        failPendingRequest(QStringLiteral("Kết nối đã đóng trước khi tạo phiên."));
+        failPendingRequest(QStringLiteral("Ket noi Relay da dong truoc khi tao phien."));
     } else if (hadActiveSession) {
-        emit sessionEnded();
-        emit sessionFailed(QStringLiteral("Phiên kết nối đã đóng."));
+        emit sessionFailed(QStringLiteral("Ket noi Relay cua phien dang hoat dong da dong."));
     }
 }
 
 void AdminSessionController::onRelayError(const QString &message)
 {
-    Q_UNUSED(message);
     m_connecting = false;
     if (m_requestPending)
-        failPendingRequest(QStringLiteral("Không kết nối được máy chủ relay."));
+        failPendingRequest(QStringLiteral("Loi ket noi Relay: %1").arg(message));
 }
 
 void AdminSessionController::sendConnectRequest()
@@ -138,7 +104,7 @@ void AdminSessionController::sendConnectRequest()
 
     const QByteArray payload = Protocol::relayAuthPayload(ApiClient::instance().getToken(), m_pendingAgentSessionId);
     if (payload.isEmpty()) {
-        failPendingRequest(QStringLiteral("Vui lòng đăng nhập lại."));
+        failPendingRequest(QStringLiteral("Thiếu token đăng nhập"));
         return;
     }
 
@@ -149,7 +115,7 @@ void AdminSessionController::sendConnectRequest()
     packet.append(payload);
 
     if (m_relayClient->sendRawPacket(packet) < 0) {
-        failPendingRequest(QStringLiteral("Không gửi được yêu cầu kết nối."));
+        failPendingRequest(QStringLiteral("Khong the gui CONNECT_REQUEST."));
         return;
     }
 
@@ -161,15 +127,58 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 {
     const Protocol::RdtpStreamParser::FeedResult result = m_streamParser.feed(data);
     if (result.error != Protocol::RdtpStreamParser::Error::None) {
-        if (m_requestPending) failPendingRequest(QStringLiteral("Dữ liệu kết nối không hợp lệ."));
-        else endSession();
+        failPendingRequest(QStringLiteral("Du lieu RDTP tu Relay khong hop le."));
         return;
     }
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
-        if (message.header.type == Protocol::MessageType::SCREEN_FRAME && m_activeSessionId != 0
-                && message.header.sessionId == m_activeSessionId) {
-            emit screenReceived(message.header, message.payload);
+        if (message.header.type == Protocol::MessageType::SCREEN_FRAME) {
+            if (m_activeSessionId == 0 || m_activeSessionId != message.header.sessionId)
+            {
+                continue;
+            }
+            if (message.payload.size() < ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE)
+            {
+                continue;
+            }
+            const auto *metadata =
+                reinterpret_cast<const uchar *>(message.payload.constData());
+
+            const quint32 frameId = qFromBigEndian<quint32>(metadata);
+            const quint32 chunkIndex = qFromBigEndian<quint32>(metadata + 4);
+            const quint32 chunkCount = qFromBigEndian<quint32>(metadata + 8);
+            const quint32 totalFrameSize = qFromBigEndian<quint32>(metadata + 12);
+
+            if (chunkCount == 0 || chunkCount <= chunkIndex || totalFrameSize == 0)
+            {
+                continue;
+            }
+
+            const QByteArray chunkData = message.payload.mid(ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE);
+            if (chunkData.isEmpty())
+            {
+                continue;
+            }
+            auto preFrame = m_frameAssemblies.find(frameId);
+            if (preFrame == m_frameAssemblies.end())
+            {
+                if (m_frameAssemblies.size() >= MAX_IN_FLIGHT_FRAMES)
+                {
+                    continue;
+                }
+
+                FrameAssembly newAssembly;
+                newAssembly.chunkCount = chunkCount;
+                newAssembly.totalFrameSize = totalFrameSize;
+
+                preFrame = m_frameAssemblies.insert(frameId, newAssembly);
+            }
+
+            FrameAssembly &assembly = preFrame.value();
+
+            Q_UNUSED(assembly);
+            Q_UNUSED(chunkData);
+
             continue;
         }
         if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
@@ -183,7 +192,7 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 
         if (!validCommonFields || !m_requestPending) {
             if (m_requestPending)
-                failPendingRequest(QStringLiteral("Phản hồi kết nối không hợp lệ."));
+                failPendingRequest(QStringLiteral("CONNECT_RESULT khong hop le."));
             continue;
         }
 
@@ -191,20 +200,20 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
         const bool validResult = (accepted && message.header.sessionId != 0)
                 || (!accepted && message.header.sessionId == 0);
         if (!validResult) {
-            failPendingRequest(QStringLiteral("Phản hồi kết nối không hợp lệ."));
+            failPendingRequest(QStringLiteral("CONNECT_RESULT khong hop le."));
             continue;
         }
 
         if (!accepted) {
-            failPendingRequest(QStringLiteral("Yêu cầu kết nối bị từ chối."));
+            failPendingRequest(QStringLiteral("Relay tu choi yeu cau ket noi CHILD."));
             continue;
         }
 
-        m_timeout.stop();
         m_activeSessionId = static_cast<quint64>(message.header.sessionId);
+        m_activeAgentSessionId = m_pendingAgentSessionId;
         m_requestPending = false;
         m_pendingAgentSessionId.clear();
-        emit sessionEstablished(m_activeSessionId);
+        emit sessionEstablished(m_activeSessionId, m_activeAgentSessionId);
     }
 }
 
@@ -212,9 +221,9 @@ void AdminSessionController::failPendingRequest(const QString &reason)
 {
     if (!m_requestPending)
         return;
+    const QString failedAgentSessionId  = m_pendingAgentSessionId;
 
     m_requestPending = false;
     m_pendingAgentSessionId.clear();
-    endSession();
-    emit sessionFailed(reason);
+    emit requestFailed(failedAgentSessionId, reason);
 }
