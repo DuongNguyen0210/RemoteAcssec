@@ -41,7 +41,7 @@ void RelayClient::onReadyRead() {
 void RelayClient::onErrorOccurred(QAbstractSocket::SocketError socketError)
 {
     Q_UNUSED(socketError);
-    emit transportError(m_socket->errorString());
+    emit transportError(m_socket->errorString(), socketError);
 }
 
 qint64 RelayClient::sendRawPacket(const QByteArray &data)

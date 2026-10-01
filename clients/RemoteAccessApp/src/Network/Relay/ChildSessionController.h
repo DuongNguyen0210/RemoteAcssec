@@ -20,16 +20,19 @@ public:
     quint64 activeSessionId() const { return m_sessionId; }
 signals:
     void sessionStarted(quint64 sessionId);
-    void sessionEnded();
+    void sessionEnded(const QString &reason);
     void inputReceived(const Protocol::ProtocolHeader &header, const QByteArray &payload);
     void sessionFailed(const QString &reason);
 private:
     void allocate();
     void connected();
     void receive(const QByteArray &bytes);
-    void reset();
+    void reset(const QString &reason);
     void fail(const QString &reason);
+    void scheduleReconnect();
     bool sendControl(Protocol::MessageType type, quint64 sessionId, const QByteArray &payload = {});
+    bool resetRelayState();
+
     QPointer<RelayEndpointProvider> m_provider;
     RelayClient *m_client;
     QTimer m_retry;

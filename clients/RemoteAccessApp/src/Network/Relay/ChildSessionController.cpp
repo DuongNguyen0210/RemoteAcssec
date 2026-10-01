@@ -25,8 +25,8 @@ ChildSessionController::ChildSessionController(RelayEndpointProvider *provider, 
     connect(m_client, &RelayClient::connected, this, &ChildSessionController::connected);
     connect(m_client, &RelayClient::bytesReceived, this, &ChildSessionController::receive);
     connect(m_client, &RelayClient::disconnected, this, [this] {
-        reset();
-        if (m_running) m_retry.start();
+        reset(QStringLiteral("Kết nối Relay đã đóng."));
+        scheduleReconnect();
     });
     connect(m_client, &RelayClient::transportError, this, &ChildSessionController::fail);
 }
@@ -44,10 +44,11 @@ void ChildSessionController::stop() {
     m_retry.stop();
     m_renew.stop();
     m_timeout.stop();
+    reset(QStringLiteral("Đã dừng kết nối Relay."));
     m_client->DisconnectFromServer();
-    reset();
 }
 
+//xin Relay endpoint trước khi mở kết nối TCP thật sự (nhận về host + post để biết tới relay nào)
 void ChildSessionController::allocate() {
     if (!m_running || m_allocating || m_connecting) return;
     if (!m_provider) { fail(QStringLiteral("Thiếu cấu hình Relay.")); return; }
@@ -65,8 +66,8 @@ void ChildSessionController::allocate() {
             self->m_endpoint = endpoint;
             return;
         }
+        self->reset(QStringLiteral("Endpoint Relay đã thay đổi."));
         self->m_client->DisconnectFromServer();
-        self->reset();
         self->m_retry.stop();
         self->m_endpoint = endpoint;
         self->m_connecting = true;
@@ -127,24 +128,32 @@ void ChildSessionController::receive(const QByteArray &bytes) {
     }
 }
 
-void ChildSessionController::reset() {
-    const bool active = m_sessionId != 0;
+bool ChildSessionController::resetRelayState()
+{
+    const bool pre_active = (m_sessionId != 0);
     m_sessionId = 0;
-    m_registered = false;
-    m_connecting = false;
-    m_parser = {};
+    m_registered = 0;
+    m_connecting = 0;
+    m_parser = Protocol::RdtpStreamParser{};
     m_timeout.stop();
     m_renew.stop();
-    if (active) emit sessionEnded();
+
+    return pre_active;
+}
+
+
+void ChildSessionController::reset(const QString &reason) {
+    if (resetRelayState()) emit sessionEnded(reason);
 }
 
 void ChildSessionController::fail(const QString &reason) {
     ++m_generation;
     m_allocating = false;
+    bool isPreActive = resetRelayState(); // Lưu lại việc trước khi reset có session ACTIVE hay không, rồi dọn state Relay
     m_client->DisconnectFromServer();
-    reset();
-    emit sessionFailed(reason);
-    if (m_running) m_retry.start();
+    if (isPreActive) emit sessionEnded(reason);
+    else emit sessionFailed(reason);
+    scheduleReconnect();
 }
 
 qint64 ChildSessionController::sendScreenPacket(const QByteArray &packet) {
@@ -157,3 +166,10 @@ qint64 ChildSessionController::sendScreenPacket(const QByteArray &packet) {
 }
 
 qint64 ChildSessionController::pendingBytes() const { return m_client->pendingBytes(); }
+
+void ChildSessionController::scheduleReconnect()
+{
+    if (!m_running || m_retry.isActive()) return;
+    m_retry.start();
+}
+

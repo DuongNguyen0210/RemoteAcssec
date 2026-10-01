@@ -10,6 +10,7 @@
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/RelayAuthPayload.h"
 
+
 namespace {
 
 const QString RELAY_HOST = QStringLiteral("localhost");
@@ -38,7 +39,7 @@ AdminSessionController::AdminSessionController(QObject *parent)
 void AdminSessionController::requestSession(const QString &targetAgentSessionId)
 {
     if (QUuid(targetAgentSessionId).isNull()) {
-        emit requestFailed(targetAgentSessionId, QStringLiteral("ID phiên máy không hợp lệ."));
+        emit requestFailed(targetAgentSessionId, QStringLiteral("ID phien may khong hop le."));
         return;
     }
     if (m_requestPending || m_activeSessionId != 0) {
@@ -74,27 +75,13 @@ void AdminSessionController::onRelayConnected()
 
 void AdminSessionController::onRelayDisconnected()
 {
-    const bool hadActiveSession = m_activeSessionId != 0;
-
-    m_connected = false;
-    m_connecting = false;
-    m_activeSessionId = 0;
-    m_activeAgentSessionId.clear();
-    m_streamParser = Protocol::RdtpStreamParser{};
-    m_frameAssemblies.clear();
-
-    if (m_requestPending) {
-        failPendingRequest(QStringLiteral("Ket noi Relay da dong truoc khi tao phien."));
-    } else if (hadActiveSession) {
-        emit sessionFailed(QStringLiteral("Ket noi Relay cua phien dang hoat dong da dong."));
-    }
+    handleFatalRelayTermination(QStringLiteral("Ket noi Relay da dong."));
 }
 
-void AdminSessionController::onRelayError(const QString &message)
+void AdminSessionController::onRelayError(const QString &message, QAbstractSocket::SocketError socketError)
 {
-    m_connecting = false;
-    if (m_requestPending)
-        failPendingRequest(QStringLiteral("Loi ket noi Relay: %1").arg(message));
+    if (!isFatalTransportError(socketError)) return;
+    handleFatalRelayTermination(QStringLiteral("Loi ket noi Relay: %1.").arg(message));
 }
 
 void AdminSessionController::sendConnectRequest()
@@ -104,7 +91,7 @@ void AdminSessionController::sendConnectRequest()
 
     const QByteArray payload = Protocol::relayAuthPayload(ApiClient::instance().getToken(), m_pendingAgentSessionId);
     if (payload.isEmpty()) {
-        failPendingRequest(QStringLiteral("Thiếu token đăng nhập"));
+        failPendingRequest(QStringLiteral("Thieu token dang nhap."));
         return;
     }
 
@@ -127,7 +114,7 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 {
     const Protocol::RdtpStreamParser::FeedResult result = m_streamParser.feed(data);
     if (result.error != Protocol::RdtpStreamParser::Error::None) {
-        failPendingRequest(QStringLiteral("Du lieu RDTP tu Relay khong hop le."));
+        handleFatalRelayTermination(QStringLiteral("Du lieu RDTP tu Relay khong hop le."));
         return;
     }
 
@@ -226,4 +213,44 @@ void AdminSessionController::failPendingRequest(const QString &reason)
     m_requestPending = false;
     m_pendingAgentSessionId.clear();
     emit requestFailed(failedAgentSessionId, reason);
+}
+
+void AdminSessionController::handleFatalRelayTermination(const QString &reason)
+{
+    const QString tmp_activeAgentSessionId = m_activeAgentSessionId;
+    const QString tmp_pendingAgentSessionId = m_pendingAgentSessionId;
+    const quint64 tmp_activeSessionId = m_activeSessionId;
+    const bool tmp_requestPending = m_requestPending;
+
+    m_streamParser = Protocol::RdtpStreamParser{};
+    m_frameAssemblies.clear();
+    m_activeAgentSessionId.clear();
+    m_pendingAgentSessionId.clear();
+    m_activeSessionId = 0;
+    m_connected = m_connecting = m_requestPending = false;
+
+    m_relayClient->DisconnectFromServer();
+
+    if (tmp_requestPending)
+    {
+        emit requestFailed(tmp_pendingAgentSessionId, reason);
+    }
+
+    else if (tmp_activeSessionId != 0)
+    {
+        emit sessionEnded(tmp_activeSessionId, tmp_activeAgentSessionId, reason);
+    }
+}
+
+bool AdminSessionController::isFatalTransportError(QAbstractSocket::SocketError socketError)
+{
+    switch(socketError)
+    {
+        case QAbstractSocket::TemporaryError: //Lỗi tạm thời (do mạng, điều kiện hiện tại chưa cho hoàn tất thao tác,...)
+        case QAbstractSocket::UnfinishedSocketOperationError: // Thao tác socket trước đó vẫn chưa hoàn tất, vẫn đang chạy nền
+        case QAbstractSocket::OperationError: // Đã yêu cầu một thao tác khi socket đang ở trạng thái không cho phép thao tác đó
+            return false;
+
+        default: return true;
+    }
 }
