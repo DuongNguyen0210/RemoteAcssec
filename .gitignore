@@ -100,3 +100,4 @@ Thumbs.db
 
 # Local deployment secrets
 infrastructure/.env
+*.autosave
