@@ -1,6 +1,7 @@
 #include "SessionsPage.h"
 
 #include <QFrame>
+#include <QPainter>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -9,6 +10,31 @@
 #include <QVBoxLayout>
 
 namespace {
+
+class ScreenViewer : public QWidget {
+public:
+    explicit ScreenViewer(QWidget *parent = nullptr) : QWidget(parent) {
+        setObjectName("screenViewer");
+        setMinimumSize(320, 240);
+    }
+    void setImage(const QImage &image) { m_image = image; update(); }
+protected:
+    void paintEvent(QPaintEvent *) override {
+        QPainter painter(this);
+        painter.fillRect(rect(), QColor(24, 26, 30));
+        if (m_image.isNull()) {
+            painter.setPen(Qt::white);
+            painter.drawText(rect(), Qt::AlignCenter, QStringLiteral("Chưa có màn hình từ phiên kết nối"));
+            return;
+        }
+        const QSize size = m_image.size().scaled(this->size(), Qt::KeepAspectRatio);
+        const QRect target(QPoint((width() - size.width()) / 2, (height() - size.height()) / 2), size);
+        painter.drawImage(target, m_image);
+    }
+private:
+    QImage m_image;
+};
+
 
 QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 {
@@ -125,9 +151,9 @@ void SessionsPage::setupUi()
     QGridLayout *metrics = new QGridLayout();
     metrics->setHorizontalSpacing(16);
     metrics->setVerticalSpacing(16);
-    metrics->addWidget(metricCard("2", "Phiên đang hoạt động", "1 quản trị viên đang xem", this), 0, 0);
-    metrics->addWidget(metricCard("98%", "Chất lượng truyền", "Kết nối ổn định", this), 0, 1);
-    metrics->addWidget(metricCard("01:30", "Thời lượng trung bình", "Các phiên đang hoạt động", this), 0, 2);
+    metrics->addWidget(metricCard("—", "Phiên đang hoạt động", "Thông tin chưa có", this), 0, 0);
+    metrics->addWidget(metricCard("—", "Chất lượng truyền", "Thông tin chưa có", this), 0, 1);
+    metrics->addWidget(metricCard("—", "Thời lượng trung bình", "Thông tin chưa có", this), 0, 2);
     mainLayout->addLayout(metrics);
 
     QScrollArea *scrollArea = new QScrollArea(this);
@@ -140,8 +166,11 @@ void SessionsPage::setupUi()
     QVBoxLayout *sessions = new QVBoxLayout(scrollContent);
     sessions->setContentsMargins(0, 0, 0, 0);
     sessions->setSpacing(16);
-    sessions->addWidget(sessionCard("SRV-APOLLO-01", "192.168.1.105", "j.doe@company.com", "02:45:12", "Rất tốt", scrollContent));
-    sessions->addWidget(sessionCard("MBP-SARAH-DESIGN", "10.0.0.42", "s.smith@company.com", "00:15:30", "Tốt", scrollContent));
+    m_sessionCard = sessionCard("Phiên hiện tại", "—", "—", "—", "—", scrollContent);
+    m_sessionCard->hide();
+    sessions->addWidget(m_sessionCard);
+    m_viewer = new ScreenViewer(scrollContent);
+    sessions->addWidget(m_viewer, 1);
     sessions->addStretch();
 
     scrollArea->setWidget(scrollContent);
@@ -152,4 +181,21 @@ void SessionsPage::setupUi()
         button->setToolTip("Sắp có");
     }
 
+}
+
+void SessionsPage::setFrame(const QImage &image)
+{
+    static_cast<ScreenViewer *>(m_viewer)->setImage(image);
+}
+
+void SessionsPage::clearFrame()
+{
+    static_cast<ScreenViewer *>(m_viewer)->setImage(QImage());
+    m_sessionCard->hide();
+}
+
+void SessionsPage::showSession()
+{
+    clearFrame();
+    m_sessionCard->show();
 }

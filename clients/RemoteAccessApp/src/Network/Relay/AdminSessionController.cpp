@@ -7,6 +7,11 @@
 #include <QtEndian>
 #include <QDebug>
 #include <QUuid>
+#include <QTimer>
+#include <QBuffer>
+#include <QImageReader>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrentRun>
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/RelayAuthPayload.h"
 
@@ -26,6 +31,11 @@ AdminSessionController::AdminSessionController(QObject *parent)
     , m_connecting(false)
     , m_requestPending(false)
 {
+    m_frameClock.start();
+    auto *pruneTimer = new QTimer(this);
+    pruneTimer->setInterval(1000);
+    connect(pruneTimer, &QTimer::timeout, this, &AdminSessionController::pruneFrames);
+    pruneTimer->start();
     connect(m_relayClient, &RelayClient::connected,
             this, &AdminSessionController::onRelayConnected);
     connect(m_relayClient, &RelayClient::disconnected,
@@ -67,7 +77,7 @@ void AdminSessionController::onRelayConnected()
     m_connected = true;
     m_connecting = false;
     m_streamParser = Protocol::RdtpStreamParser{};
-    m_frameAssemblies.clear();
+    resetFrames();
 
     if (m_requestPending)
         sendConnectRequest();
@@ -124,48 +134,7 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
             {
                 continue;
             }
-            if (message.payload.size() < ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE)
-            {
-                continue;
-            }
-            const auto *metadata =
-                reinterpret_cast<const uchar *>(message.payload.constData());
-
-            const quint32 frameId = qFromBigEndian<quint32>(metadata);
-            const quint32 chunkIndex = qFromBigEndian<quint32>(metadata + 4);
-            const quint32 chunkCount = qFromBigEndian<quint32>(metadata + 8);
-            const quint32 totalFrameSize = qFromBigEndian<quint32>(metadata + 12);
-
-            if (chunkCount == 0 || chunkCount <= chunkIndex || totalFrameSize == 0)
-            {
-                continue;
-            }
-
-            const QByteArray chunkData = message.payload.mid(ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE);
-            if (chunkData.isEmpty())
-            {
-                continue;
-            }
-            auto preFrame = m_frameAssemblies.find(frameId);
-            if (preFrame == m_frameAssemblies.end())
-            {
-                if (m_frameAssemblies.size() >= MAX_IN_FLIGHT_FRAMES)
-                {
-                    continue;
-                }
-
-                FrameAssembly newAssembly;
-                newAssembly.chunkCount = chunkCount;
-                newAssembly.totalFrameSize = totalFrameSize;
-
-                preFrame = m_frameAssemblies.insert(frameId, newAssembly);
-            }
-
-            FrameAssembly &assembly = preFrame.value();
-
-            Q_UNUSED(assembly);
-            Q_UNUSED(chunkData);
-
+            handleScreenFrame(message.payload);
             continue;
         }
         if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
@@ -196,12 +165,136 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
             continue;
         }
 
+        resetFrames();
         m_activeSessionId = static_cast<quint64>(message.header.sessionId);
         m_activeAgentSessionId = m_pendingAgentSessionId;
         m_requestPending = false;
         m_pendingAgentSessionId.clear();
         emit sessionEstablished(m_activeSessionId, m_activeAgentSessionId);
     }
+}
+
+void AdminSessionController::resetFrames()
+{
+    ++m_generation;
+    m_frameAssemblies.clear();
+    m_reservedFrameBytes = 0;
+    m_hasCompletedFrame = false;
+    m_pendingJpeg.clear();
+}
+
+void AdminSessionController::pruneFrames()
+{
+    const qint64 now = m_frameClock.elapsed();
+    for (auto it = m_frameAssemblies.begin(); it != m_frameAssemblies.end();) {
+        if (now - it->createdAt >= FRAME_TTL_MS) {
+            m_reservedFrameBytes -= it->totalFrameSize;
+            it = m_frameAssemblies.erase(it);
+        } else ++it;
+    }
+}
+
+bool AdminSessionController::isNewerFrame(quint32 candidate, quint32 reference)
+{
+    const quint32 distance = candidate - reference;
+    return distance != 0 && distance < 0x80000000u;
+}
+
+void AdminSessionController::handleScreenFrame(const QByteArray &payload)
+{
+    if (payload.size() < ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE) return;
+    const auto *data = reinterpret_cast<const uchar *>(payload.constData());
+    const quint32 id = qFromBigEndian<quint32>(data);
+    if (m_hasCompletedFrame && !isNewerFrame(id, m_latestCompletedFrame)) return;
+    const quint32 index = qFromBigEndian<quint32>(data + 4);
+    const quint32 count = qFromBigEndian<quint32>(data + 8);
+    const quint32 size = qFromBigEndian<quint32>(data + 12);
+    const QByteArray chunk = payload.mid(ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE);
+    if (!count || count > MAX_CHUNKS || index >= count || !size || size > MAX_FRAME_BYTES
+            || count > size || chunk.isEmpty() || quint64(chunk.size()) > size) return;
+    pruneFrames();
+    auto it = m_frameAssemblies.find(id);
+    if (it == m_frameAssemblies.end()) {
+        if (m_frameAssemblies.size() >= MAX_IN_FLIGHT_FRAMES
+                || m_reservedFrameBytes + size > MAX_IN_FLIGHT_BYTES) return;
+        FrameAssembly frame;
+        frame.chunkCount = count;
+        frame.totalFrameSize = size;
+        frame.createdAt = m_frameClock.elapsed();
+        frame.chunks.resize(int(count));
+        it = m_frameAssemblies.insert(id, frame);
+        m_reservedFrameBytes += size;
+    }
+    FrameAssembly &frame = it.value();
+    if (frame.chunkCount != count || frame.totalFrameSize != size) {
+        m_reservedFrameBytes -= frame.totalFrameSize;
+        m_frameAssemblies.erase(it);
+        return;
+    }
+    if (!frame.chunks[int(index)].isEmpty()) return;
+    if (quint64(frame.receivedBytes) + quint64(chunk.size()) > size) {
+        m_reservedFrameBytes -= frame.totalFrameSize;
+        m_frameAssemblies.erase(it);
+        return;
+    }
+    frame.chunks[int(index)] = chunk;
+    frame.receivedBytes += quint32(chunk.size());
+    if (++frame.receivedChunkCount != count) return;
+    if (frame.receivedBytes != size) {
+        m_reservedFrameBytes -= frame.totalFrameSize;
+        m_frameAssemblies.erase(it);
+        return;
+    }
+    QByteArray jpeg;
+    jpeg.reserve(int(size));
+    for (const auto &part : frame.chunks) jpeg.append(part);
+    m_reservedFrameBytes -= frame.totalFrameSize;
+    m_frameAssemblies.erase(it);
+    m_latestCompletedFrame = id;
+    m_hasCompletedFrame = true;
+    // Drop incomplete older frames once a newer frame completes.
+    for (auto old = m_frameAssemblies.begin(); old != m_frameAssemblies.end();) {
+        if (!isNewerFrame(old.key(), id)) {
+            m_reservedFrameBytes -= old->totalFrameSize;
+            old = m_frameAssemblies.erase(old);
+        } else ++old;
+    }
+    decodeFrame(id, std::move(jpeg));
+}
+
+void AdminSessionController::decodeFrame(quint32 frameId, QByteArray jpeg)
+{
+    if (m_decoding) {
+        m_pendingFrameId = frameId;
+        m_pendingJpeg = std::move(jpeg);
+        return;
+    }
+    m_decoding = true;
+    const quint64 generation = m_generation;
+    const quint64 sessionId = m_activeSessionId;
+    auto *watcher = new QFutureWatcher<QImage>(this);
+    connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, watcher, generation, sessionId, frameId] {
+        const QImage image = watcher->result();
+        watcher->deleteLater();
+        m_decoding = false;
+        if (generation == m_generation && sessionId == m_activeSessionId && sessionId && !image.isNull()
+                && frameId == m_latestCompletedFrame)
+            emit frameReady(sessionId, image);
+        if (!m_pendingJpeg.isEmpty() && m_activeSessionId) {
+            QByteArray next = std::move(m_pendingJpeg);
+            m_pendingJpeg.clear();
+            decodeFrame(m_pendingFrameId, std::move(next));
+        }
+    });
+    watcher->setFuture(QtConcurrent::run([jpeg = std::move(jpeg)]() mutable {
+        QBuffer buffer(&jpeg);
+        if (!buffer.open(QIODevice::ReadOnly)) return QImage();
+        QImageReader reader(&buffer, "jpeg");
+        const QSize dimensions = reader.size();
+        if (!dimensions.isValid() || dimensions.width() > 8192 || dimensions.height() > 8192
+                || qint64(dimensions.width()) * dimensions.height() > 16777216) return QImage();
+        return reader.read();
+    }));
 }
 
 void AdminSessionController::failPendingRequest(const QString &reason)
@@ -223,7 +316,7 @@ void AdminSessionController::handleFatalRelayTermination(const QString &reason)
     const bool tmp_requestPending = m_requestPending;
 
     m_streamParser = Protocol::RdtpStreamParser{};
-    m_frameAssemblies.clear();
+    resetFrames();
     m_activeAgentSessionId.clear();
     m_pendingAgentSessionId.clear();
     m_activeSessionId = 0;

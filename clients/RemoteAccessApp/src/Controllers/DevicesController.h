@@ -6,6 +6,7 @@
 #include <QString>
 #include "Domain/Model/DeviceInfo.h"
 
+class QImage;
 class DevicesPage;
 class DeviceStore;
 class DeviceService;
@@ -22,6 +23,8 @@ public:
     void refresh();
 
 signals:
+    void remoteFrameReady(quint64 sessionId, const QImage &image);
+    void remoteSessionEnded();
     void remoteSessionStarted(quint64 sessionId, const QString &agentSessionId);
 
 private slots:

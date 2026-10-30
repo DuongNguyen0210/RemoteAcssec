@@ -315,17 +315,28 @@ private slots:
         QTRY_COMPARE(updateRequests, 1);
         QTRY_COMPARE(accountsRequests, 2);
         QTRY_VERIFY(window->findChild<EditAccountDialog*>() == nullptr);
+        auto deleteAccountButton = [accountPage]() -> QPushButton * {
+            for (auto *button : accountPage->findChildren<QPushButton*>("deleteAccountButton"))
+                if (button->isVisible() && button->isEnabled()) return button;
+            return nullptr;
+        };
+        QTRY_VERIFY(deleteAccountButton() != nullptr);
         QTimer::singleShot(0, []() {
             if (auto *confirmation = qobject_cast<QDialog*>(QApplication::activeModalWidget())) confirmation->accept();
         });
-        accountPage->findChild<QPushButton*>("deleteAccountButton")->click();
+        deleteAccountButton()->click();
         QTRY_COMPARE(deleteRequests, 1);
         QTRY_VERIFY(accounts->getAccounts().isEmpty());
         QTRY_COMPARE(accountsRequests, 3);
         QVERIFY(QApplication::activeModalWidget() == nullptr);
-        for (auto *button : accountPage->findChildren<QPushButton*>()) {
-            if (button->isVisible() && button->text() == "Thêm tài khoản") { button->click(); break; }
-        }
+        auto addAccountButton = [accountPage]() -> QPushButton * {
+            for (auto *button : accountPage->findChildren<QPushButton*>()) {
+                if (button->isVisible() && button->text() == "Thêm tài khoản") return button;
+            }
+            return nullptr;
+        };
+        QTRY_VERIFY(addAccountButton() != nullptr);
+        addAccountButton()->click();
         auto *create = window->findChild<CreateAccountDialog*>();
         QVERIFY(create);
         create->findChild<QLineEdit*>("createChildUsername")->setText("child");

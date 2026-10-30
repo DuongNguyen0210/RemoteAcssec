@@ -63,6 +63,10 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
 
         connect(m_devicesController, &DevicesController::remoteSessionStarted,
                 this, &AppCoordinator::handleRemoteSessionStarted);
+        connect(m_devicesController, &DevicesController::remoteFrameReady,
+                m_mainWindow, [this](quint64, const QImage &image) { m_mainWindow->setRemoteFrame(image); });
+        connect(m_devicesController, &DevicesController::remoteSessionEnded,
+                m_mainWindow, &MainWindow::clearRemoteFrame);
         connect(m_mainWindow, &MainWindow::pageSelected,
                 this, &AppCoordinator::handlePageSelected);
 
@@ -110,6 +114,7 @@ void AppCoordinator::handlePageSelected(int pageIndex)
 
 void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString &agentSessionId)
 {
+    if (m_mainWindow) m_mainWindow->showRemoteSession();
     qDebug() << "[AppCoordinator] Remote session started for" << agentSessionId
              << "sessionId=" << sessionId;
 }

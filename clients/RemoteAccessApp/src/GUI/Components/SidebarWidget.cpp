@@ -69,10 +69,10 @@ void SidebarWidget::setupUi()
     MenuLayout->setContentsMargins(16, 0, 16, 16);
     MenuLayout->setSpacing(8);
 
-    QButtonGroup *menuGroup = new QButtonGroup(this);
+    menuGroup = new QButtonGroup(this);
     menuGroup->setExclusive(true);
 
-    auto createMenuItem = [this, MenuLayout, menuGroup](const QString &text, const QString &iconPath, int pageIndex) -> QPushButton*
+    auto createMenuItem = [this, MenuLayout](const QString &text, const QString &iconPath, int pageIndex) -> QPushButton*
     {
         QWidget *row = new QWidget(this);
         row->setObjectName("menuRow");
@@ -98,7 +98,7 @@ void SidebarWidget::setupUi()
         rowLayout->addWidget(btn, 1);
         rowLayout->addWidget(indicator);
 
-        menuGroup->addButton(btn);
+        menuGroup->addButton(btn, pageIndex);
         MenuLayout->addWidget(row);
 
         connect(btn, &QPushButton::toggled, this, [this, indicator, pageIndex](bool checked){
@@ -123,4 +123,12 @@ void SidebarWidget::setupUi()
     layout->addStretch();
 
     btnAccounts->setChecked(true);
+}
+
+void SidebarWidget::selectPage(int index)
+{
+    auto *button = menuGroup->button(index);
+    if (!button) return;
+    if (button->isChecked()) emit pageChanged(index);
+    else button->setChecked(true);
 }

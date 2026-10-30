@@ -8,8 +8,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Svg Core Gui Widgets Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Svg Core Gui Widgets Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Svg Core Gui Widgets Network Concurrent)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Svg Core Gui Widgets Network Concurrent)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -80,4 +80,11 @@ if(BUILD_TESTING)
     add_executable(RelaySessionTest tests/RelaySessionTest.cpp)
     target_link_libraries(RelaySessionTest PRIVATE Network Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME relay_sessions COMMAND RelaySessionTest)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(AdminScreenViewerTest tests/AdminScreenViewerTest.cpp)
+    target_link_libraries(AdminScreenViewerTest PRIVATE Network GUI Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+    add_test(NAME admin_screen_viewer COMMAND AdminScreenViewerTest)
+    set_tests_properties(admin_screen_viewer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

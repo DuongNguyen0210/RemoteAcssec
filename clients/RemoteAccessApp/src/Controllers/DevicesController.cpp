@@ -27,6 +27,8 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
         else if (m_view) m_view->showError(message);
     });
 
+    connect(m_sessionController, &AdminSessionController::frameReady,
+            this, &DevicesController::remoteFrameReady);
     connect(m_sessionController, &AdminSessionController::sessionEstablished,
             this, &DevicesController::handleSessionEstablished);
 
@@ -40,6 +42,7 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
     connect(m_sessionController, &AdminSessionController::sessionEnded,
             this, [this](quint64 remoteSessionId, const QString &agentSessionId, const QString &reason)
             {
+                emit remoteSessionEnded();
                 Q_UNUSED(remoteSessionId);
                 Q_UNUSED(agentSessionId);
                 if (m_view)

@@ -64,8 +64,7 @@ void TopBarWidget::setupUi()
 void TopBarWidget::setSearchPlaceholder(const QString &placeholder)
 {
     if (searchInput) {
-        Q_UNUSED(placeholder);
-        searchInput->setPlaceholderText("Tìm kiếm chung — Sắp có");
+        searchInput->setPlaceholderText(placeholder + QStringLiteral(" — Sắp có"));
         searchInput->clear();
     }
 }
