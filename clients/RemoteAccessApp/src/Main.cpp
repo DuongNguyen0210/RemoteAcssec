@@ -31,6 +31,14 @@ static QString loadStyleSheet()
 
 int main(int argc, char *argv[])
 {
+#if defined(Q_OS_LINUX)
+    // On Linux desktop, QtWayland disables QScreen::grabWindow(0) for security.
+    // Defaulting to xcb (XWayland) allows reliable screen capture.
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+        qputenv("QT_QPA_PLATFORM", "xcb");
+    }
+#endif
+
     QApplication app(argc, argv);
     QLocale::setDefault(QLocale(QLocale::Vietnamese, QLocale::Vietnam));
     QTranslator inputTranslation;
