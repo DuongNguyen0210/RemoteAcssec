@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <cstdint>
 
+#include "ScreenCapture.h"
 #include "Network/Protocol/RdtpStreamParser.h"
 
 class RelayClient;
@@ -46,6 +47,7 @@ private:
     bool         m_registered;
     uint64_t     m_currentSessionId;
     Protocol::RdtpStreamParser m_streamParser;
+    ScreenCapture m_capture;
 };
 
 #endif

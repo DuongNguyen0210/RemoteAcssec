@@ -31,16 +31,8 @@ static QString loadStyleSheet()
 
 int main(int argc, char *argv[])
 {
-#if defined(Q_OS_LINUX)
-    // On Linux desktop, QtWayland disables QScreen::grabWindow(0) for security.
-    // Defaulting to xcb (XWayland) if DISPLAY is available allows reliable screen capture.
-    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM") && !qEnvironmentVariableIsEmpty("DISPLAY")) {
-        qputenv("QT_QPA_PLATFORM", "xcb");
-    }
-#endif
-
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    // Enable High-DPI scaling for crisp rendering across Windows & Linux multi-monitor displays
+    // Hỗ trợ hiển thị sắc nét trên màn hình High-DPI (Windows 2K/4K/Surface scaling)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #endif
