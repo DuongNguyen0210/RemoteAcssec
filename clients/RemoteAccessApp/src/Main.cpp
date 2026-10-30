@@ -33,10 +33,16 @@ int main(int argc, char *argv[])
 {
 #if defined(Q_OS_LINUX)
     // On Linux desktop, QtWayland disables QScreen::grabWindow(0) for security.
-    // Defaulting to xcb (XWayland) allows reliable screen capture.
-    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+    // Defaulting to xcb (XWayland) if DISPLAY is available allows reliable screen capture.
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM") && !qEnvironmentVariableIsEmpty("DISPLAY")) {
         qputenv("QT_QPA_PLATFORM", "xcb");
     }
+#endif
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    // Enable High-DPI scaling for crisp rendering across Windows & Linux multi-monitor displays
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #endif
 
     QApplication app(argc, argv);
