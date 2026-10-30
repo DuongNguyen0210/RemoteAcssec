@@ -74,6 +74,21 @@ if(BUILD_TESTING)
         NAME admin_session_correlation
         COMMAND AdminSessionCorrelationTest
     )
+
+    add_executable(ScreenFrameReassemblerTest
+        tests/ScreenFrameReassemblerTest.cpp
+    )
+
+    target_link_libraries(ScreenFrameReassemblerTest PRIVATE
+        Network
+        Qt${QT_VERSION_MAJOR}::Test
+        Qt${QT_VERSION_MAJOR}::Core
+    )
+
+    add_test(
+        NAME screen_frame_reassembler
+        COMMAND ScreenFrameReassemblerTest
+    )
 endif()
 
 if(BUILD_TESTING)

@@ -67,7 +67,7 @@ void AdminSessionController::onRelayConnected()
     m_connected = true;
     m_connecting = false;
     m_streamParser = Protocol::RdtpStreamParser{};
-    m_frameAssemblies.clear();
+    m_frameReassembler.clear();
 
     if (m_requestPending)
         sendConnectRequest();
@@ -120,54 +120,17 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
         if (message.header.type == Protocol::MessageType::SCREEN_FRAME) {
-            if (m_activeSessionId == 0 || m_activeSessionId != message.header.sessionId)
-            {
-                continue;
-            }
-            if (message.payload.size() < ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE)
-            {
-                continue;
-            }
-            const auto *metadata =
-                reinterpret_cast<const uchar *>(message.payload.constData());
-
-            const quint32 frameId = qFromBigEndian<quint32>(metadata);
-            const quint32 chunkIndex = qFromBigEndian<quint32>(metadata + 4);
-            const quint32 chunkCount = qFromBigEndian<quint32>(metadata + 8);
-            const quint32 totalFrameSize = qFromBigEndian<quint32>(metadata + 12);
-
-            if (chunkCount == 0 || chunkCount <= chunkIndex || totalFrameSize == 0)
-            {
+            if (m_activeSessionId == 0 || m_activeSessionId != message.header.sessionId) {
                 continue;
             }
 
-            const QByteArray chunkData = message.payload.mid(ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE);
-            if (chunkData.isEmpty())
-            {
-                continue;
+            const auto reassembled = m_frameReassembler.feed(message.payload);
+            if (reassembled.has_value()) {
+                emit frameReceived(reassembled->frameId, reassembled->data);
             }
-            auto preFrame = m_frameAssemblies.find(frameId);
-            if (preFrame == m_frameAssemblies.end())
-            {
-                if (m_frameAssemblies.size() >= MAX_IN_FLIGHT_FRAMES)
-                {
-                    continue;
-                }
-
-                FrameAssembly newAssembly;
-                newAssembly.chunkCount = chunkCount;
-                newAssembly.totalFrameSize = totalFrameSize;
-
-                preFrame = m_frameAssemblies.insert(frameId, newAssembly);
-            }
-
-            FrameAssembly &assembly = preFrame.value();
-
-            Q_UNUSED(assembly);
-            Q_UNUSED(chunkData);
-
             continue;
         }
+
         if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
             continue;
 
@@ -215,6 +178,25 @@ void AdminSessionController::failPendingRequest(const QString &reason)
     emit requestFailed(failedAgentSessionId, reason);
 }
 
+void AdminSessionController::disconnectSession()
+{
+    if (m_activeSessionId == 0)
+        return;
+
+    const quint64 oldSessionId = m_activeSessionId;
+    const QString oldAgentSessionId = m_activeAgentSessionId;
+
+    m_activeSessionId = 0;
+    m_activeAgentSessionId.clear();
+    m_frameReassembler.clear();
+
+    if (m_connected) {
+        m_relayClient->DisconnectFromServer();
+    }
+
+    emit sessionEnded(oldSessionId, oldAgentSessionId, QStringLiteral("Nguoi dung chu dong ngat ket noi."));
+}
+
 void AdminSessionController::handleFatalRelayTermination(const QString &reason)
 {
     const QString tmp_activeAgentSessionId = m_activeAgentSessionId;
@@ -223,7 +205,7 @@ void AdminSessionController::handleFatalRelayTermination(const QString &reason)
     const bool tmp_requestPending = m_requestPending;
 
     m_streamParser = Protocol::RdtpStreamParser{};
-    m_frameAssemblies.clear();
+    m_frameReassembler.clear();
     m_activeAgentSessionId.clear();
     m_pendingAgentSessionId.clear();
     m_activeSessionId = 0;
