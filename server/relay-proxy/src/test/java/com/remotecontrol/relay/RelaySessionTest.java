@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RelaySessionTest {
     @Test void sameAccountSessionsRouteIndependentlyAndDuplicateCannotReplaceChannel() {
-        var registry = new RelayRegistry();
+        var registry = new RelayRegistry(session -> {});
         var laptop = new EmbeddedChannel(DefaultChannelId.newInstance());
         var pc = new EmbeddedChannel(DefaultChannelId.newInstance());
         var admin = new EmbeddedChannel(DefaultChannelId.newInstance());

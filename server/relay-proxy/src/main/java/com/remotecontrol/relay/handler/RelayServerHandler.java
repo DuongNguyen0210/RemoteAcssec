@@ -184,7 +184,12 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
         childChannel.writeAndFlush(new Protocol(header, new byte[0]));
     }
 
-    private void sendConnectResult(Channel adminChannel, boolean accepted, long sessionId) {
+    public static void notifyPendingTimeout(RelayRegistry.SessionRecord session) {
+        if (session.getAdminChannel().isActive()) sendConnectResult(session.getAdminChannel(), false, 0L);
+        session.getChildChannel().close();
+    }
+
+    private static void sendConnectResult(Channel adminChannel, boolean accepted, long sessionId) {
         byte[] payload = new byte[] {(byte) (accepted ? 1 : 0)};
         ProtocolHeader header = new ProtocolHeader(
                 ProtocolConstants.PROTOCOL_MAGIC,

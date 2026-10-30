@@ -128,6 +128,65 @@ private slots:
         QCOMPARE(child.sendScreenPacket(frame), qint64(-1));
     }
 
+    void childPendingTimeoutCloseResetsAndRegistersOnceAfterReconnect() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        QSignalSpy connections(&server, &QTcpServer::newConnection);
+        StaticRelayEndpointProvider provider("127.0.0.1", server.serverPort());
+        ChildSessionController child(&provider);
+        ApiClient::instance().setToken("test-token");
+        QSignalSpy started(&child, &ChildSessionController::sessionStarted);
+        QSignalSpy ended(&child, &ChildSessionController::sessionEnded);
+        QSignalSpy failed(&child, &ChildSessionController::sessionFailed);
+
+        child.start();
+        QTRY_COMPARE(connections.count(), 1);
+        auto *firstPeer = server.nextPendingConnection();
+        QVERIFY(firstPeer != nullptr);
+        QTRY_VERIFY(firstPeer->bytesAvailable() >= 24);
+        const auto firstRegistration = Protocol::ProtocolSerializer::deserializeHeader(firstPeer->readAll().left(24));
+        QVERIFY(firstRegistration.has_value());
+        QCOMPARE(firstRegistration->type, Protocol::MessageType::REGISTER_HOST);
+        firstPeer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
+        firstPeer->write(packet(Protocol::MessageType::SESSION_REQUEST, 70));
+        QTRY_COMPARE(started.count(), 1);
+        QCOMPARE(child.activeSessionId(), quint64(70));
+        QTRY_VERIFY(firstPeer->bytesAvailable() >= 24);
+        QCOMPARE(firstPeer->readAll(), packet(Protocol::MessageType::SESSION_ACCEPT, 70));
+
+        firstPeer->disconnectFromHost(); // Relay closes CHILD after pending timeout.
+        QTRY_COMPARE(ended.count(), 1);
+        QCOMPARE(child.activeSessionId(), quint64(0));
+        QCOMPARE(failed.count(), 0);
+        child.relayClient()->disconnected(); // A duplicate notification must not restart retry.
+        QCOMPARE(ended.count(), 1);
+        QCOMPARE(failed.count(), 0);
+
+        QTRY_COMPARE_WITH_TIMEOUT(connections.count(), 2, 4000);
+        auto *reconnectedPeer = server.nextPendingConnection();
+        QVERIFY(reconnectedPeer != nullptr);
+        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= 24);
+        const auto registrationBytes = reconnectedPeer->readAll();
+        const auto newRegistration = Protocol::ProtocolSerializer::deserializeHeader(registrationBytes.left(24));
+        QVERIFY(newRegistration.has_value());
+        QCOMPARE(newRegistration->type, Protocol::MessageType::REGISTER_HOST);
+        QCOMPARE(registrationBytes.size(), int(Protocol::HEADER_SIZE + newRegistration->payloadLength));
+        QVERIFY(!connections.wait(1700));
+        QCOMPARE(connections.count(), 2);
+        QCOMPARE(reconnectedPeer->bytesAvailable(), qint64(0));
+
+        reconnectedPeer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
+        reconnectedPeer->write(packet(Protocol::MessageType::SESSION_REQUEST, 71));
+        QTRY_COMPARE(started.count(), 2);
+        QCOMPARE(child.activeSessionId(), quint64(71));
+        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= 24);
+        QCOMPARE(reconnectedPeer->readAll(), packet(Protocol::MessageType::SESSION_ACCEPT, 71));
+        QCOMPARE(ended.count(), 1);
+        QCOMPARE(failed.count(), 0);
+        child.stop();
+        ApiClient::instance().setToken({});
+    }
+
     void childReportsPreActiveParserFatalAndReconnects() {
         QTcpServer server;
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));
@@ -457,6 +516,67 @@ private slots:
 
         QCOMPARE(failed.count(), 0);
         QCOMPARE(requestFailed.count(), 0);
+
+        ApiClient::instance().setToken({});
+        qunsetenv("REMOTE_RELAY_HOST");
+        qunsetenv("REMOTE_RELAY_PORT");
+    }
+
+    void adminPendingTimeoutFailureAllowsRetryWithoutDuplicateSignals() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        const QString agentA = QStringLiteral("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+        const QString agentB = QStringLiteral("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+        const QString token = QStringLiteral("test-token");
+        qputenv("REMOTE_RELAY_HOST", "127.0.0.1");
+        qputenv("REMOTE_RELAY_PORT", QByteArray::number(server.serverPort()));
+        ApiClient::instance().setToken(token);
+        AdminSessionController admin;
+        QSignalSpy requestFailed(&admin, &AdminSessionController::requestFailed);
+        QSignalSpy established(&admin, &AdminSessionController::sessionEstablished);
+        QSignalSpy ended(&admin, &AdminSessionController::sessionEnded);
+        QSignalSpy failed(&admin, &AdminSessionController::sessionFailed);
+
+        admin.requestSession(agentA);
+        QTRY_VERIFY(server.hasPendingConnections());
+        auto *peer = server.nextPendingConnection();
+        QVERIFY(peer != nullptr);
+        const auto expectedRequest = [&](const QString &agent) {
+            const QByteArray payload = Protocol::relayAuthPayload(token, agent);
+            Protocol::ProtocolHeader header(Protocol::MessageType::CONNECT_REQUEST);
+            header.payloadLength = static_cast<uint32_t>(payload.size());
+            return Protocol::ProtocolSerializer::serializeHeader(header) + payload;
+        };
+        const QByteArray firstRequest = expectedRequest(agentA);
+        QTRY_VERIFY(peer->bytesAvailable() >= firstRequest.size());
+        QCOMPARE(peer->read(firstRequest.size()), firstRequest);
+        QCOMPARE(requestFailed.count(), 0);
+
+        const QByteArray timeoutFailure = packet(Protocol::MessageType::CONNECT_RESULT, 0, QByteArray(1, '\0'));
+        QCOMPARE(peer->write(timeoutFailure + timeoutFailure), qint64(timeoutFailure.size() * 2));
+        QVERIFY(peer->flush());
+        QTRY_COMPARE(requestFailed.count(), 1);
+        QTest::qWait(50);
+        QCOMPARE(requestFailed.count(), 1);
+        QCOMPARE(requestFailed.at(0).at(0).toString(), agentA);
+        QVERIFY(!requestFailed.at(0).at(1).toString().isEmpty());
+        QCOMPARE(established.count(), 0);
+        QCOMPARE(ended.count(), 0);
+        QCOMPARE(failed.count(), 0);
+        QCOMPARE(peer->state(), QAbstractSocket::ConnectedState);
+
+        admin.requestSession(agentB);
+        const QByteArray secondRequest = expectedRequest(agentB);
+        QTRY_VERIFY(peer->bytesAvailable() >= secondRequest.size());
+        QCOMPARE(peer->read(secondRequest.size()), secondRequest);
+        QCOMPARE(requestFailed.count(), 1);
+        peer->write(packet(Protocol::MessageType::CONNECT_RESULT, 72, QByteArray(1, '\1')));
+        QTRY_COMPARE(established.count(), 1);
+        QCOMPARE(established.at(0).at(0).toULongLong(), quint64(72));
+        QCOMPARE(established.at(0).at(1).toString(), agentB);
+        QCOMPARE(requestFailed.count(), 1);
+        QCOMPARE(ended.count(), 0);
+        QCOMPARE(failed.count(), 0);
 
         ApiClient::instance().setToken({});
         qunsetenv("REMOTE_RELAY_HOST");
