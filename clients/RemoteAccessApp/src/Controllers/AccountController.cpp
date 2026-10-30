@@ -124,6 +124,7 @@ void AccountController::handleRegisterRequested(const QString &childUsername, co
     m_failedImportCount = 0;
     m_importErrors.clear();
 
+
     for (const auto &acc : listAccounts) {
         m_accountService->createSubAccount(acc.childUsername, acc.password);
     }
