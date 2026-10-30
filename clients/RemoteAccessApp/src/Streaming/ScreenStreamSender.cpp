@@ -164,7 +164,7 @@ void ScreenStreamSender::handleSessionRequest(
             && message.payload.isEmpty();
 
     if (!validRequest) {
-        qWarning() << "[ScreenStreamSender] SESSION_REQUEST khong hop le.";
+        qWarning() << "[ScreenStreamSender] SESSION_REQUEST không hợp lệ.";
         return;
     }
 

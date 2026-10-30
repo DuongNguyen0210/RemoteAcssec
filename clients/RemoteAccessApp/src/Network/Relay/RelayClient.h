@@ -26,7 +26,7 @@ signals:
     void connected();
     void disconnected();
     void bytesReceived(const QByteArray &data);
-    void transportError(const QString &message);
+    void transportError(const QString &message, QAbstractSocket::SocketError socketError);
 
 private slots:
     void onConnected();

@@ -37,12 +37,25 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
                 handleSessionFailed(reason);
             });
 
+    connect(m_sessionController, &AdminSessionController::sessionEnded,
+            this, [this](quint64 remoteSessionId, const QString &agentSessionId, const QString &reason)
+            {
+                Q_UNUSED(remoteSessionId);
+                Q_UNUSED(agentSessionId);
+                if (m_view)
+                {
+                    m_view->showError(QStringLiteral("Phiên điều khiển đã kết thúc %1").arg(reason));
+                }
+            });
+
     connect(m_sessionController, &AdminSessionController::sessionFailed,
             this, &DevicesController::handleSessionFailed);
 
     if (m_store && !m_store->getDevices().isEmpty()) {
         m_view->updateDeviceList(m_store->getDevices());
     }
+
+
 }
 
 DevicesController::~DevicesController()

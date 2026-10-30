@@ -23,7 +23,7 @@ public class RelayServer {
 
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
-        RelayRegistry relayRegistry = new RelayRegistry();
+        RelayRegistry relayRegistry = new RelayRegistry(RelayServerHandler::notifyPendingTimeout);
         var authorizer = new com.remotecontrol.relay.auth.RelayAuthorizer(config);
         var reporter = new RelayNodeReporter(config, relayRegistry);
 

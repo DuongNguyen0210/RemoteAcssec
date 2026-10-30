@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RelayForwardingTest {
     @Test void forwardsOnlyActivePeersInAllowedDirectionWithoutChangingPackets() {
-        var registry = new RelayRegistry();
+        var registry = new RelayRegistry(session -> {});
         var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
         var admin = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
         var stranger = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
