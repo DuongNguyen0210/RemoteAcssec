@@ -6,6 +6,7 @@
 #include <QString>
 #include "Domain/Model/DeviceInfo.h"
 
+class QImage;
 class DevicesPage;
 class DeviceStore;
 class DeviceService;
@@ -23,6 +24,8 @@ public:
     void disconnectCurrentSession();
 
 signals:
+    void remoteFrameReady(quint64 sessionId, const QImage &image);
+    void remoteSessionEnded();
     void remoteSessionStarted(quint64 sessionId, const QString &agentSessionId);
     void frameReceived(quint32 frameId, const QByteArray &jpegData);
     void sessionEnded(quint64 sessionId, const QString &agentSessionId, const QString &reason);
@@ -38,6 +41,7 @@ private:
     DeviceStore *m_store;
     DeviceService *m_deviceService;
     AdminSessionController *m_sessionController;
+    bool m_requestedDisconnect = false;
 };
 
 #endif

@@ -1,6 +1,7 @@
 #include "SessionsPage.h"
 
 #include <QFrame>
+#include "GUI/Components/RemoteScreenWidget.h"
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -92,7 +93,9 @@ QFrame *sessionCard(const QString &device, const QString &address, const QString
     QHBoxLayout *actions = new QHBoxLayout();
     actions->setSpacing(12);
     actions->addWidget(actionButton("Xem màn hình", "secondaryActionButton", card));
-    actions->addWidget(actionButton("Ngắt kết nối", "dangerActionButton", card));
+    auto *disconnectButton = actionButton("Ngắt kết nối", "dangerActionButton", card);
+    disconnectButton->setObjectName("disconnectSessionButton");
+    actions->addWidget(disconnectButton);
     layout->addLayout(actions);
 
     return card;
@@ -125,9 +128,9 @@ void SessionsPage::setupUi()
     QGridLayout *metrics = new QGridLayout();
     metrics->setHorizontalSpacing(16);
     metrics->setVerticalSpacing(16);
-    metrics->addWidget(metricCard("2", "Phiên đang hoạt động", "1 quản trị viên đang xem", this), 0, 0);
-    metrics->addWidget(metricCard("98%", "Chất lượng truyền", "Kết nối ổn định", this), 0, 1);
-    metrics->addWidget(metricCard("01:30", "Thời lượng trung bình", "Các phiên đang hoạt động", this), 0, 2);
+    metrics->addWidget(metricCard("—", "Phiên đang hoạt động", "Thông tin chưa có", this), 0, 0);
+    metrics->addWidget(metricCard("—", "Chất lượng truyền", "Thông tin chưa có", this), 0, 1);
+    metrics->addWidget(metricCard("—", "Thời lượng trung bình", "Thông tin chưa có", this), 0, 2);
     mainLayout->addLayout(metrics);
 
     QScrollArea *scrollArea = new QScrollArea(this);
@@ -140,16 +143,42 @@ void SessionsPage::setupUi()
     QVBoxLayout *sessions = new QVBoxLayout(scrollContent);
     sessions->setContentsMargins(0, 0, 0, 0);
     sessions->setSpacing(16);
-    sessions->addWidget(sessionCard("SRV-APOLLO-01", "192.168.1.105", "j.doe@company.com", "02:45:12", "Rất tốt", scrollContent));
-    sessions->addWidget(sessionCard("MBP-SARAH-DESIGN", "10.0.0.42", "s.smith@company.com", "00:15:30", "Tốt", scrollContent));
+    m_sessionCard = sessionCard("Phiên hiện tại", "—", "—", "—", "—", scrollContent);
+    m_sessionCard->hide();
+    sessions->addWidget(m_sessionCard);
+    m_viewer = new RemoteScreenWidget(scrollContent);
+    m_viewer->setObjectName("screenViewer");
+    m_viewer->setMinimumSize(320, 240);
+    sessions->addWidget(m_viewer, 1);
     sessions->addStretch();
 
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea, 1);
     for (auto *button : findChildren<QPushButton*>()) {
+        if (button->objectName() == "disconnectSessionButton") {
+            connect(button, &QPushButton::clicked, this, &SessionsPage::disconnectRequested);
+            continue;
+        }
         button->setEnabled(false);
         button->setText(button->text() + " · Sắp có");
         button->setToolTip("Sắp có");
     }
 
+}
+
+void SessionsPage::setFrame(const QImage &image)
+{
+    static_cast<RemoteScreenWidget *>(m_viewer)->updateFrame(image);
+}
+
+void SessionsPage::clearFrame()
+{
+    static_cast<RemoteScreenWidget *>(m_viewer)->clearFrame();
+    m_sessionCard->hide();
+}
+
+void SessionsPage::showSession()
+{
+    clearFrame();
+    m_sessionCard->show();
 }

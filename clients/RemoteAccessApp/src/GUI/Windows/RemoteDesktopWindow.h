@@ -16,6 +16,7 @@ public:
     ~RemoteDesktopWindow() override = default;
 
     void updateFrame(const QImage &image);
+    void closeForSessionEnd();
     void setSessionInfo(quint64 sessionId, const QString &targetName);
     void updateStatus(const QString &statusText);
 
@@ -41,6 +42,8 @@ private:
     QLabel *m_lblStats = nullptr;
     QPushButton *m_btnDisconnect = nullptr;
 
+    bool m_inCloseEvent = false;
+    bool m_disconnectEmitted = false;
     int m_lastFps = 0;
     QSize m_lastResolution;
 };

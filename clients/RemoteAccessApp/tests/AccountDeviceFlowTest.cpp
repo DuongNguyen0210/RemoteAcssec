@@ -173,11 +173,12 @@ private slots:
         dialog.reject();
         QVERIFY(password->text().isEmpty());
     }
-    void adminStartsWithAccountsAndLoadsDevicesOnlyOnDemand() {
+    void adminStartsWithAccountsAndReceivesDeviceUpdates() {
         QTcpServer server;
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));
         qputenv("REMOTE_API_URL", QString("http://127.0.0.1:%1").arg(server.serverPort()).toUtf8());
-        int accountsRequests = 0, deviceRequests = 0, updateRequests = 0, createRequests = 0, deleteRequests = 0;
+        int accountsRequests = 0, deviceRequests = 0, sseRequests = 0, updateRequests = 0, createRequests = 0, deleteRequests = 0;
+        QPointer<QTcpSocket> ssePeer;
         bool hasAccount = true;
         bool online = true;
         bool failDevices = false;
@@ -195,7 +196,13 @@ private slots:
                     if (bytes.size() < headerEnd + contentLength) return;
                     socket->setProperty("answered", true);
                     QByteArray body;
-                    if (bytes.startsWith("GET /api/v1/child ")) {
+                    if (bytes.startsWith("GET /api/v1/devices/events ")) {
+                        ++sseRequests;
+                        ssePeer = socket;
+                        socket->write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: keep-alive\r\n\r\n");
+                        socket->flush();
+                        return;
+                    } else if (bytes.startsWith("GET /api/v1/child ")) {
                         ++accountsRequests;
                         body = hasAccount ? R"({"success":true,"data":[{"id":12,"username":"ownerchild","childUsername":"child"}]})" : R"({"success":true,"data":[]})";
                     } else if (bytes.startsWith("DELETE /api/v1/child/ownerchild ")) {
@@ -239,8 +246,16 @@ private slots:
         QVERIFY(accounts && devices);
         QTRY_COMPARE(accounts->getAccounts().size(), 1);
         QCOMPARE(accountsRequests, 1);
-        QCOMPARE(deviceRequests, 0);
-        QVERIFY(devices->getDevices().isEmpty());
+        QTRY_COMPARE(deviceRequests, 1);
+        QTRY_COMPARE(sseRequests, 1);
+        QTRY_COMPARE(devices->getDevices().size(), 2);
+        QVERIFY(ssePeer);
+        ssePeer->write("event: device-list\ndata: []\n\n");
+        ssePeer->flush();
+        QTRY_VERIFY(devices->getDevices().isEmpty());
+        ssePeer->write("event: device-list\ndata: [{\"sessionId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"deviceName\":\"Laptop\"},{\"sessionId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"deviceName\":\"PC\"}]\n\n");
+        ssePeer->flush();
+        QTRY_COMPARE(devices->getDevices().size(), 2);
         MainWindow *window = nullptr;
         for (auto *widget : QApplication::topLevelWidgets()) {
             if (auto *candidate = qobject_cast<MainWindow*>(widget)) window = candidate;
@@ -264,7 +279,9 @@ private slots:
         }
         QVERIFY(devicesButton);
         QTest::mouseClick(devicesButton, Qt::LeftButton);
+        QTRY_COMPARE(deviceRequests, 2);
         QTRY_COMPARE(devices->getDevices().size(), 2);
+        QTRY_COMPARE(devices->getDevices().first().username, QStringLiteral("ownerchild"));
         QCOMPARE(accounts->getAccounts().size(), 1);
         QCOMPARE(accountsRequests, 1);
         auto *page = window->findChild<DevicesPage*>();
@@ -315,17 +332,28 @@ private slots:
         QTRY_COMPARE(updateRequests, 1);
         QTRY_COMPARE(accountsRequests, 2);
         QTRY_VERIFY(window->findChild<EditAccountDialog*>() == nullptr);
+        auto deleteAccountButton = [accountPage]() -> QPushButton * {
+            for (auto *button : accountPage->findChildren<QPushButton*>("deleteAccountButton"))
+                if (button->isVisible() && button->isEnabled()) return button;
+            return nullptr;
+        };
+        QTRY_VERIFY(deleteAccountButton() != nullptr);
         QTimer::singleShot(0, []() {
             if (auto *confirmation = qobject_cast<QDialog*>(QApplication::activeModalWidget())) confirmation->accept();
         });
-        accountPage->findChild<QPushButton*>("deleteAccountButton")->click();
+        deleteAccountButton()->click();
         QTRY_COMPARE(deleteRequests, 1);
         QTRY_VERIFY(accounts->getAccounts().isEmpty());
         QTRY_COMPARE(accountsRequests, 3);
         QVERIFY(QApplication::activeModalWidget() == nullptr);
-        for (auto *button : accountPage->findChildren<QPushButton*>()) {
-            if (button->isVisible() && button->text() == "Thêm tài khoản") { button->click(); break; }
-        }
+        auto addAccountButton = [accountPage]() -> QPushButton * {
+            for (auto *button : accountPage->findChildren<QPushButton*>()) {
+                if (button->isVisible() && button->text() == "Thêm tài khoản") return button;
+            }
+            return nullptr;
+        };
+        QTRY_VERIFY(addAccountButton() != nullptr);
+        addAccountButton()->click();
         auto *create = window->findChild<CreateAccountDialog*>();
         QVERIFY(create);
         create->findChild<QLineEdit*>("createChildUsername")->setText("child");

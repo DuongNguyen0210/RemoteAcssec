@@ -3,11 +3,14 @@
 
 #include <QByteArray>
 #include <QHash>
+#include <QElapsedTimer>
 #include <QList>
 #include <QVector>
 #include <QtGlobal>
 #include <cstdint>
 #include <optional>
+
+class AdminScreenViewerTest;
 
 namespace Protocol {
 
@@ -35,6 +38,10 @@ class ScreenFrameReassembler
 public:
     static constexpr int METADATA_SIZE = 16;
     static constexpr int MAX_IN_FLIGHT_FRAMES = 4;
+    static constexpr quint32 MAX_FRAME_BYTES = 8 * 1024 * 1024;
+    static constexpr quint64 MAX_IN_FLIGHT_BYTES = 16 * 1024 * 1024;
+    static constexpr quint32 MAX_CHUNKS = 4096;
+    static constexpr qint64 FRAME_TTL_MS = 5000;
 
     ScreenFrameReassembler();
     ~ScreenFrameReassembler() = default;
@@ -55,21 +62,31 @@ public:
      * @brief Returns current number of incomplete frames in memory.
      */
     int inFlightCount() const;
+    void prune();
 
 private:
+    friend class ::AdminScreenViewerTest;
     struct FrameState
     {
         quint32 frameId = 0;
         quint32 chunkCount = 0;
         quint32 totalFrameSize = 0;
         quint32 receivedChunks = 0;
+        quint32 receivedBytes = 0;
+        qint64 createdAt = 0;
         QVector<QByteArray> chunks;
     };
 
     void evictOldest();
+    void removeFrame(quint32 id);
+    static bool isNewer(quint32 candidate, quint32 reference);
 
     QHash<quint32, FrameState> m_frames;
     QList<quint32> m_arrivalOrder;
+    QElapsedTimer m_clock;
+    quint64 m_reservedBytes = 0;
+    bool m_hasCompleted = false;
+    quint32 m_latestCompleted = 0;
 };
 
 } // namespace Protocol
