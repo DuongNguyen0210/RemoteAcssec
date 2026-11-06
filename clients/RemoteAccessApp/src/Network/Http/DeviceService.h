@@ -5,7 +5,7 @@ class QNetworkReply;
 #include <QList>
 #include "Domain/Model/DeviceInfo.h"
 
-class DeviceSseStream;
+class SseClient;
 
 class DeviceService : public QObject {
     Q_OBJECT
@@ -35,5 +35,5 @@ private:
     void receiveEndpoint(QNetworkReply *reply, RelayEndpointProvider::Callback callback);
 
     bool m_loading = false;
-    DeviceSseStream *m_sseStream = nullptr;
+    SseClient *m_sseClient = nullptr;
 };
