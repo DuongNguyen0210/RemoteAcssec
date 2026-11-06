@@ -9,18 +9,18 @@
 #include <QStringList>
 #include <QVBoxLayout>
 
-MainWindow::MainWindow(DevicesPage *devicesPage, AccountPage *accountPage, QWidget *parent)
+MainWindow::MainWindow(DevicesPage *devicesPage, AccountPage *accountPage, SettingsPage *settingsPage, QWidget *parent)
     : QMainWindow(parent)
 {
     setObjectName("mainWindow");
     resize(1200, 800);
     setWindowTitle("RemoteAccess");
-    setupUi(devicesPage, accountPage);
+    setupUi(devicesPage, accountPage, settingsPage);
 }
 
 MainWindow::~MainWindow() {}
 
-void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
+void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage, SettingsPage *settingsPage)
 {
     QWidget *centralWidget = new QWidget(this);
     centralWidget->setObjectName("appRoot");
@@ -50,7 +50,7 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
     stackedWidget->setObjectName("contentStack");
 
     SessionsPage *pageSessions = new SessionsPage(this);
-    SettingsPage *pageSettings = new SettingsPage(this);
+    SettingsPage *pageSettings = settingsPage ? settingsPage : new SettingsPage(this);
     LogsPage *pageLogs = new LogsPage(this);
 
     if (devicesPage) {

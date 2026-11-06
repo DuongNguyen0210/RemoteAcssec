@@ -27,6 +27,9 @@ public:
     void setToken(const QString &token);
     QString getToken() const;
 
+    void setBaseUrl(const QString &url);
+    QString getBaseUrl() const;
+
     /** Returns the underlying network manager (needed for long-lived SSE connections). */
     QNetworkAccessManager* getManager() const { return m_networkManager; }
 
