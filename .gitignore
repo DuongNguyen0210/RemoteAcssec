@@ -101,3 +101,15 @@ Thumbs.db
 # Local deployment secrets
 infrastructure/.env
 *.autosave
+
+# =========================
+# Planning & Tasks (Local only)
+# =========================
+tasks/
+*plan*.md
+*todo*.md
+
+# =========================
+# Standalone Test Scripts
+# =========================
+server/tests/
