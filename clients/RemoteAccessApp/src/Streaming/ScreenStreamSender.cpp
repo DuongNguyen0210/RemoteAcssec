@@ -209,16 +209,15 @@ void ScreenStreamSender::onTick()
         return;
     }
 
-    static ScreenCapture capture;
-    QImage frame = capture.capture();
+    const QImage frame = m_capture.capture();
     if (frame.isNull()) {
-        qWarning() << "[ScreenStreamSender] Capture failed, skipping frame.";
+        qWarning() << "[ScreenStreamSender] Chụp khung hình thất bại.";
         return;
     }
 
-    QByteArray encoded = ScreenEncoder::encodeJpeg(frame);
+    const QByteArray encoded = ScreenEncoder::encodeJpeg(frame);
     if (encoded.isEmpty()) {
-        qWarning() << "[ScreenStreamSender] Encode failed, skipping frame.";
+        qWarning() << "[ScreenStreamSender] Mã hoá JPEG thất bại.";
         return;
     }
 

@@ -20,9 +20,12 @@ public:
 
     DevicesPage* getView() const;
     void refresh();
+    void disconnectCurrentSession();
 
 signals:
     void remoteSessionStarted(quint64 sessionId, const QString &agentSessionId);
+    void frameReceived(quint32 frameId, const QByteArray &jpegData);
+    void sessionEnded(quint64 sessionId, const QString &agentSessionId, const QString &reason);
 
 private slots:
     void onDevicesUpdated(const QList<DeviceInfo> &devices);

@@ -9,6 +9,7 @@
 #include <QVector>
 
 #include "Network/Protocol/RdtpStreamParser.h"
+#include "Network/Protocol/ScreenFrameReassembler.h"
 #include <QAbstractSocket>
 
 class RelayClient;
@@ -21,12 +22,14 @@ public:
     explicit AdminSessionController(QObject *parent = nullptr);
 
     void requestSession(const QString &targetAgentSessionId);
+    void disconnectSession();
 
 signals:
     void sessionEstablished(quint64 remoteSessionId, const QString &agentSessionId );
     void sessionFailed(const QString &reason);
     void requestFailed(const QString &agentSessionId, const QString &reason);
     void sessionEnded(quint64 remoteSessionId, const QString &agentSessionId, const QString &reason);
+    void frameReceived(quint32 frameId, const QByteArray &jpegData);
 
 private slots:
     void onRelayConnected();
@@ -35,15 +38,6 @@ private slots:
     void onRelayError(const QString &message, QAbstractSocket::SocketError socketError);
 
 private:
-    static constexpr int MAX_IN_FLIGHT_FRAMES = 4;
-
-    struct FrameAssembly
-    {
-        quint32 chunkCount = 0;
-        quint32 totalFrameSize = 0;
-        quint32 receivedChunkCount = 0;
-        QVector<QByteArray> chunks;
-    };
     void sendConnectRequest();
     void failPendingRequest(const QString &reason);
     void handleFatalRelayTermination(const QString &reason);
@@ -51,7 +45,7 @@ private:
 
     RelayClient *m_relayClient;
     Protocol::RdtpStreamParser m_streamParser;
-    QHash<quint32, FrameAssembly> m_frameAssemblies;
+    Protocol::ScreenFrameReassembler m_frameReassembler;
     QString m_activeAgentSessionId;
     QString m_pendingAgentSessionId;
     quint64 m_activeSessionId;

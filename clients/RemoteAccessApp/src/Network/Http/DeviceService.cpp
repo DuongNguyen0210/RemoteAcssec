@@ -1,8 +1,68 @@
 #include "DeviceService.h"
 #include "ApiClient.h"
+#include "SseClient.h"
 #include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QUuid>
 #include <QTimer>
+#include <QDebug>
+
+namespace {
+    /**
+     * Shared helper to parse an array of JSON objects into QList<DeviceInfo>.
+     * Used by both fetchDevices() (REST) and SseClient (Real-time stream).
+     */
+    QList<DeviceInfo> parseDeviceListFromJson(const QJsonArray &array)
+    {
+        QList<DeviceInfo> devices;
+        for (const auto &value : array) {
+            auto obj = value.toObject();
+            DeviceInfo device;
+            device.sessionId = obj.value("sessionId").toString();
+            device.childId = obj.value("childId").toVariant().toLongLong();
+            device.username = obj.value("username").toString();
+            device.deviceName = obj.value("deviceName").toString();
+            device.os = obj.value("os").toString();
+            device.ipAddress = obj.value("ipAddress").toString();
+            device.lastHeartbeatAt = obj.value("lastHeartbeatAt").toVariant().toLongLong();
+            if (!device.sessionId.isEmpty()) {
+                devices.append(device);
+            }
+        }
+        return devices;
+    }
+}
+
+DeviceService::DeviceService(QObject *parent)
+    : QObject(parent)
+    , m_sseClient(new SseClient(QStringLiteral("/api/v1/devices/events"), this))
+{
+    // Listen to generic SSE events and parse only "device-list" payloads
+    connect(m_sseClient, &SseClient::eventReceived, this, [this](const QString &event, const QByteArray &data) {
+        if (event == QLatin1String("device-list")) {
+            QJsonParseError parseError;
+            QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+            if (parseError.error != QJsonParseError::NoError || !doc.isArray()) {
+                qWarning() << "[DeviceService] SSE JSON parse error:" << parseError.errorString();
+                return;
+            }
+            QList<DeviceInfo> devices = parseDeviceListFromJson(doc.array());
+            qDebug() << "[DeviceService] Received SSE device list update:" << devices.size() << "devices";
+            emit devicesResult(true, devices, QStringLiteral("SSE update"));
+        }
+    });
+}
+
+void DeviceService::startSseStream()
+{
+    m_sseClient->start();
+}
+
+void DeviceService::stopSseStream()
+{
+    m_sseClient->stop();
+}
 
 void DeviceService::fetchDevices()
 {
@@ -22,23 +82,7 @@ void DeviceService::fetchDevices()
                     ? QStringLiteral("Không thể cập nhật danh sách thiết bị") : response.message);
             return;
         }
-        QList<DeviceInfo> devices;
-        for (const auto &value : response.data.toArray()) {
-            auto obj = value.toObject();
-            DeviceInfo device;
-            device.sessionId = obj.value("sessionId").toString();
-            device.childId = obj.value("childId").toVariant().toLongLong();
-            device.username = obj.value("username").toString();
-            device.deviceName = obj.value("deviceName").toString();
-            device.os = obj.value("os").toString();
-            device.ipAddress = obj.value("ipAddress").toString();
-            device.lastHeartbeatAt = obj.value("lastHeartbeatAt").toVariant().toLongLong();
-            if (device.sessionId.isEmpty()) {
-                emit devicesResult(false, {}, QStringLiteral("Thiết bị thiếu ID phiên đăng nhập"));
-                return;
-            }
-            devices.append(device);
-        }
+        QList<DeviceInfo> devices = parseDeviceListFromJson(response.data.toArray());
         emit devicesResult(true, devices, response.message);
     });
 }

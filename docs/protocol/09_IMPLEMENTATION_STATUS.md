@@ -343,25 +343,55 @@ Runtime từng quan sát `sessionId=1`, nhưng `1` chỉ là ví dụ. Giao th�
 cầu dùng nhất quán cùng một ID **khác `0`** từ handshake đến định tuyến màn hình.
 
 
+### Giai đoạn 5 - ADMIN Tiếp nhận, Ghép khung hình & Hiển thị màn hình
+
+Giai đoạn 5 hoàn thiện chu trình truyền hình ảnh từ CHILD sang ADMIN:
+
+```text
+CHILD SCREEN_FRAME chunks
+→ Relay chuyển tiếp nguyên bản
+→ AdminSessionController hứng gói tin
+→ ScreenFrameReassembler phân tích Big Endian metadata và gom chunks
+→ Đủ chunks: trả về QByteArray chứa toàn bộ JPEG gốc
+→ AppCoordinator giải mã JPEG -> QImage
+→ RemoteDesktopWindow / RemoteScreenWidget vẽ mượt mà với tỉ lệ chuẩn
+```
+
+#### Các thành phần chính đã triển khai:
+
+1. **`ScreenFrameReassembler` (`Protocol::ScreenFrameReassembler`)**:
+   - Module độc lập tuân thủ SRP, đặt trong `Network/Protocol/`.
+   - Giải mã 16 byte metadata Big Endian (`frameId`, `chunkIndex`, `chunkCount`, `totalFrameSize`).
+   - Quản lý hàng đợi `MAX_IN_FLIGHT_FRAMES = 4`, tự động evict frame cũ nhất theo thứ tự FIFO khi đầy để chống tràn bộ nhớ.
+   - An toàn tuyệt đối trước chunk trùng lặp (duplicate), phân mảnh hoặc chunk sai thứ tự.
+   - Trả về `ReassembledFrame` khi nhận đủ 100% các chunk.
+
+2. **`RemoteScreenWidget` & `RemoteDesktopWindow`**:
+   - `RemoteScreenWidget`: Widget vẽ hình ảnh giữ đúng tỉ lệ khung hình (`Qt::KeepAspectRatio`), tính toán và phát tín hiệu FPS thời gian thực.
+   - `RemoteDesktopWindow`: Cửa sổ chuyên dụng với thanh điều khiển hiện đại, hiển thị ID phiên, độ phân giải, FPS và nút "Ngắt kết nối".
+
+3. **Điều phối vòng đời phiên (`DevicesController` & `AppCoordinator`)**:
+   - `AdminSessionController` phát tín hiệu `frameReceived(frameId, jpegData)` và cung cấp `disconnectSession()`.
+   - `DevicesController` kết nối tín hiệu giữa tầng mạng và tầng ứng dụng.
+   - `AppCoordinator` khởi tạo và hiển thị `RemoteDesktopWindow` khi phiên được thiết lập, giải mã ảnh JPEG sang `QImage`, truyền vào widget và dọn dẹp phiên khi kết thúc.
+
+#### Kết quả xác minh:
+- [x] Đã bổ sung bộ kiểm thử `ScreenFrameReassemblerTest` kiểm tra toàn bộ các kịch bản: 1 chunk, nhiều chunks đúng thứ tự, nhiều chunks đảo thứ tự, duplicate chunks, metadata sai lệch, và cơ chế eviction.
+- [x] 100% unit tests của dự án đều PASS.
+- [x] Toàn bộ Client C++ biên dịch thành công không có cảnh báo/lỗi.
+
 ---
 
 ## Chưa triển khai
 
 Các chức năng dưới đây **chưa được triển khai** trong phạm vi hiện tại:
 
-- `ScreenFrameReassembler` phía ADMIN.
-- ADMIN giải mã JPEG.
-- ADMIN tạo `QImage`.
-- Hiển thị màn hình bằng Qt.
-- Chuyển tiếp chuột và bàn phím.
+- Chuyển tiếp chuột và bàn phím (Remote Input).
 - Luồng giao thức `DISCONNECT` tường minh.
 - Xác thực JWT trên kết nối Relay.
 - Tự động kết nối lại và phục hồi phiên.
 - Lưu phiên bền vững.
 - Triển khai qua Internet từ xa.
-
-ADMIN nhận byte màn hình nhưng chưa ghép, giải mã hoặc hiển thị nội dung. Các
-chức năng đó thuộc những giai đoạn sau.
 
 ---
 
@@ -383,9 +413,10 @@ chức năng đó thuộc những giai đoạn sau.
 [DONE] Cấp phát và quản lý phiên PENDING / ACTIVE trong bộ nhớ
 [DONE] SESSION_REQUEST / SESSION_ACCEPT / SESSION_REJECT
 [DONE] Gắn sessionId vào SCREEN_FRAME và chuyển trực tiếp từng chunk đến ADMIN
-[ ]    ADMIN nhận, ghép lại và hiển thị màn hình
-[ ]    Các trường telemetry trực tiếp
-[ ]    Xác thực JWT trên Relay
+[DONE] ADMIN nhận, ghép lại và hiển thị màn hình (Phase 5)
+[ ]    Chuyển tiếp chuột và bàn phím (Remote Input - Phase 6)
+[ ]    Luồng kết thúc phiên DISCONNECT tường minh (Phase 7)
+[ ]    Xác thực JWT trên Relay & Tối ưu hiệu năng (Phase 8)
 ```
 
 ---

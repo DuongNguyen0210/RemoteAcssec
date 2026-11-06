@@ -8,25 +8,22 @@
 QImage ScreenCapture::capture() const
 {
     QScreen *screen = QGuiApplication::primaryScreen();
-
     if (!screen) {
-        qWarning() << "[ScreenCapture] No primary screen available.";
+        qWarning() << "[ScreenCapture] Không tìm thấy màn hình chính.";
         return QImage{};
     }
 
-    QPixmap pixmap = screen->grabWindow(0);
+    const QRect geom = screen->geometry();
+    QPixmap pixmap = screen->grabWindow(0, geom.x(), geom.y(), geom.width(), geom.height());
 
     if (pixmap.isNull()) {
-        qWarning() << "[ScreenCapture] grabWindow(0) returned a null pixmap.";
+        pixmap = screen->grabWindow(0);
+    }
+
+    if (pixmap.isNull()) {
+        qWarning() << "[ScreenCapture] Chụp màn hình thất bại.";
         return QImage{};
     }
 
-    QImage image = pixmap.toImage();
-
-    qDebug() << "[ScreenCapture] captured"
-             << "width="  << image.width()
-             << "height=" << image.height()
-             << "format=" << image.format();
-
-    return image;
+    return pixmap.toImage();
 }

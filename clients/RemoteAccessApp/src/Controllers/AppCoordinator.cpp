@@ -4,6 +4,7 @@
 #include "DevicesController.h"
 #include "AccountController.h"
 #include "GUI/Windows/MainWindow.h"
+#include "GUI/Windows/RemoteDesktopWindow.h"
 #include "Network/Http/HeartbeatReporter.h"
 #include "Streaming/ScreenStreamSender.h"
 #include "Network/Relay/ChildSessionController.h"
@@ -32,6 +33,7 @@ AppCoordinator::AppCoordinator(QObject *parent)
 
 AppCoordinator::~AppCoordinator()
 {
+    if (m_remoteDesktopWindow) m_remoteDesktopWindow->deleteLater();
     if (m_authController) m_authController->deleteLater();
     if (m_mainWindow) m_mainWindow->deleteLater();
     if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
@@ -56,17 +58,26 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
         m_deviceStore = new DeviceStore(this);
         m_accountStore = new AccountStore(this);
 
-        m_devicesController = new DevicesController(m_deviceStore, new DeviceService(this), this);
+        auto *deviceService = new DeviceService(this);
+        m_devicesController = new DevicesController(m_deviceStore, deviceService, this);
         m_accountController = new AccountController(m_accountStore, new AccountService(this), this);
 
         m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView());
 
         connect(m_devicesController, &DevicesController::remoteSessionStarted,
                 this, &AppCoordinator::handleRemoteSessionStarted);
+        connect(m_devicesController, &DevicesController::frameReceived,
+                this, &AppCoordinator::handleFrameReceived);
+        connect(m_devicesController, &DevicesController::sessionEnded,
+                this, &AppCoordinator::handleSessionEnded);
         connect(m_mainWindow, &MainWindow::pageSelected,
                 this, &AppCoordinator::handlePageSelected);
 
         m_mainWindow->show();
+
+        // Initial fetch + start SSE stream for real-time push updates
+        m_devicesController->refresh();
+        deviceService->startSseStream();
 
         m_accountController->fetchAccounts();
     }
@@ -112,4 +123,47 @@ void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString
 {
     qDebug() << "[AppCoordinator] Remote session started for" << agentSessionId
              << "sessionId=" << sessionId;
+
+    if (m_remoteDesktopWindow) {
+        m_remoteDesktopWindow->close();
+        m_remoteDesktopWindow->deleteLater();
+    }
+
+    m_remoteDesktopWindow = new RemoteDesktopWindow(sessionId, agentSessionId);
+    connect(m_remoteDesktopWindow, &RemoteDesktopWindow::disconnectRequested,
+            this, &AppCoordinator::handleDisconnectRequested);
+    m_remoteDesktopWindow->show();
+}
+
+void AppCoordinator::handleFrameReceived(quint32 frameId, const QByteArray &jpegData)
+{
+    Q_UNUSED(frameId);
+    if (!m_remoteDesktopWindow)
+        return;
+
+    QImage image;
+    if (image.loadFromData(jpegData, "JPEG")) {
+        m_remoteDesktopWindow->updateFrame(image);
+    } else {
+        qWarning() << "[AppCoordinator] Khong the decode JPEG frameId=" << frameId;
+    }
+}
+
+void AppCoordinator::handleSessionEnded(quint64 sessionId, const QString &agentSessionId, const QString &reason)
+{
+    Q_UNUSED(sessionId);
+    Q_UNUSED(agentSessionId);
+    Q_UNUSED(reason);
+    if (m_remoteDesktopWindow) {
+        m_remoteDesktopWindow->close();
+        m_remoteDesktopWindow->deleteLater();
+        m_remoteDesktopWindow = nullptr;
+    }
+}
+
+void AppCoordinator::handleDisconnectRequested()
+{
+    if (m_devicesController) {
+        m_devicesController->disconnectCurrentSession();
+    }
 }
