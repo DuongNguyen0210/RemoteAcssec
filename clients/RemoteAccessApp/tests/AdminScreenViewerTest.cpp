@@ -10,6 +10,8 @@
 #include <QLineEdit>
 #include <QStackedWidget>
 #include <QPushButton>
+#include "Network/Relay/ChildSessionController.h"
+#include "Streaming/ScreenStreamSender.h"
 
 class AdminScreenViewerTest : public QObject {
     Q_OBJECT
@@ -35,6 +37,20 @@ class AdminScreenViewerTest : public QObject {
         c.onRelayBytesReceived(packet(session, id, index, count, size, part));
     }
 private slots:
+    void childSessionSignalsStartAndStopStreaming() {
+        ChildSessionController child(nullptr);
+        ScreenStreamSender sender(&child);
+        auto *timer = sender.findChild<QTimer *>(); QVERIFY(timer);
+        QVERIFY(!timer->isActive());
+        emit child.sessionStarted(42);
+        QVERIFY(timer->isActive());
+        emit child.sessionEnded(QStringLiteral("test"));
+        QVERIFY(!timer->isActive());
+        emit child.sessionStarted(43);
+        QVERIFY(timer->isActive());
+        emit child.sessionEnded(QStringLiteral("test"));
+        QVERIFY(!timer->isActive());
+    }
     void sessionNavigationKeepsSidebarAndTopbarInSync() {
         MainWindow window(new DevicesPage, new AccountPage);
         window.show();
@@ -64,6 +80,17 @@ private slots:
         QCOMPARE(stack->currentIndex(), 1);
         QVERIFY(sessions->isChecked());
         QCOMPARE(search->placeholderText(), QStringLiteral("Tìm phiên kết nối — Sắp có"));
+    }
+    void disconnectButtonClearsViewer() {
+        SessionsPage page; page.resize(900,700); page.showSession(); page.show();
+        auto *button = page.findChild<QPushButton *>("disconnectSessionButton"); QVERIFY(button);
+        auto *viewer = page.findChild<QWidget *>("screenViewer"); QVERIFY(viewer);
+        QImage image(32,24,QImage::Format_RGB32); image.fill(Qt::red); page.setFrame(image);
+        QSignalSpy requested(&page, &SessionsPage::disconnectRequested);
+        connect(&page, &SessionsPage::disconnectRequested, &page, &SessionsPage::clearFrame);
+        auto before = viewer->grab().toImage();
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCOMPARE(requested.count(),1); QVERIFY(viewer->grab().toImage() != before);
     }
     void singleChunkAndWidget() {
         AdminSessionController c; c.m_activeSessionId = 42;

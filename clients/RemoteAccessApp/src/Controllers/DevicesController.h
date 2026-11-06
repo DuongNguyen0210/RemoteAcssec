@@ -21,6 +21,7 @@ public:
 
     DevicesPage* getView() const;
     void refresh();
+    void disconnectSession();
 
 signals:
     void remoteFrameReady(quint64 sessionId, const QImage &image);
@@ -38,6 +39,7 @@ private:
     DeviceStore *m_store;
     DeviceService *m_deviceService;
     AdminSessionController *m_sessionController;
+    bool m_requestedDisconnect = false;
 };
 
 #endif

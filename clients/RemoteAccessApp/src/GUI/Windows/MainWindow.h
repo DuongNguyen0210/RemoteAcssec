@@ -24,6 +24,7 @@ public:
 
 signals:
     void pageSelected(int pageIndex);
+    void disconnectRequested();
 
 private:
     SidebarWidget *sidebar;

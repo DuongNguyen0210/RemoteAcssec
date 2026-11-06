@@ -13,6 +13,8 @@ public:
     void setFrame(const QImage &image);
     void clearFrame();
     void showSession();
+signals:
+    void disconnectRequested();
 private:
     void setupUi();
     QWidget *m_viewer = nullptr;

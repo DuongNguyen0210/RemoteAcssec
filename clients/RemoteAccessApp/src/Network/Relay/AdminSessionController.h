@@ -23,6 +23,7 @@ public:
     explicit AdminSessionController(QObject *parent = nullptr);
 
     void requestSession(const QString &targetAgentSessionId);
+    void disconnectSession();
 
 signals:
     void frameReady(quint64 sessionId, const QImage &image);

@@ -84,7 +84,7 @@ endif()
 
 if(BUILD_TESTING)
     add_executable(AdminScreenViewerTest tests/AdminScreenViewerTest.cpp)
-    target_link_libraries(AdminScreenViewerTest PRIVATE Network GUI Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(AdminScreenViewerTest PRIVATE Network GUI Streaming Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME admin_screen_viewer COMMAND AdminScreenViewerTest)
     set_tests_properties(admin_screen_viewer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

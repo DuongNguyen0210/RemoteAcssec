@@ -67,6 +67,8 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                 m_mainWindow, [this](quint64, const QImage &image) { m_mainWindow->setRemoteFrame(image); });
         connect(m_devicesController, &DevicesController::remoteSessionEnded,
                 m_mainWindow, &MainWindow::clearRemoteFrame);
+        connect(m_mainWindow, &MainWindow::disconnectRequested,
+                m_devicesController, &DevicesController::disconnectSession);
         connect(m_mainWindow, &MainWindow::pageSelected,
                 this, &AppCoordinator::handlePageSelected);
 

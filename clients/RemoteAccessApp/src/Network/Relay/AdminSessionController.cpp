@@ -72,6 +72,24 @@ void AdminSessionController::requestSession(const QString &targetAgentSessionId)
     }
 }
 
+void AdminSessionController::disconnectSession()
+{
+    if (!m_activeSessionId) return;
+    Protocol::ProtocolHeader header(Protocol::MessageType::DISCONNECT);
+    header.sessionId = m_activeSessionId;
+    const QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
+    if (m_relayClient->sendRawPacket(packet) != packet.size()) {
+        handleFatalRelayTermination(QStringLiteral("Không thể gửi yêu cầu ngắt phiên."));
+        return;
+    }
+    const quint64 sessionId = m_activeSessionId;
+    const QString agentId = m_activeAgentSessionId;
+    m_activeSessionId = 0;
+    m_activeAgentSessionId.clear();
+    resetFrames();
+    emit sessionEnded(sessionId, agentId, QStringLiteral("Đã ngắt kết nối."));
+}
+
 void AdminSessionController::onRelayConnected()
 {
     m_connected = true;

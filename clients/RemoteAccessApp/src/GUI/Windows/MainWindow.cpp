@@ -50,6 +50,7 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
     stackedWidget->setObjectName("contentStack");
 
     pageSessions = new SessionsPage(this);
+    connect(pageSessions, &SessionsPage::disconnectRequested, this, &MainWindow::disconnectRequested);
     SettingsPage *pageSettings = new SettingsPage(this);
     LogsPage *pageLogs = new LogsPage(this);
 

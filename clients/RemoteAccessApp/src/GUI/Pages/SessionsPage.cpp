@@ -118,7 +118,9 @@ QFrame *sessionCard(const QString &device, const QString &address, const QString
     QHBoxLayout *actions = new QHBoxLayout();
     actions->setSpacing(12);
     actions->addWidget(actionButton("Xem màn hình", "secondaryActionButton", card));
-    actions->addWidget(actionButton("Ngắt kết nối", "dangerActionButton", card));
+    auto *disconnectButton = actionButton("Ngắt kết nối", "dangerActionButton", card);
+    disconnectButton->setObjectName("disconnectSessionButton");
+    actions->addWidget(disconnectButton);
     layout->addLayout(actions);
 
     return card;
@@ -176,6 +178,10 @@ void SessionsPage::setupUi()
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea, 1);
     for (auto *button : findChildren<QPushButton*>()) {
+        if (button->objectName() == "disconnectSessionButton") {
+            connect(button, &QPushButton::clicked, this, &SessionsPage::disconnectRequested);
+            continue;
+        }
         button->setEnabled(false);
         button->setText(button->text() + " · Sắp có");
         button->setToolTip("Sắp có");
