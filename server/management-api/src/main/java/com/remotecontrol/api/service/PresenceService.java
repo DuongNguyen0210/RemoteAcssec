@@ -21,6 +21,7 @@ public class PresenceService {
     public static final int TTL_SECONDS = 20;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final SseNotifier sseNotifier;
 
     private static final DefaultRedisScript<Long> HEARTBEAT = new DefaultRedisScript<>(
             "if redis.call('GET',KEYS[1]) ~= ARGV[1] then return 0 end " +
@@ -49,7 +50,7 @@ public class PresenceService {
                 .ipAddress(info == null ? null : info.getIp())
                 .lastHeartbeatAt(System.currentTimeMillis()).build();
         try {
-            return Long.valueOf(1).equals(redisTemplate.execute(
+            boolean updated = Long.valueOf(1).equals(redisTemplate.execute(
                     HEARTBEAT,
                     List.of(
                             sessionKey(principal.getSessionId()),
@@ -59,6 +60,11 @@ public class PresenceService {
                     objectMapper.writeValueAsString(snapshot),
                     String.valueOf(TTL_SECONDS)
             ));
+            if (updated) {
+                // Push updated device list to all ADMIN SSE connections for this owner
+                sseNotifier.notify(owner.getId(), getDevices(owner.getId()));
+            }
+            return updated;
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Cannot serialize device presence", e);
         }
@@ -90,6 +96,8 @@ public class PresenceService {
 
     public void closeSession(Long ownerId, String sessionId) {
         redisTemplate.delete(List.of(sessionKey(sessionId), deviceKey(ownerId, sessionId)));
+        // Push updated (device removed) list to all ADMIN SSE connections for this owner
+        sseNotifier.notify(ownerId, getDevices(ownerId));
     }
 
     private DeviceDto decode(String json) {

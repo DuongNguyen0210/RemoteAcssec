@@ -27,6 +27,9 @@ public:
     void setToken(const QString &token);
     QString getToken() const;
 
+    /** Returns the underlying network manager (needed for long-lived SSE connections). */
+    QNetworkAccessManager* getManager() const { return m_networkManager; }
+
     QNetworkReply* post(const QString &endpoint, const QJsonObject &data);
     QNetworkReply* put(const QString &endpoint, const QJsonObject &data);
     QNetworkReply* get(const QString &endpoint);

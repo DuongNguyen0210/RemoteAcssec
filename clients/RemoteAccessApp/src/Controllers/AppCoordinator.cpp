@@ -58,7 +58,8 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
         m_deviceStore = new DeviceStore(this);
         m_accountStore = new AccountStore(this);
 
-        m_devicesController = new DevicesController(m_deviceStore, new DeviceService(this), this);
+        auto *deviceService = new DeviceService(this);
+        m_devicesController = new DevicesController(m_deviceStore, deviceService, this);
         m_accountController = new AccountController(m_accountStore, new AccountService(this), this);
 
         m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView());
@@ -73,6 +74,10 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                 this, &AppCoordinator::handlePageSelected);
 
         m_mainWindow->show();
+
+        // Initial fetch + start SSE stream for real-time push updates
+        m_devicesController->refresh();
+        deviceService->startSseStream();
 
         m_accountController->fetchAccounts();
     }

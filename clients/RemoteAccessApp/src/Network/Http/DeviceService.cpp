@@ -1,8 +1,31 @@
 #include "DeviceService.h"
 #include "ApiClient.h"
+#include "DeviceSseStream.h"
 #include <QJsonArray>
 #include <QUuid>
 #include <QTimer>
+
+DeviceService::DeviceService(QObject *parent)
+    : QObject(parent)
+    , m_sseStream(new DeviceSseStream(this))
+{
+    // Forward SSE events through the same devicesResult signal so that
+    // DevicesController needs zero changes.
+    connect(m_sseStream, &DeviceSseStream::devicesReceived,
+            this, [this](const QList<DeviceInfo> &devices) {
+        emit devicesResult(true, devices, QStringLiteral("SSE update"));
+    });
+}
+
+void DeviceService::startSseStream()
+{
+    m_sseStream->start();
+}
+
+void DeviceService::stopSseStream()
+{
+    m_sseStream->stop();
+}
 
 void DeviceService::fetchDevices()
 {
