@@ -49,7 +49,8 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
     stackedWidget = new QStackedWidget(this);
     stackedWidget->setObjectName("contentStack");
 
-    SessionsPage *pageSessions = new SessionsPage(this);
+    pageSessions = new SessionsPage(this);
+    connect(pageSessions, &SessionsPage::disconnectRequested, this, &MainWindow::disconnectRequested);
     SettingsPage *pageSettings = new SettingsPage(this);
     LogsPage *pageLogs = new LogsPage(this);
 
@@ -87,3 +88,12 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage)
         }
     });
 }
+
+void MainWindow::showRemoteSession()
+{
+    pageSessions->showSession();
+    sidebar->selectPage(1);
+}
+
+void MainWindow::setRemoteFrame(const QImage &image) { pageSessions->setFrame(image); }
+void MainWindow::clearRemoteFrame() { pageSessions->clearFrame(); }

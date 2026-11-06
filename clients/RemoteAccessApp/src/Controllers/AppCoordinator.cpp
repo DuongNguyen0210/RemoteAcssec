@@ -66,10 +66,12 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
 
         connect(m_devicesController, &DevicesController::remoteSessionStarted,
                 this, &AppCoordinator::handleRemoteSessionStarted);
-        connect(m_devicesController, &DevicesController::frameReceived,
-                this, &AppCoordinator::handleFrameReceived);
+        connect(m_devicesController, &DevicesController::remoteFrameReady,
+                this, &AppCoordinator::handleFrameReady);
         connect(m_devicesController, &DevicesController::sessionEnded,
                 this, &AppCoordinator::handleSessionEnded);
+        connect(m_mainWindow, &MainWindow::disconnectRequested,
+                m_devicesController, &DevicesController::disconnectCurrentSession);
         connect(m_mainWindow, &MainWindow::pageSelected,
                 this, &AppCoordinator::handlePageSelected);
 
@@ -121,43 +123,41 @@ void AppCoordinator::handlePageSelected(int pageIndex)
 
 void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString &agentSessionId)
 {
+    if (m_mainWindow) m_mainWindow->showRemoteSession();
     qDebug() << "[AppCoordinator] Remote session started for" << agentSessionId
              << "sessionId=" << sessionId;
 
     if (m_remoteDesktopWindow) {
-        m_remoteDesktopWindow->close();
+        m_remoteDesktopWindow->closeForSessionEnd();
         m_remoteDesktopWindow->deleteLater();
     }
-
+    m_remoteSessionId = sessionId;
     m_remoteDesktopWindow = new RemoteDesktopWindow(sessionId, agentSessionId);
-    connect(m_remoteDesktopWindow, &RemoteDesktopWindow::disconnectRequested,
-            this, &AppCoordinator::handleDisconnectRequested);
+    connect(m_remoteDesktopWindow, &RemoteDesktopWindow::disconnectRequested, this, [this, sessionId] {
+        if (m_remoteSessionId == sessionId) handleDisconnectRequested();
+    });
     m_remoteDesktopWindow->show();
 }
 
-void AppCoordinator::handleFrameReceived(quint32 frameId, const QByteArray &jpegData)
+void AppCoordinator::handleFrameReady(quint64 sessionId, const QImage &image)
 {
-    Q_UNUSED(frameId);
-    if (!m_remoteDesktopWindow)
-        return;
-
-    QImage image;
-    if (image.loadFromData(jpegData, "JPEG")) {
-        m_remoteDesktopWindow->updateFrame(image);
-    } else {
-        qWarning() << "[AppCoordinator] Khong the decode JPEG frameId=" << frameId;
-    }
+    if (sessionId != m_remoteSessionId || image.isNull()) return;
+    if (m_mainWindow) m_mainWindow->setRemoteFrame(image);
+    if (m_remoteDesktopWindow) m_remoteDesktopWindow->updateFrame(image);
 }
 
 void AppCoordinator::handleSessionEnded(quint64 sessionId, const QString &agentSessionId, const QString &reason)
 {
-    Q_UNUSED(sessionId);
     Q_UNUSED(agentSessionId);
     Q_UNUSED(reason);
-    if (m_remoteDesktopWindow) {
-        m_remoteDesktopWindow->close();
-        m_remoteDesktopWindow->deleteLater();
-        m_remoteDesktopWindow = nullptr;
+    if (sessionId != m_remoteSessionId) return;
+    m_remoteSessionId = 0;
+    if (m_mainWindow) m_mainWindow->clearRemoteFrame();
+    auto *window = m_remoteDesktopWindow.data();
+    m_remoteDesktopWindow = nullptr;
+    if (window) {
+        window->closeForSessionEnd();
+        window->deleteLater();
     }
 }
 
