@@ -4,6 +4,7 @@
 #include <QString>
 #include <QByteArray>
 #include <QTimer>
+#include <QPointer>
 
 class QNetworkReply;
 
@@ -66,7 +67,7 @@ private:
     void abortReply();
 
     QString        m_endpoint;
-    QNetworkReply *m_reply          = nullptr;
+    QPointer<QNetworkReply> m_reply;
     QTimer        *m_reconnectTimer = nullptr;
     QByteArray     m_buffer;
     bool           m_running        = false;

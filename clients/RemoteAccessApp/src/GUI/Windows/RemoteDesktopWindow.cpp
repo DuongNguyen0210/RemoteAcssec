@@ -123,12 +123,23 @@ void RemoteDesktopWindow::onResolutionChanged(const QSize &res)
 
 void RemoteDesktopWindow::onDisconnectClicked()
 {
-    emit disconnectRequested();
     close();
 }
 
 void RemoteDesktopWindow::closeEvent(QCloseEvent *event)
 {
-    emit disconnectRequested();
+    m_inCloseEvent = true;
+    if (!m_disconnectEmitted) {
+        m_disconnectEmitted = true;
+        emit disconnectRequested();
+    }
     event->accept();
+    m_inCloseEvent = false;
+}
+
+void RemoteDesktopWindow::closeForSessionEnd()
+{
+    m_disconnectEmitted = true;
+    if (m_screenWidget) m_screenWidget->clearFrame();
+    if (!m_inCloseEvent) close();
 }

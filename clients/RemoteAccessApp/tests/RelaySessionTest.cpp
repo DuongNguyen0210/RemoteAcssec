@@ -583,6 +583,62 @@ private slots:
         qunsetenv("REMOTE_RELAY_PORT");
     }
 
+    void adminGracefulDisconnectKeepsTransportAndIsIdempotent() {
+        QTcpServer server; QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        qputenv("REMOTE_RELAY_HOST", "127.0.0.1");
+        qputenv("REMOTE_RELAY_PORT", QByteArray::number(server.serverPort()));
+        ApiClient::instance().setToken("test-token");
+        AdminSessionController admin;
+        QSignalSpy established(&admin, &AdminSessionController::sessionEstablished);
+        QSignalSpy ended(&admin, &AdminSessionController::sessionEnded);
+        admin.requestSession(QStringLiteral("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"));
+        QTRY_VERIFY(server.hasPendingConnections());
+        auto *peer = server.nextPendingConnection(); QVERIFY(peer);
+        QTRY_VERIFY(peer->bytesAvailable() >= 24); peer->readAll();
+        peer->write(packet(Protocol::MessageType::CONNECT_RESULT, 42, QByteArray(1, '\1')));
+        QTRY_COMPARE(established.count(), 1);
+        admin.disconnectSession(); admin.disconnectSession();
+        QCOMPARE(ended.count(), 1);
+        QCOMPARE(ended.at(0).at(0).toULongLong(), quint64(42));
+        QTRY_VERIFY(peer->bytesAvailable() >= 24);
+        QCOMPARE(peer->readAll(), packet(Protocol::MessageType::DISCONNECT, 42));
+        QCOMPARE(peer->state(), QAbstractSocket::ConnectedState);
+        admin.requestSession(QStringLiteral("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"));
+        QTRY_VERIFY(peer->bytesAvailable() >= 24); peer->readAll();
+        peer->write(packet(Protocol::MessageType::CONNECT_RESULT, 44, QByteArray(1, '\1')));
+        QTRY_COMPARE(established.count(), 2);
+        peer->write(packet(Protocol::MessageType::DISCONNECT, 42));
+        QTest::qWait(50); QCOMPARE(ended.count(), 1);
+        peer->disconnectFromHost(); QTRY_COMPARE(ended.count(), 2);
+        ApiClient::instance().setToken({}); qunsetenv("REMOTE_RELAY_HOST"); qunsetenv("REMOTE_RELAY_PORT");
+    }
+
+    void childGracefulDisconnectStopsSessionAndAllowsAnother() {
+        QTcpServer server; QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        StaticRelayEndpointProvider provider("127.0.0.1", server.serverPort());
+        ChildSessionController child(&provider); ApiClient::instance().setToken("test-token");
+        QSignalSpy started(&child, &ChildSessionController::sessionStarted);
+        QSignalSpy ended(&child, &ChildSessionController::sessionEnded);
+        child.start(); QTRY_VERIFY(server.hasPendingConnections());
+        auto *peer = server.nextPendingConnection(); QVERIFY(peer);
+        QTRY_VERIFY(peer->bytesAvailable() >= 24); peer->readAll();
+        peer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
+        peer->write(packet(Protocol::MessageType::SESSION_REQUEST, 42));
+        QTRY_COMPARE(started.count(), 1); QCOMPARE(child.activeSessionId(), quint64(42));
+        QTRY_VERIFY(peer->bytesAvailable() >= 24); peer->readAll();
+        peer->write(packet(Protocol::MessageType::DISCONNECT, 43));
+        QTest::qWait(50); QCOMPARE(child.activeSessionId(), quint64(42));
+        peer->write(packet(Protocol::MessageType::DISCONNECT, 42));
+        QTRY_COMPARE(ended.count(), 1); QCOMPARE(child.activeSessionId(), quint64(0));
+        QCOMPARE(child.sendScreenPacket(packet(Protocol::MessageType::SCREEN_FRAME, 42)), qint64(-1));
+        peer->write(packet(Protocol::MessageType::DISCONNECT, 42));
+        peer->write(packet(Protocol::MessageType::SESSION_REQUEST, 44));
+        QTRY_COMPARE(started.count(), 2); QCOMPARE(child.activeSessionId(), quint64(44));
+        QCOMPARE(ended.count(), 1); QCOMPARE(peer->state(), QAbstractSocket::ConnectedState);
+        peer->disconnectFromHost(); QTRY_COMPARE(ended.count(), 2);
+        ApiClient::instance().setToken({});
+    }
+
     void adminReportsActiveSessionEndedOnParserFatalError() {
         QTcpServer server;
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));

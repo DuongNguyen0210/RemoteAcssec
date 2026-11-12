@@ -6,18 +6,22 @@ import com.remotecontrol.relay.protocol.ProtocolHeader;
 import com.remotecontrol.relay.registry.RelayRegistry;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.SimpleChannelInboundHandler;
 
 import com.remotecontrol.relay.auth.RelayAuthorizer;
 import com.remotecontrol.relay.auth.RelayAuthPayload;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
+    private static final long DISCONNECT_WRITE_TIMEOUT_SECONDS = 15;
     private final RelayRegistry relayRegistry;
     private final RelayAuthorizer authorizer;
     private boolean authorizationPending;
     private io.netty.util.concurrent.ScheduledFuture<?> lease;
+    private long leaseGeneration;
 
     public RelayServerHandler(RelayRegistry relayRegistry) {
         this(relayRegistry, new RelayAuthorizer());
@@ -47,6 +51,11 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
         if (msg.getHeader().getType() == ProtocolConstants.MessageType.SESSION_REJECT.getValue()) {
             handleSessionReject(ctx, msg);
+            return;
+        }
+
+        if (msg.getHeader().getType() == ProtocolConstants.MessageType.DISCONNECT.getValue()) {
+            handleDisconnect(ctx, msg);
             return;
         }
 
@@ -117,14 +126,21 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
     // Revocation, deletion, JWT expiry, or lost presence also terminate existing connections.
     private void startLease(ChannelHandlerContext ctx, RelayAuthPayload credentials, String agentId) {
         if (lease != null) lease.cancel(false);
+        long generation = ++leaseGeneration;
         lease = ctx.executor().schedule(() -> {
             authorizer.authorize(credentials.token(), credentials.targetSessionId()).thenAccept(authorized ->
                     ctx.executor().execute(() -> {
-                if (!ctx.channel().isActive()) return;
+                if (!ctx.channel().isActive() || generation != leaseGeneration) return;
                 if (!agentId.equals(authorized)) ctx.close();
                 else startLease(ctx, credentials, agentId);
             }));
         }, 10, TimeUnit.SECONDS);
+    }
+
+    private void stopLease() {
+        ++leaseGeneration;
+        if (lease != null) lease.cancel(false);
+        lease = null;
     }
 
     private void handleSessionAccept(ChannelHandlerContext ctx, Protocol msg) {
@@ -159,6 +175,40 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
         sendConnectResult(session.getAdminChannel(), false, 0L);
         System.out.println("[RelayServer] Session rejected sessionId=" + session.getSessionId());
+    }
+
+    private void handleDisconnect(ChannelHandlerContext ctx, Protocol msg) {
+        if (!isValidSessionResponse(msg)) return;
+        var session = relayRegistry.beginDisconnect(msg.getHeader().getSessionId(), ctx.channel());
+        if (session == null) return;
+        stopLease();
+        notifyDisconnectedChild(session, child -> child.writeAndFlush(msg));
+    }
+
+    private void notifyDisconnectedChild(RelayRegistry.SessionRecord session,
+                                         Function<Channel, ChannelFuture> writer) {
+        Channel child = session.getChildChannel();
+        try {
+            var deadline = child.eventLoop().schedule(() -> {
+                if (relayRegistry.completeDisconnect(session, false)) closeFailedChild(child);
+            }, DISCONNECT_WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            try {
+                writer.apply(child).addListener(future -> {
+                    deadline.cancel(false);
+                    if (relayRegistry.completeDisconnect(session, future.isSuccess())) closeFailedChild(child);
+                });
+            } catch (RuntimeException failure) {
+                deadline.cancel(false);
+                throw failure;
+            }
+        } catch (RuntimeException failure) {
+            if (relayRegistry.completeDisconnect(session, false)) closeFailedChild(child);
+        }
+    }
+
+    private void closeFailedChild(Channel child) {
+        child.closeFuture().addListener(future -> relayRegistry.releaseFailedDisconnectChannel(child));
+        child.close();
     }
 
     private boolean isValidSessionResponse(Protocol msg) {
@@ -210,7 +260,7 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        if (lease != null) lease.cancel(false);
+        stopLease();
         relayRegistry.removeSessionForChannel(ctx.channel());
         relayRegistry.unregisterChild(ctx.channel());
         System.out.println("[RelayServer] Ket noi da dong: " + ctx.channel().remoteAddress());

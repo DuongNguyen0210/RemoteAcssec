@@ -122,6 +122,12 @@ void ChildSessionController::receive(const QByteArray &bytes) {
             }
             m_sessionId = h.sessionId;
             emit sessionStarted(m_sessionId);
+        } else if (h.type == T::DISCONNECT) {
+            if (m_sessionId != 0 && h.sessionId == m_sessionId && h.flags == 0
+                    && h.sequenceNumber == 0 && message.payload.isEmpty()) {
+                m_sessionId = 0;
+                emit sessionEnded(QStringLiteral("ADMIN đã ngắt phiên."));
+            }
         } else if (isInput(h.type) && m_sessionId != 0 && h.sessionId == m_sessionId) {
             emit inputReceived(h, message.payload);
         }

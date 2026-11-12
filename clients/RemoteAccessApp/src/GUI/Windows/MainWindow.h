@@ -9,6 +9,8 @@
 class DevicesPage;
 class AccountPage;
 class SettingsPage;
+class SessionsPage;
+class QImage;
 
 class MainWindow : public QMainWindow
 {
@@ -17,14 +19,19 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(DevicesPage *devicesPage, AccountPage *accountPage, SettingsPage *settingsPage = nullptr, QWidget *parent = nullptr);
     ~MainWindow();
+    void showRemoteSession();
+    void setRemoteFrame(const QImage &image);
+    void clearRemoteFrame();
 
 signals:
     void pageSelected(int pageIndex);
+    void disconnectRequested();
 
 private:
     SidebarWidget *sidebar;
     TopBarWidget *topbar;
     QStackedWidget *stackedWidget;
+    SessionsPage *pageSessions;
 
     void setupUi(DevicesPage *devicesPage, AccountPage *accountPage, SettingsPage *settingsPage);
 };

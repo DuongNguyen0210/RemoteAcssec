@@ -84,8 +84,8 @@ void SseClient::openConnection()
         return;
     }
 
-    connect(m_reply, &QNetworkReply::readyRead, this, &SseClient::onReadyRead);
-    connect(m_reply, &QNetworkReply::finished,  this, &SseClient::onFinished);
+    connect(m_reply.data(), &QNetworkReply::readyRead, this, &SseClient::onReadyRead);
+    connect(m_reply.data(), &QNetworkReply::finished,  this, &SseClient::onFinished);
 
     qDebug() << "[SseClient] Connecting to SSE endpoint:" << m_endpoint;
 }
@@ -93,6 +93,7 @@ void SseClient::openConnection()
 void SseClient::onReadyRead()
 {
     if (!m_reply) return;
+    QPointer<QNetworkReply> reply = m_reply;
 
     int httpStatus = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (httpStatus != 0 && httpStatus != 200) {
@@ -104,9 +105,10 @@ void SseClient::onReadyRead()
     if (!m_hasEmittedConnected) {
         m_hasEmittedConnected = true;
         emit connected();
+        if (!reply || m_reply != reply) return;
     }
 
-    m_buffer.append(m_reply->readAll());
+    m_buffer.append(reply->readAll());
     parseBuffer();
 }
 
@@ -195,9 +197,10 @@ void SseClient::scheduleReconnect()
 
 void SseClient::abortReply()
 {
-    if (m_reply) {
-        m_reply->abort();
-        m_reply->deleteLater();
-        m_reply = nullptr;
-    }
+    QPointer<QNetworkReply> reply = m_reply;
+    m_reply = nullptr;
+    if (!reply) return;
+    disconnect(reply.data(), nullptr, this, nullptr);
+    reply->abort();
+    if (reply) reply->deleteLater();
 }
