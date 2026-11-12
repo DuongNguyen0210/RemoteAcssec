@@ -41,3 +41,6 @@ Database read-only inspection: child.user_id has FK but no lookup index; users/c
 
 ## Remaining work
 SSE retry/address/idle behavior and bounded fanout; presence expiry and Redis lookup cost; misleading logs/settings and streaming duplication; database index/migration verification; runtime UX evidence and final review. Actual input capture/injection is missing despite protocol message types and relay forwarding; record this honestly as a core capability gap in the final feature audit.
+
+### SSE client recovery
+Uses ApiClient's configured base URL (regression reproduced with local HTTP server before fix). Retries transient HTTP failures with exponential 3–30 second delay plus 0–999 ms jitter; stops on 401/403, including empty bodies. A 45-second transfer inactivity timeout recovers silent streams. Network read buffer and incomplete event buffer are bounded to 1 MiB; overflow disconnects and retries. Complete SSE blocks reset backoff. Verified local HTTP tests for configured address, synchronous cancellation, 503 reconnect followed by empty 401, and oversized incomplete event; account/device flow also passes. Server-side periodic snapshots/keepalives remain necessary and pending.
