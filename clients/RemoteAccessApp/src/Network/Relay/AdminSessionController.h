@@ -55,7 +55,6 @@ private:
     Protocol::ScreenFrameReassembler m_frameReassembler;
     quint64 m_generation = 0;
     bool m_decoding = false;
-    quint32 m_latestCompletedFrame = 0;
     QByteArray m_pendingJpeg;
     quint32 m_pendingFrameId = 0;
     QString m_activeAgentSessionId;

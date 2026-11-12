@@ -33,3 +33,11 @@ PresenceService scans Redis and serializes owner snapshots on each heartbeat. TT
 Fetched origin. Local feature head 1679900 includes settings and test fixes beyond origin/main 5939507. Teammate integration head 734ab5f includes ee8c42a (screen viewer) and bc167fa (graceful disconnect). Combined both on codex/pbl4-reliability-ux, resolving MainWindow conflicts by retaining injected SettingsPage and live SessionsPage. No push or shared-branch rewrite.
 Initial server suite: 15 management tests, one existing failure: nonexistent owner returns empty devices instead of 401. Relay integration: 26 tests passed. Initial merged Qt run exposed absent startup refresh, corrected in AppCoordinator.
 Database read-only inspection: child.user_id has FK but no lookup index; users/child username uniqueness exists. No database mutation performed.
+
+## Verified increments
+- Integrated teammate branch, preserving local Settings; all seven Qt test executables pass (startup regression re-run after fix); 26 relay tests pass.
+- Restored 401 for deleted owners instead of misleading empty device list. Full Maven reactor passes (17 management + 26 relay tests).
+- Added regression for decode progress with multiple queued frames: reproduced failure (only newest delivered), then removed newest-arrival equality guard. One decoding task plus one latest pending JPEG remains bounded; session generation still rejects images from ended sessions.
+
+## Remaining work
+SSE retry/address/idle behavior and bounded fanout; presence expiry and Redis lookup cost; misleading logs/settings and streaming duplication; database index/migration verification; runtime UX evidence and final review. Actual input capture/injection is missing despite protocol message types and relay forwarding; record this honestly as a core capability gap in the final feature audit.
