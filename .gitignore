@@ -109,7 +109,6 @@ tasks/
 *plan*.md
 *todo*.md
 
-# =========================
-# Standalone Test Scripts
-# =========================
-server/tests/
+# Python test bytecode
+__pycache__/
+*.pyc
