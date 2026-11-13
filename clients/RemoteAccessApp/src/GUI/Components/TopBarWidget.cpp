@@ -1,9 +1,7 @@
 #include "TopBarWidget.h"
 
 #include <QHBoxLayout>
-#include <QIcon>
 #include <QLineEdit>
-#include <QSize>
 
 TopBarWidget::TopBarWidget(QWidget *parent) : QWidget(parent)
 {
@@ -32,33 +30,7 @@ void TopBarWidget::setupUi()
     searchInput->setToolTip("Sắp có. Dùng ô tìm kiếm trong từng trang.");
     layout->addWidget(searchInput, 1, Qt::AlignVCenter);
 
-    QHBoxLayout *BttLayout = new QHBoxLayout();
-    BttLayout->setSpacing(8);
-    QPushButton *NotifyBtt = new QPushButton(this);
-    NotifyBtt->setObjectName("topbarIconButton");
-    NotifyBtt->setIcon(QIcon(":/icons/Resources/icons/bell.svg"));
-    NotifyBtt->setIconSize(QSize(20, 20));
-    QPushButton *HelpBtt = new QPushButton(this);
-    HelpBtt->setObjectName("topbarIconButton");
-    HelpBtt->setIcon(QIcon(":/icons/Resources/icons/circle-question-mark.svg"));
-    HelpBtt->setIconSize(QSize(20, 20));
-    QPushButton *ProfileBtt = new QPushButton(this);
-    ProfileBtt->setObjectName("topbarIconButton");
-    ProfileBtt->setIcon(QIcon(":/icons/Resources/icons/circle-user.svg"));
-    ProfileBtt->setIconSize(QSize(20, 20));
 
-    NotifyBtt->setToolTip("Thông báo — Sắp có");
-    HelpBtt->setToolTip("Trợ giúp — Sắp có");
-    ProfileBtt->setToolTip("Hồ sơ — Sắp có");
-    for (auto *button : {NotifyBtt, HelpBtt, ProfileBtt}) {
-        button->setEnabled(false);
-        button->setAccessibleName(button->toolTip());
-    }
-    BttLayout->addWidget(NotifyBtt);
-    BttLayout->addWidget(HelpBtt);
-    BttLayout->addWidget(ProfileBtt);
-
-    layout->addLayout(BttLayout);
 }
 
 void TopBarWidget::setSearchPlaceholder(const QString &placeholder)

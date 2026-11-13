@@ -50,3 +50,9 @@ The live PostgreSQL database had 1 users row and 2 child rows. `child.user_id` l
 
 ### Redis integration and streaming cleanup
 Ran `PresenceRedisIT` against a disposable Redis 7 container on port 16379. The first run exposed a stale test assertion using `presence:v2:` while the current implementation writes `presence:`. Corrected the assertion; the integration test then passed, including the real 20-second TTL expiry, independent sessions, and logout behavior. Removed the unused `ScreenStreamSender` relay registration/session state path (187 lines); `ChildSessionController` remains the single owner of that state. Qt build and all 7 CTest executables pass after the removal.
+
+### Desktop navigation cleanup
+The sidebar's “Kết nối mới” action now opens Devices, where an actual device can be selected. Removed disabled notification/help/profile icons from the top bar; they had no backing behavior. QSS was not modified. Built the Qt client and ran the account/device and screen viewer test executables after the edit.
+
+### Remaining acceptance evidence
+A full two-machine demonstration is still outstanding: real input injection and DPI mapping, relay node failure/reallocation, and one-vs-two relay load measurements. The CHILD auto-accepts sessions, so an explicit consent/unattended-access policy is still needed. Relay TCP has no TLS; do not expose its token-bearing traffic on an untrusted network. See CORE_IDEA_REVIEW.md for the capability audit. These are product/architecture gaps, not proven complete by unit tests.
