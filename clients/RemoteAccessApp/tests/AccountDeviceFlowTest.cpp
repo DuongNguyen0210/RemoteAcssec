@@ -22,6 +22,7 @@
 #include "GUI/Windows/MainWindow.h"
 #include "GUI/Pages/AccountPage.h"
 #include "GUI/Pages/DevicesPage.h"
+#include "GUI/Pages/LogsPage.h"
 #include "GUI/Components/DeviceCardWidget.h"
 #include "Network/Protocol/RelayAuthPayload.h"
 
@@ -35,6 +36,22 @@ private slots:
         QFile stylesheet(":/styles/Resources/styles/main.qss");
         QVERIFY(stylesheet.open(QIODevice::ReadOnly));
         qApp->setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
+    }
+    void logsShowOnlyRealCurrentRunEvents() {
+        LogsPage page;
+        for (auto *frame : page.findChildren<QFrame *>())
+            QVERIFY(frame->property("role") != "logRow");
+        bool emptyFound = false;
+        for (auto *label : page.findChildren<QLabel *>())
+            if (label->text().contains(QStringLiteral("Chưa có hoạt động"))) emptyFound = true;
+        QVERIFY(emptyFound);
+        page.addEntry(QStringLiteral("Bắt đầu phiên"), QStringLiteral("Laptop"));
+        int rows = 0;
+        for (auto *frame : page.findChildren<QFrame *>())
+            if (frame->property("role") == "logRow") ++rows;
+        QCOMPARE(rows, 1);
+        for (auto *label : page.findChildren<QLabel *>())
+            QVERIFY(!label->text().contains(QStringLiteral("j.doe@company.com")));
     }
     void inputContextMenuIsVietnamese() {
         QLineEdit input;

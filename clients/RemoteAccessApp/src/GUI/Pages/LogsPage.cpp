@@ -1,6 +1,7 @@
 #include "LogsPage.h"
 
 #include <QFrame>
+#include <QDateTime>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -17,16 +18,6 @@ QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
     return lbl;
 }
 
-QPushButton *filterButton(const QString &text, bool active, QWidget *parent)
-{
-    QPushButton *button = new QPushButton(text, parent);
-    button->setProperty("role", "filterButton");
-    button->setCheckable(true);
-    button->setChecked(active);
-    button->setCursor(Qt::PointingHandCursor);
-    button->setFixedHeight(36);
-    return button;
-}
 
 QFrame *logRow(const QString &time, const QString &event, const QString &source,
                const QString &severity, const QString &state, QWidget *parent)
@@ -78,28 +69,8 @@ void LogsPage::setupUi()
     header->setContentsMargins(0, 0, 0, 8);
     header->setSpacing(4);
     header->addWidget(label("Nhật ký", "pageTitle", this));
-    header->addWidget(label("Lịch sử hoạt động của hệ thống.", "pageSubtitle", this));
+    header->addWidget(label("Hoạt động điều khiển trong lần chạy này · Không lưu lâu dài", "pageSubtitle", this));
     mainLayout->addLayout(header);
-
-    QFrame *toolbar = new QFrame(this);
-    toolbar->setProperty("role", "toolbarCard");
-    toolbar->setAttribute(Qt::WA_StyledBackground, true);
-    QHBoxLayout *toolbarLayout = new QHBoxLayout(toolbar);
-    toolbarLayout->setContentsMargins(12, 12, 12, 12);
-    toolbarLayout->setSpacing(8);
-
-    QLineEdit *search = new QLineEdit(toolbar);
-    search->setProperty("role", "panelSearchInput");
-    search->setPlaceholderText("Tìm nhật ký");
-    search->setClearButtonEnabled(true);
-    search->setEnabled(false);
-    search->setPlaceholderText("Tìm nhật ký — Sắp có");
-    search->setFixedHeight(38);
-    toolbarLayout->addWidget(search, 1);
-    toolbarLayout->addWidget(filterButton("Tất cả", true, toolbar));
-    toolbarLayout->addWidget(filterButton("Cảnh báo", false, toolbar));
-    toolbarLayout->addWidget(filterButton("Lỗi", false, toolbar));
-    mainLayout->addWidget(toolbar);
 
     QScrollArea *scrollArea = new QScrollArea(this);
     scrollArea->setProperty("role", "scrollArea");
@@ -108,22 +79,28 @@ void LogsPage::setupUi()
     QWidget *scrollContent = new QWidget(scrollArea);
     scrollContent->setProperty("role", "scrollContent");
     scrollContent->setAttribute(Qt::WA_StyledBackground, true);
-    QVBoxLayout *logs = new QVBoxLayout(scrollContent);
-    logs->setContentsMargins(0, 0, 0, 0);
-    logs->setSpacing(10);
-    logs->addWidget(logRow("09:42:18", "Bắt đầu phiên kết nối", "SRV-APOLLO-01 — j.doe@company.com", "Thông tin", "active", scrollContent));
-    logs->addWidget(logRow("09:39:07", "Kết nối yếu", "MBP-SARAH-DESIGN bị mất gói tin", "Cảnh báo", "warning", scrollContent));
-    logs->addWidget(logRow("09:12:54", "Thiết bị trực tuyến", "WKSTN-DEV-04 tại 192.168.1.104", "Thông tin", "active", scrollContent));
-    logs->addWidget(logRow("08:58:31", "Đăng nhập thất bại", "Đăng nhập quản trị từ 10.0.0.18", "Lỗi", "error", scrollContent));
-    logs->addWidget(logRow("08:44:10", "Đã cập nhật cài đặt", "Thời gian chờ đổi thành 30 phút", "Thay đổi", "neutral", scrollContent));
-    logs->addStretch();
+    m_entries = new QVBoxLayout(scrollContent);
+    m_entries->setContentsMargins(0, 0, 0, 0);
+    m_entries->setSpacing(10);
+    m_empty = label("Chưa có hoạt động điều khiển trong lần chạy này.", "pageSubtitle", scrollContent);
+    m_empty->setAlignment(Qt::AlignCenter);
+    m_entries->addWidget(m_empty);
+    m_entries->addStretch();
 
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea, 1);
-    for (auto *button : findChildren<QPushButton*>()) {
-        button->setEnabled(false);
-        button->setText(button->text() + " · Sắp có");
-        button->setToolTip("Sắp có");
-    }
+}
 
+void LogsPage::addEntry(const QString &event, const QString &detail, bool warning)
+{
+    m_empty->hide();
+    m_entries->insertWidget(0, logRow(QDateTime::currentDateTime().toString("HH:mm:ss"),
+            event, detail, warning ? QStringLiteral("Cảnh báo") : QStringLiteral("Thông tin"),
+            warning ? QStringLiteral("warning") : QStringLiteral("active"), this));
+    if (++m_entryCount > 100) {
+        auto *oldest = m_entries->itemAt(m_entryCount - 1)->widget();
+        m_entries->removeWidget(oldest);
+        oldest->deleteLater();
+        --m_entryCount;
+    }
 }

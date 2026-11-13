@@ -52,7 +52,7 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage, Set
     pageSessions = new SessionsPage(this);
     connect(pageSessions, &SessionsPage::disconnectRequested, this, &MainWindow::disconnectRequested);
     SettingsPage *pageSettings = settingsPage ? settingsPage : new SettingsPage(this);
-    LogsPage *pageLogs = new LogsPage(this);
+    pageLogs = new LogsPage(this);
 
     if (devicesPage) {
         stackedWidget->addWidget(devicesPage);
@@ -97,3 +97,8 @@ void MainWindow::showRemoteSession()
 
 void MainWindow::setRemoteFrame(const QImage &image) { pageSessions->setFrame(image); }
 void MainWindow::clearRemoteFrame() { pageSessions->clearFrame(); }
+
+void MainWindow::addSessionLog(const QString &event, const QString &detail, bool warning)
+{
+    pageLogs->addEntry(event, detail, warning);
+}
