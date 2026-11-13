@@ -17,6 +17,7 @@ class DevicesController;
 class AccountController;
 class SettingsController;
 class AccountCsvReader;
+class QWidget;
 
 class AppCoordinator : public QObject
 {
@@ -39,6 +40,7 @@ private:
     QPointer<AuthController> m_authController;
     QPointer<MainWindow> m_mainWindow;
     QPointer<RemoteDesktopWindow> m_remoteDesktopWindow;
+    QPointer<QWidget> m_childWindow;
     quint64 m_remoteSessionId = 0;
     HeartbeatReporter *m_heartbeatReporter;
     ScreenStreamSender *m_screenStreamSender;

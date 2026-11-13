@@ -21,6 +21,11 @@
 
 #include <QDebug>
 #include <QGuiApplication>
+#include <QApplication>
+#include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QWidget>
 
 AppCoordinator::AppCoordinator(QObject *parent)
     : QObject(parent)
@@ -39,6 +44,7 @@ AppCoordinator::AppCoordinator(QObject *parent)
 AppCoordinator::~AppCoordinator()
 {
     if (m_remoteDesktopWindow) m_remoteDesktopWindow->deleteLater();
+    if (m_childWindow) m_childWindow->deleteLater();
     if (m_authController) m_authController->deleteLater();
     if (m_mainWindow) m_mainWindow->deleteLater();
     if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
@@ -120,6 +126,44 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                     session, &ChildSessionController::stop);
             connect(session, &ChildSessionController::sessionFailed, this,
                     [](const QString &reason) { qWarning() << "Child Relay:" << reason; });
+
+            auto *window = new QWidget;
+            window->setObjectName(QStringLiteral("childStatusWindow"));
+            window->setWindowTitle(QStringLiteral("RemoteAccess — máy được điều khiển"));
+            window->setAttribute(Qt::WA_DeleteOnClose);
+            window->setMinimumWidth(380);
+            auto *layout = new QVBoxLayout(window);
+            auto *status = new QLabel(QStringLiteral("Đang sẵn sàng nhận phiên điều khiển."), window);
+            status->setObjectName(QStringLiteral("childSessionStatus"));
+            status->setWordWrap(true);
+            auto *stopButton = new QPushButton(QStringLiteral("Dừng chia sẻ"), window);
+            stopButton->setObjectName(QStringLiteral("stopSharingButton"));
+            layout->addWidget(status);
+            layout->addWidget(stopButton);
+            connect(session, &ChildSessionController::sessionStarted, window, [status](quint64) {
+                status->setText(QStringLiteral("Đang có phiên điều khiển từ xa. Bạn có thể dừng chia sẻ bất cứ lúc nào."));
+            });
+            connect(session, &ChildSessionController::sessionEnded, window, [status](const QString &) {
+                status->setText(QStringLiteral("Phiên đã kết thúc. Máy đang sẵn sàng nhận phiên mới."));
+            });
+            connect(session, &ChildSessionController::sessionFailed, window, [status](const QString &) {
+                status->setText(QStringLiteral("Mất kết nối Relay. Đang thử kết nối lại."));
+            });
+            connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost, window, [status, stopButton] {
+                status->setText(QStringLiteral("Phiên đăng nhập đã hết hạn. Đóng cửa sổ để thoát."));
+                stopButton->setEnabled(false);
+            });
+            connect(stopButton, &QPushButton::clicked, window, [this, session, status, stopButton] {
+                session->stop();
+                m_heartbeatReporter->stop();
+                status->setText(QStringLiteral("Đã dừng chia sẻ. Đóng cửa sổ để thoát."));
+                stopButton->setEnabled(false);
+            });
+            connect(window, &QObject::destroyed, session, &ChildSessionController::stop);
+            connect(window, &QObject::destroyed, m_heartbeatReporter, &HeartbeatReporter::stop);
+            connect(window, &QObject::destroyed, qApp, &QApplication::quit);
+            m_childWindow = window;
+            window->show();
             session->start();
         }
     }

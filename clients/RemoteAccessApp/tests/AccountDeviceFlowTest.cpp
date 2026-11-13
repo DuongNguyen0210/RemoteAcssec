@@ -25,6 +25,7 @@
 #include "GUI/Pages/LogsPage.h"
 #include "GUI/Components/DeviceCardWidget.h"
 #include "Network/Protocol/RelayAuthPayload.h"
+#include "Network/Http/HeartbeatReporter.h"
 
 class AccountDeviceFlowTest : public QObject {
     Q_OBJECT
@@ -393,6 +394,38 @@ private slots:
         QCOMPARE(payload.mid(5, 2), QByteArray::fromHex("0024"));
         QVERIFY(Protocol::relayAuthPayload("").isEmpty());
         QVERIFY(Protocol::relayAuthPayload(QString(4097, 'x')).isEmpty());
+    }
+
+    void childCanSeeAndStopSharing() {
+        const QByteArray oldHost = qgetenv("REMOTE_RELAY_HOST");
+        const QByteArray oldPort = qgetenv("REMOTE_RELAY_PORT");
+        qputenv("REMOTE_RELAY_HOST", "127.0.0.1");
+        qputenv("REMOTE_RELAY_PORT", "1");
+        {
+            AppCoordinator coordinator;
+            QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleLoginSuccess", Qt::DirectConnection,
+                    Q_ARG(QString, QStringLiteral("CHILD")), Q_ARG(QString, QStringLiteral("child"))));
+            auto *window = [&]() -> QWidget * {
+                for (auto *widget : QApplication::topLevelWidgets())
+                    if (widget->objectName() == "childStatusWindow") return widget;
+                return nullptr;
+            }();
+            QVERIFY(window);
+            QVERIFY(window->isVisible());
+            auto *status = window->findChild<QLabel *>("childSessionStatus");
+            auto *stop = window->findChild<QPushButton *>("stopSharingButton");
+            auto *heartbeat = coordinator.findChild<HeartbeatReporter *>();
+            QVERIFY(status && stop && heartbeat);
+            QVERIFY(heartbeat->isRunning());
+            stop->click();
+            QVERIFY(status->text().contains(QStringLiteral("Đã dừng chia sẻ")));
+            QVERIFY(!stop->isEnabled());
+            QVERIFY(!heartbeat->isRunning());
+            window->close();
+        }
+        if (oldHost.isNull()) qunsetenv("REMOTE_RELAY_HOST"); else qputenv("REMOTE_RELAY_HOST", oldHost);
+        if (oldPort.isNull()) qunsetenv("REMOTE_RELAY_PORT"); else qputenv("REMOTE_RELAY_PORT", oldPort);
+        QApplication::setQuitOnLastWindowClosed(true);
     }
 };
 QTEST_MAIN(AccountDeviceFlowTest)
