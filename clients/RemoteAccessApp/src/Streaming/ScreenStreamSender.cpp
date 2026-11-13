@@ -36,8 +36,6 @@ void ScreenStreamSender::onTick()
 
     const qint64 pending = m_relayClient->pendingBytes();
     if (pending > MAX_PENDING_BYTES) {
-        qDebug() << "[ScreenStreamSender] Backpressure: skipping frame"
-                 << m_frameId << " pending=" << pending << "bytes";
         return;
     }
 

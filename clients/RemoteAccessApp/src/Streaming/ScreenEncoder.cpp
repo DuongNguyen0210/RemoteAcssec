@@ -33,10 +33,5 @@ QByteArray ScreenEncoder::encodeJpeg(const QImage &image, int quality)
         return QByteArray{};
     }
 
-    qDebug() << "[ScreenEncoder] JPEG encode OK:"
-             << "raw-estimate=" << (image.width() * image.height() * 4) << "bytes"
-             << "encoded-bytes=" << buffer.size()
-             << "quality=" << quality;
-
     return buffer;
 }

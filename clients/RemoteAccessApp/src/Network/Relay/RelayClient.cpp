@@ -33,7 +33,6 @@ void RelayClient::onDisconnected() {
 
 void RelayClient::onReadyRead() {
     const QByteArray data = m_socket->readAll();
-    qDebug() << "Nhan duoc" << data.size() << "bytes tu Server!";
     if (!data.isEmpty())
         emit bytesReceived(data);
 }
