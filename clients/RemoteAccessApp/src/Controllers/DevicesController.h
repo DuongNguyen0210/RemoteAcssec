@@ -2,6 +2,7 @@
 #define DEVICESCONTROLLER_H
 
 #include <QObject>
+#include "Network/Protocol/ProtocolConstants.h"
 #include <QPointer>
 #include <QString>
 #include "Domain/Model/DeviceInfo.h"
@@ -16,6 +17,7 @@ class DevicesController : public QObject
 {
     Q_OBJECT
 public:
+    bool sendInput(Protocol::MessageType type, const QByteArray &payload);
     explicit DevicesController(DeviceStore *store, DeviceService *service, QObject *parent = nullptr);
     ~DevicesController();
 

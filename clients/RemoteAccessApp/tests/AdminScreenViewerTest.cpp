@@ -15,6 +15,7 @@
 #include "Controllers/AppCoordinator.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Components/RemoteScreenWidget.h"
+#include "Network/Protocol/RemoteInputPacket.h"
 
 class AdminScreenViewerTest : public QObject {
     Q_OBJECT
@@ -40,6 +41,34 @@ class AdminScreenViewerTest : public QObject {
         c.onRelayBytesReceived(packet(session, id, index, count, size, part));
     }
 private slots:
+    void viewerEncodesMouseAndKeyboardForRemoteSession() {
+        RemoteScreenWidget view;
+        view.resize(320, 240);
+        QImage frame(160, 120, QImage::Format_RGB32); frame.fill(Qt::blue);
+        view.updateFrame(frame);
+        view.show();
+        QVector<QPair<Protocol::MessageType, QByteArray>> events;
+        connect(&view, &RemoteScreenWidget::remoteInput, &view,
+                [&events](Protocol::MessageType type, const QByteArray &payload) {
+                    events.append({type, payload});
+                });
+        QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, QPoint(160, 120));
+        QVERIFY(events.size() >= 2);
+        QCOMPARE(events.at(0).first, Protocol::MessageType::MOUSE_BUTTON_DOWN);
+        quint32 x = 0, y = 0;
+        QVERIFY(RemoteInputPacket::readPosition(events.at(0).second, x, y));
+        QCOMPARE(x, quint32(80)); QCOMPARE(y, quint32(60));
+        QCOMPARE(events.at(1).first, Protocol::MessageType::MOUSE_BUTTON_UP);
+        QTest::keyClick(&view, Qt::Key_A);
+        QCOMPARE(events.constLast().first, Protocol::MessageType::KEY_RELEASE);
+        QCOMPARE(events.constLast().second, RemoteInputPacket::key(Qt::Key_A));
+        events.clear();
+        QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, QPoint(160, 120));
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, QPoint(500, 500));
+        QCOMPARE(events.size(), 2);
+        QCOMPARE(events.at(0).first, Protocol::MessageType::MOUSE_BUTTON_DOWN);
+        QCOMPARE(events.at(1).first, Protocol::MessageType::MOUSE_BUTTON_UP);
+    }
     void remoteDesktopCloseIsIdempotentAndProgrammaticCloseIsSilent() {
         RemoteDesktopWindow userWindow(42, QStringLiteral("child"));
         userWindow.show();

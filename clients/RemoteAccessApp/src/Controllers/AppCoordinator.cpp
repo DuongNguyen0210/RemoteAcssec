@@ -12,6 +12,7 @@
 #include "Network/Relay/ChildSessionController.h"
 #include "Network/Relay/StaticRelayEndpointProvider.h"
 #include "Network/Relay/DynamicRelayEndpointProvider.h"
+#include "Controllers/RemoteInputInjector.h"
 #include "Domain/Store/DeviceStore.h"
 #include "Domain/Store/AccountStore.h"
 #include "Network/Http/AccountService.h"
@@ -104,6 +105,14 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                     ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider(this))
                     : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider(this));
             auto *session = new ChildSessionController(provider, this);
+            auto *injector = new RemoteInputInjector;
+            connect(session, &ChildSessionController::inputReceived, session,
+                    [injector](const Protocol::ProtocolHeader &header, const QByteArray &payload) {
+                        injector->inject(header.type, payload);
+                    });
+            connect(session, &ChildSessionController::sessionEnded, session,
+                    [injector](const QString &) { injector->releaseAll(); });
+            connect(session, &QObject::destroyed, this, [injector] { delete injector; });
             m_screenStreamSender = new ScreenStreamSender(session, this);
             session->setParent(m_screenStreamSender);
             provider->setParent(session);
@@ -139,6 +148,11 @@ void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString
     }
     m_remoteSessionId = sessionId;
     m_remoteDesktopWindow = new RemoteDesktopWindow(sessionId, agentSessionId);
+    connect(m_remoteDesktopWindow, &RemoteDesktopWindow::remoteInput, this,
+            [this, sessionId](Protocol::MessageType type, const QByteArray &payload) {
+                if (m_remoteSessionId == sessionId && m_devicesController)
+                    m_devicesController->sendInput(type, payload);
+            });
     connect(m_remoteDesktopWindow, &RemoteDesktopWindow::disconnectRequested, this, [this, sessionId] {
         if (m_remoteSessionId == sessionId) handleDisconnectRequested();
     });

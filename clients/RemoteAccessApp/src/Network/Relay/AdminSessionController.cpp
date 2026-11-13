@@ -14,23 +14,28 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/RelayAuthPayload.h"
+#include "Network/Relay/RelayEndpointProvider.h"
+#include "Network/Relay/StaticRelayEndpointProvider.h"
+#include "Network/Relay/DynamicRelayEndpointProvider.h"
+#include <QPointer>
+#include <QSignalBlocker>
 
-
-namespace {
-
-const QString RELAY_HOST = QStringLiteral("localhost");
-constexpr quint16 RELAY_PORT = 8080;
-
-}
 
 AdminSessionController::AdminSessionController(QObject *parent)
+    : AdminSessionController(qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
+            ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider())
+            : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider()), parent) {}
+
+AdminSessionController::AdminSessionController(RelayEndpointProvider *provider, QObject *parent)
     : QObject(parent)
     , m_relayClient(new RelayClient(this))
+    , m_provider(provider)
     , m_activeSessionId(0)
     , m_connected(false)
     , m_connecting(false)
     , m_requestPending(false)
 {
+    m_provider->setParent(this);
     auto *pruneTimer = new QTimer(this);
     pruneTimer->setInterval(1000);
     connect(pruneTimer, &QTimer::timeout, this, &AdminSessionController::pruneFrames);
@@ -59,16 +64,29 @@ void AdminSessionController::requestSession(const QString &targetAgentSessionId)
     m_pendingAgentSessionId = targetAgentSessionId;
     m_requestPending = true;
 
-    if (m_connected) {
-        sendConnectRequest();
-        return;
-    }
-
-    if (!m_connecting) {
-        m_connecting = true;
-        m_relayClient->ConnectToServer(qEnvironmentVariable("REMOTE_RELAY_HOST", RELAY_HOST),
-                static_cast<quint16>(qEnvironmentVariable("REMOTE_RELAY_PORT", QString::number(RELAY_PORT)).toUShort()));
-    }
+    const auto generation = ++m_lookupGeneration;
+    QPointer<AdminSessionController> self(this);
+    m_provider->lookup(targetAgentSessionId, [self, generation, targetAgentSessionId](const RelayEndpoint &endpoint, const QString &error) {
+        if (!self || generation != self->m_lookupGeneration || !self->m_requestPending
+                || self->m_pendingAgentSessionId != targetAgentSessionId) return;
+        if (!error.isEmpty() || !endpoint.isValid()) {
+            self->failPendingRequest(error.isEmpty() ? QStringLiteral("Relay không khả dụng.") : error);
+            return;
+        }
+        const QString address = endpoint.instanceId + ':' + endpoint.host + ':' + QString::number(endpoint.port);
+        if (self->m_connected && self->m_relayAddress == address) {
+            self->sendConnectRequest();
+            return;
+        }
+        if (self->m_connected || self->m_connecting) {
+            QSignalBlocker blocker(self->m_relayClient);
+            self->m_relayClient->DisconnectFromServer();
+            self->m_connected = self->m_connecting = false;
+        }
+        self->m_relayAddress = address;
+        self->m_connecting = true;
+        self->m_relayClient->ConnectToServer(endpoint.host, endpoint.port);
+    });
 }
 
 void AdminSessionController::disconnectSession()
@@ -87,6 +105,23 @@ void AdminSessionController::disconnectSession()
     m_activeAgentSessionId.clear();
     resetFrames();
     emit sessionEnded(sessionId, agentId, QStringLiteral("Đã ngắt kết nối."));
+}
+
+bool AdminSessionController::sendInput(Protocol::MessageType type, const QByteArray &payload)
+{
+    using T = Protocol::MessageType;
+    if (!m_connected || !m_activeSessionId || payload.size() > 64 ||
+            (type != T::MOUSE_MOVE && type != T::MOUSE_BUTTON_DOWN && type != T::MOUSE_BUTTON_UP
+             && type != T::MOUSE_WHEEL && type != T::KEY_PRESS && type != T::KEY_RELEASE)) return false;
+    if (m_relayClient->pendingBytes() > 256 * 1024) {
+        if (type != T::MOUSE_MOVE) handleFatalRelayTermination(QStringLiteral("Kết nối điều khiển quá tải."));
+        return false;
+    }
+    Protocol::ProtocolHeader header(type);
+    header.sessionId = m_activeSessionId;
+    header.payloadLength = static_cast<quint32>(payload.size());
+    const auto packet = Protocol::ProtocolSerializer::serializeHeader(header) + payload;
+    return m_relayClient->sendRawPacket(packet) == packet.size();
 }
 
 void AdminSessionController::onRelayConnected()
@@ -256,6 +291,7 @@ void AdminSessionController::failPendingRequest(const QString &reason)
 
 void AdminSessionController::handleFatalRelayTermination(const QString &reason)
 {
+    ++m_lookupGeneration;
     const QString tmp_activeAgentSessionId = m_activeAgentSessionId;
     const QString tmp_pendingAgentSessionId = m_pendingAgentSessionId;
     const quint64 tmp_activeSessionId = m_activeSessionId;

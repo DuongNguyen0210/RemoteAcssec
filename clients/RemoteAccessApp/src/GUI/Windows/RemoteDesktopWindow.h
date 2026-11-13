@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QLabel>
 #include <QPushButton>
+#include "Network/Protocol/ProtocolConstants.h"
 
 class RemoteScreenWidget;
 
@@ -22,6 +23,7 @@ public:
 
 signals:
     void disconnectRequested();
+    void remoteInput(Protocol::MessageType type, const QByteArray &payload);
 
 protected:
     void closeEvent(QCloseEvent *event) override;

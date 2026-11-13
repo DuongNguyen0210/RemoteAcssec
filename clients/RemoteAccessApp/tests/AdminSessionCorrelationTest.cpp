@@ -5,7 +5,19 @@
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/ProtocolSerializer.h"
 #include "Network/Protocol/RelayAuthPayload.h"
+#include "Network/Protocol/RemoteInputPacket.h"
 #include "Network/Relay/AdminSessionController.h"
+#include "Network/Relay/RelayEndpointProvider.h"
+
+class AssignedProvider final : public RelayEndpointProvider {
+public:
+    QHash<QString, quint16> ports;
+    void allocate(Callback callback) override { callback({}, "unused"); }
+    void lookup(const QString &id, Callback callback) override {
+        const auto port = ports.value(id);
+        callback({"node-" + id, "127.0.0.1", port, 0}, {});
+    }
+};
 
 class AdminSessionCorrelationTest final : public QObject
 {
@@ -13,7 +25,57 @@ class AdminSessionCorrelationTest final : public QObject
 
 private slots:
     void pendingARejectsBThenASuccessRetainsA();
+    void adminLooksUpEachAssignedRelay();
 };
+
+void AdminSessionCorrelationTest::adminLooksUpEachAssignedRelay()
+{
+    const QString agentA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const QString agentB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    QTcpServer first, second;
+    QVERIFY(first.listen(QHostAddress::LocalHost, 0));
+    QVERIFY(second.listen(QHostAddress::LocalHost, 0));
+    auto *provider = new AssignedProvider;
+    provider->ports.insert(agentA, first.serverPort());
+    provider->ports.insert(agentB, second.serverPort());
+    ApiClient::instance().setToken("test-token");
+    AdminSessionController controller(provider, nullptr);
+    QSignalSpy failures(&controller, &AdminSessionController::requestFailed);
+    controller.requestSession(agentA);
+    QTRY_VERIFY(first.hasPendingConnections());
+    QVERIFY(!second.hasPendingConnections());
+    auto *firstSocket = first.nextPendingConnection();
+    controller.requestSession(agentB); // Pending A cannot be overwritten.
+    firstSocket->write(Protocol::ProtocolSerializer::serializeHeader(Protocol::ProtocolHeader(Protocol::MessageType::CONNECT_RESULT)) + QByteArray(1, '\0'));
+    firstSocket->flush();
+    QTRY_COMPARE(failures.size(), 2);
+    controller.requestSession(agentB);
+    QTRY_VERIFY(second.hasPendingConnections());
+    auto *secondSocket = second.nextPendingConnection();
+    QVERIFY(secondSocket);
+    const auto authPayload = Protocol::relayAuthPayload("test-token", agentB);
+    Protocol::ProtocolHeader request(Protocol::MessageType::CONNECT_REQUEST);
+    request.payloadLength = quint32(authPayload.size());
+    const auto expectedRequest = Protocol::ProtocolSerializer::serializeHeader(request) + authPayload;
+    QTRY_VERIFY(secondSocket->bytesAvailable() >= expectedRequest.size());
+    QCOMPARE(secondSocket->read(expectedRequest.size()), expectedRequest);
+    Protocol::ProtocolHeader accepted(Protocol::MessageType::CONNECT_RESULT);
+    accepted.sessionId = 73;
+    accepted.payloadLength = 1;
+    secondSocket->write(Protocol::ProtocolSerializer::serializeHeader(accepted) + QByteArray(1, '\1'));
+    secondSocket->flush();
+    QSignalSpy established(&controller, &AdminSessionController::sessionEstablished);
+    QTRY_COMPARE(established.size(), 1);
+    const auto inputPayload = RemoteInputPacket::key(Qt::Key_A);
+    QVERIFY(controller.sendInput(Protocol::MessageType::KEY_PRESS, inputPayload));
+    Protocol::ProtocolHeader input(Protocol::MessageType::KEY_PRESS);
+    input.sessionId = 73;
+    input.payloadLength = quint32(inputPayload.size());
+    const auto expectedInput = Protocol::ProtocolSerializer::serializeHeader(input) + inputPayload;
+    QTRY_VERIFY(secondSocket->bytesAvailable() >= expectedInput.size());
+    QCOMPARE(secondSocket->read(expectedInput.size()), expectedInput);
+    ApiClient::instance().setToken({});
+}
 
 void AdminSessionCorrelationTest::pendingARejectsBThenASuccessRetainsA()
 {

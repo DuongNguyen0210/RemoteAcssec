@@ -69,6 +69,7 @@ void RemoteDesktopWindow::setupUi()
 
     // Screen viewport
     m_screenWidget = new RemoteScreenWidget(central);
+    connect(m_screenWidget, &RemoteScreenWidget::remoteInput, this, &RemoteDesktopWindow::remoteInput);
     connect(m_screenWidget, &RemoteScreenWidget::fpsUpdated, this, &RemoteDesktopWindow::onFpsUpdated);
     connect(m_screenWidget, &RemoteScreenWidget::resolutionChanged, this, &RemoteDesktopWindow::onResolutionChanged);
 

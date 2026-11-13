@@ -281,21 +281,32 @@ không packetize lại, không sửa byte JPEG, metadata payload, `sequenceNumbe
 `sessionId`. Bộ ghép khung phía Relay chỉ phục vụ chẩn đoán và không phải điều
 kiện của đường chuyển tiếp.
 
-ADMIN hiện nhận được byte TCP/RDTP đã chuyển tiếp, nhưng chưa có bộ ghép
-`SCREEN_FRAME`, giải mã JPEG, tạo `QImage` hoặc hiển thị bằng Qt.
+ADMIN ghép `SCREEN_FRAME`, giải mã JPEG thành `QImage` và hiển thị trong Qt.
 
 ---
 
 ## Nhom: Mouse (Remote Input)
 
-| Ten | Hex | Y nghia du kien |
+Payload của Qt client hiện tại dùng Big Endian và tọa độ pixel trên màn hình
+chính của CHILD (gốc là góc trên trái của frame):
+
+| Loại | Payload |
+|---|---|
+| `MOUSE_MOVE` | `uint32 x`, `uint32 y` (8 byte) |
+| `MOUSE_BUTTON_DOWN/UP` | `uint32 x`, `uint32 y`, `uint8 button` (1 trái, 2 phải, 3 giữa) |
+| `MOUSE_WHEEL` | `uint32 x`, `uint32 y`, `int32 delta` theo đơn vị Qt angle delta |
+| `KEY_PRESS/RELEASE` | `uint32 Qt::Key` (4 byte); hỗ trợ chữ Latin, số và các phím điều hướng/cơ bản |
+
+CHILD kiểm tra đúng kích thước payload và tọa độ nằm trong màn hình. Linux
+thực thi qua X11/XTest khi Qt chạy với `xcb`; Windows dùng `SendInput`.
+Wayland không hỗ trợ inject toàn hệ thống trong phiên bản này.
+
+| Ten | Hex | Y nghia |
 |---|---|---|
-| `MOUSE_MOVE` | `0x20` | Di chuyen con tro chuot (toa do tuyet doi hoac tuong doi). |
+| `MOUSE_MOVE` | `0x20` | Di chuyển con trỏ đến tọa độ pixel tuyệt đối của frame. |
 | `MOUSE_BUTTON_DOWN` | `0x21` | Nut chuot duoc nhan xuong. |
 | `MOUSE_BUTTON_UP` | `0x22` | Nut chuot duoc tha ra. |
 | `MOUSE_WHEEL` | `0x23` | Cuon banh xe chuot (scroll wheel delta). |
-
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
 
 ---
 
@@ -305,8 +316,6 @@ ADMIN hiện nhận được byte TCP/RDTP đã chuyển tiếp, nhưng chưa c�
 |---|---|---|
 | `KEY_PRESS` | `0x30` | Phim ban phim duoc nhan xuong. |
 | `KEY_RELEASE` | `0x31` | Phim ban phim duoc tha ra. |
-
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
 
 ---
 

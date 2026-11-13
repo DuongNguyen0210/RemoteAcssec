@@ -92,6 +92,11 @@ void DevicesController::disconnectCurrentSession()
     }
 }
 
+bool DevicesController::sendInput(Protocol::MessageType type, const QByteArray &payload)
+{
+    return m_sessionController && m_sessionController->sendInput(type, payload);
+}
+
 void DevicesController::onDevicesUpdated(const QList<DeviceInfo> &devices)
 {
     if (m_view) {
