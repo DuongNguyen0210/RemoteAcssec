@@ -16,8 +16,7 @@ class PresenceRedisIT {
         var factory = new LettuceConnectionFactory("127.0.0.1", Integer.getInteger("test.redis.port", 16379));
         factory.afterPropertiesSet();
         var redis = new StringRedisTemplate(factory);
-        var sseNotifier = org.mockito.Mockito.mock(SseNotifier.class);
-        var service = new PresenceService(redis, new ObjectMapper(), sseNotifier);
+        var service = new PresenceService(redis, new ObjectMapper());
         long ownerId = Math.abs(UUID.randomUUID().getMostSignificantBits());
         var owner = User.builder().id(ownerId).username("owner").build();
         var a = UserPrincipal.builder().id("12").username("ownerchild").sessionId(UUID.randomUUID().toString()).build();

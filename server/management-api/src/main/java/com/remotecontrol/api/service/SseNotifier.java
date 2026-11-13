@@ -45,7 +45,10 @@ public class SseNotifier {
      * Registers a new SseEmitter for the given owner.
      * Completion / timeout / error callbacks automatically unregister it.
      */
-    public void register(Long ownerId, SseEmitter emitter) {
+    public synchronized void register(Long ownerId, SseEmitter emitter) {
+        if (connectionCount(ownerId) >= 4 || registry.values().stream().mapToInt(Set::size).sum() >= 256)
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "Too many event streams");
         Set<SseEmitter> set = registry.computeIfAbsent(ownerId,
                 k -> new CopyOnWriteArraySet<>());
         set.add(emitter);
@@ -62,7 +65,7 @@ public class SseNotifier {
     /**
      * Removes an emitter from the registry (called on completion / timeout / error).
      */
-    public void unregister(Long ownerId, SseEmitter emitter) {
+    public synchronized void unregister(Long ownerId, SseEmitter emitter) {
         Set<SseEmitter> set = registry.get(ownerId);
         if (set != null) {
             set.remove(emitter);
@@ -101,8 +104,16 @@ public class SseNotifier {
                 // Connection is broken – remove it; client will reconnect
                 log.debug("[SSE] Send failed for ownerId={}, removing emitter: {}", ownerId, ex.getMessage());
                 unregister(ownerId, emitter);
+                emitter.completeWithError(ex);
             }
         }
+    }
+
+    public Set<Long> subscribedOwners() { return Set.copyOf(registry.keySet()); }
+
+    public synchronized void closeOwner(Long ownerId) {
+        Set<SseEmitter> emitters = registry.remove(ownerId);
+        if (emitters != null) emitters.forEach(SseEmitter::complete);
     }
 
     /** Returns the number of active connections for a given owner (useful for monitoring/tests). */

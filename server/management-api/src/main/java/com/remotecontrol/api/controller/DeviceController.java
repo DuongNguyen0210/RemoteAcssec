@@ -67,6 +67,8 @@ public class DeviceController {
     public SseEmitter streamDeviceEvents(
             @RequestAttribute("currentUser") UserPrincipal principal) {
 
+        // Validate the owner and storage before allocating a long-lived response.
+        List<DeviceDto> snapshot = deviceService.getDevices(principal);
         Long ownerId = Long.valueOf(principal.getId());
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
@@ -77,14 +79,14 @@ public class DeviceController {
         // Send current snapshot immediately so the client has up-to-date data
         // right after connecting (no extra REST call needed).
         try {
-            List<DeviceDto> snapshot = deviceService.getDevices(principal);
             String json = objectMapper.writeValueAsString(snapshot);
             emitter.send(SseEmitter.event()
                     .name(SseNotifier.EVENT_DEVICE_LIST)
                     .data(json));
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e) {
             log.warn("[SSE] Failed to send initial snapshot for ownerId={}: {}", ownerId, e.getMessage());
-            // Non-fatal: the emitter stays registered; next heartbeat will push an update.
+            sseNotifier.unregister(ownerId, emitter);
+            emitter.completeWithError(e);
         }
 
         log.info("[SSE] New connection for ownerId={} connections={}",
