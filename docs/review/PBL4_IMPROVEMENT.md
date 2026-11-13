@@ -47,3 +47,6 @@ Uses ApiClient's configured base URL (regression reproduced with local HTTP serv
 
 ### Database check (2026-11-13)
 The live PostgreSQL database had 1 users row and 2 child rows. `child.user_id` lacked an index, while `ChildRepository.findByOwner` is used by account listing and periodic presence snapshots. Added `idx_child_user_id` in the JPA mapping and an idempotent SQL migration. Tested the migration twice in a disposable PostgreSQL 16 container, then applied it to the live local `remote_db`; row counts remained 1 and 2. No table data was changed. Redis integration tests were not run in this increment; the existing 20-second presence TTL still requires an isolated Redis run for final verification.
+
+### Redis integration and streaming cleanup
+Ran `PresenceRedisIT` against a disposable Redis 7 container on port 16379. The first run exposed a stale test assertion using `presence:v2:` while the current implementation writes `presence:`. Corrected the assertion; the integration test then passed, including the real 20-second TTL expiry, independent sessions, and logout behavior. Removed the unused `ScreenStreamSender` relay registration/session state path (187 lines); `ChildSessionController` remains the single owner of that state. Qt build and all 7 CTest executables pass after the removal.

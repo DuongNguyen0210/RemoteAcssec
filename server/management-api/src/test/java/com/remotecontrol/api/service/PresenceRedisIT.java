@@ -34,7 +34,7 @@ class PresenceRedisIT {
             assertEquals("PC", service.getDevice(ownerId, b.getSessionId()).getDeviceName());
             assertTrue(service.getDevices(ownerId + 1).isEmpty());
             assertNull(service.getDevice(ownerId + 1, a.getSessionId()));
-            long ttl = redis.getExpire("presence:v2:" + ownerId + ":" + a.getSessionId());
+            long ttl = redis.getExpire("presence:" + ownerId + ":" + a.getSessionId());
             assertTrue(ttl > 0 && ttl <= 20);
             service.closeSession(ownerId, a.getSessionId());
             assertFalse(service.markDeviceOnline(owner, a, null, laptop), "Late heartbeat cannot undo logout");
