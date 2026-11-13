@@ -153,7 +153,6 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
             }
             const auto frame = m_frameReassembler.feed(message.payload);
             if (frame) {
-                m_latestCompletedFrame = frame->frameId;
                 emit frameReceived(frame->frameId, frame->data);
                 decodeFrame(frame->frameId, frame->data);
             }
@@ -219,12 +218,13 @@ void AdminSessionController::decodeFrame(quint32 frameId, QByteArray jpeg)
     const quint64 generation = m_generation;
     const quint64 sessionId = m_activeSessionId;
     auto *watcher = new QFutureWatcher<QImage>(this);
-    connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, watcher, generation, sessionId, frameId] {
+    connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, watcher, generation, sessionId] {
         const QImage image = watcher->result();
         watcher->deleteLater();
         m_decoding = false;
-        if (generation == m_generation && sessionId == m_activeSessionId && sessionId && !image.isNull()
-                && frameId == m_latestCompletedFrame)
+        // Publish completed work even if a newer frame is queued. Otherwise a slow
+        // decoder can starve the viewer forever while incoming frames keep advancing.
+        if (generation == m_generation && sessionId == m_activeSessionId && sessionId && !image.isNull())
             emit frameReady(sessionId, image);
         if (!m_pendingJpeg.isEmpty() && m_activeSessionId) {
             QByteArray next = std::move(m_pendingJpeg);

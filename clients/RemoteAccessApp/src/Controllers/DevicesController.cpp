@@ -77,8 +77,9 @@ DevicesPage* DevicesController::getView() const
 
 void DevicesController::refresh()
 {
-    if (m_store) {
+    if (m_store && m_deviceService) {
         m_deviceService->fetchDevices();
+        m_deviceService->startSseStream();
     }
 }
 

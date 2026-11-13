@@ -15,6 +15,7 @@ class DeviceStore;
 class AccountStore;
 class DevicesController;
 class AccountController;
+class SettingsController;
 class AccountCsvReader;
 
 class AppCoordinator : public QObject
@@ -46,6 +47,7 @@ private:
     AccountStore *m_accountStore;
     DevicesController *m_devicesController;
     AccountController *m_accountController;
+    SettingsController *m_settingsController;
 };
 
 #endif

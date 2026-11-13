@@ -8,6 +8,7 @@
 
 class DevicesPage;
 class AccountPage;
+class SettingsPage;
 class SessionsPage;
 class QImage;
 
@@ -16,7 +17,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(DevicesPage *devicesPage, AccountPage *accountPage, QWidget *parent = nullptr);
+    explicit MainWindow(DevicesPage *devicesPage, AccountPage *accountPage, SettingsPage *settingsPage = nullptr, QWidget *parent = nullptr);
     ~MainWindow();
     void showRemoteSession();
     void setRemoteFrame(const QImage &image);
@@ -32,7 +33,7 @@ private:
     QStackedWidget *stackedWidget;
     SessionsPage *pageSessions;
 
-    void setupUi(DevicesPage *devicesPage, AccountPage *accountPage);
+    void setupUi(DevicesPage *devicesPage, AccountPage *accountPage, SettingsPage *settingsPage);
 };
 
 #endif

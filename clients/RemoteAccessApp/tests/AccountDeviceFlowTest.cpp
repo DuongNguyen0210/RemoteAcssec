@@ -219,6 +219,10 @@ private slots:
                     } else if (bytes.startsWith("PUT /api/v1/child/12 ")) {
                         ++updateRequests;
                         body = R"({"success":true,"message":"Updated"})";
+                    } else if (bytes.startsWith("GET /api/v1/devices/events")) {
+                        body = "";
+                    } else if (bytes.startsWith("GET /api/v1/user/profile")) {
+                        body = R"({"success":true,"data":{"username":"owner","email":"admin@example.com"}})";
                     } else if (bytes.startsWith("GET /api/v1/devices ")) {
                         ++deviceRequests;
                         body = online ? R"({"success":true,"data":[{"sessionId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","childId":12,"username":"ownerchild","deviceName":"Laptop","os":"Linux","ipAddress":"192.168.1.10"},{"sessionId":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","childId":12,"username":"ownerchild","deviceName":"PC","os":"Windows","ipAddress":"192.168.1.11"}]})"

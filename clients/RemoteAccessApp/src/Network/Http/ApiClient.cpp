@@ -4,6 +4,7 @@
 #include <QNetworkRequest>
 #include <QDebug>
 #include <QHash>
+#include <QSettings>
 
 ApiClient& ApiClient::instance()
 {
@@ -71,7 +72,13 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
 ApiClient::ApiClient(QObject *parent) 
     : QObject(parent), m_networkManager(new QNetworkAccessManager(this))
 {
-    m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://cornball-ibuprofen-polygraph.ngrok-free.dev");
+    QSettings settings("DUT_PBL4", "RemoteAccessApp");
+    QString savedUrl = settings.value("server/apiUrl").toString();
+    if (!savedUrl.isEmpty()) {
+        m_baseUrl = savedUrl;
+    } else {
+        m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://cornball-ibuprofen-polygraph.ngrok-free.dev");
+    }
 }
 
 ApiClient::~ApiClient()
@@ -86,6 +93,19 @@ void ApiClient::setToken(const QString &token)
 QString ApiClient::getToken() const
 {
     return m_token;
+}
+
+void ApiClient::setBaseUrl(const QString &url)
+{
+    m_baseUrl = url.trimmed();
+    if (m_baseUrl.endsWith('/')) {
+        m_baseUrl.chop(1);
+    }
+}
+
+QString ApiClient::getBaseUrl() const
+{
+    return m_baseUrl;
 }
 
 QNetworkRequest ApiClient::createRequest(const QString &endpoint) const
