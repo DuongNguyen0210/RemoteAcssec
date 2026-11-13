@@ -7,6 +7,11 @@
 #include <QtEndian>
 #include <QDebug>
 #include <QUuid>
+#include <QTimer>
+#include <QBuffer>
+#include <QImageReader>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrentRun>
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/RelayAuthPayload.h"
 
@@ -26,6 +31,10 @@ AdminSessionController::AdminSessionController(QObject *parent)
     , m_connecting(false)
     , m_requestPending(false)
 {
+    auto *pruneTimer = new QTimer(this);
+    pruneTimer->setInterval(1000);
+    connect(pruneTimer, &QTimer::timeout, this, &AdminSessionController::pruneFrames);
+    pruneTimer->start();
     connect(m_relayClient, &RelayClient::connected,
             this, &AdminSessionController::onRelayConnected);
     connect(m_relayClient, &RelayClient::disconnected,
@@ -62,12 +71,30 @@ void AdminSessionController::requestSession(const QString &targetAgentSessionId)
     }
 }
 
+void AdminSessionController::disconnectSession()
+{
+    if (!m_activeSessionId) return;
+    Protocol::ProtocolHeader header(Protocol::MessageType::DISCONNECT);
+    header.sessionId = m_activeSessionId;
+    const QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
+    if (m_relayClient->sendRawPacket(packet) != packet.size()) {
+        handleFatalRelayTermination(QStringLiteral("Không thể gửi yêu cầu ngắt phiên."));
+        return;
+    }
+    const quint64 sessionId = m_activeSessionId;
+    const QString agentId = m_activeAgentSessionId;
+    m_activeSessionId = 0;
+    m_activeAgentSessionId.clear();
+    resetFrames();
+    emit sessionEnded(sessionId, agentId, QStringLiteral("Đã ngắt kết nối."));
+}
+
 void AdminSessionController::onRelayConnected()
 {
     m_connected = true;
     m_connecting = false;
     m_streamParser = Protocol::RdtpStreamParser{};
-    m_frameReassembler.clear();
+    resetFrames();
 
     if (m_requestPending)
         sendConnectRequest();
@@ -120,17 +147,18 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 
     for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
         if (message.header.type == Protocol::MessageType::SCREEN_FRAME) {
-            if (m_activeSessionId == 0 || m_activeSessionId != message.header.sessionId) {
+            if (m_activeSessionId == 0 || m_activeSessionId != message.header.sessionId)
+            {
                 continue;
             }
-
-            const auto reassembled = m_frameReassembler.feed(message.payload);
-            if (reassembled.has_value()) {
-                emit frameReceived(reassembled->frameId, reassembled->data);
+            const auto frame = m_frameReassembler.feed(message.payload);
+            if (frame) {
+                m_latestCompletedFrame = frame->frameId;
+                emit frameReceived(frame->frameId, frame->data);
+                decodeFrame(frame->frameId, frame->data);
             }
             continue;
         }
-
         if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
             continue;
 
@@ -159,12 +187,60 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
             continue;
         }
 
+        resetFrames();
         m_activeSessionId = static_cast<quint64>(message.header.sessionId);
         m_activeAgentSessionId = m_pendingAgentSessionId;
         m_requestPending = false;
         m_pendingAgentSessionId.clear();
         emit sessionEstablished(m_activeSessionId, m_activeAgentSessionId);
     }
+}
+
+void AdminSessionController::resetFrames()
+{
+    ++m_generation;
+    m_frameReassembler.clear();
+    m_pendingJpeg.clear();
+}
+
+void AdminSessionController::pruneFrames()
+{
+    m_frameReassembler.prune();
+}
+
+void AdminSessionController::decodeFrame(quint32 frameId, QByteArray jpeg)
+{
+    if (m_decoding) {
+        m_pendingFrameId = frameId;
+        m_pendingJpeg = std::move(jpeg);
+        return;
+    }
+    m_decoding = true;
+    const quint64 generation = m_generation;
+    const quint64 sessionId = m_activeSessionId;
+    auto *watcher = new QFutureWatcher<QImage>(this);
+    connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, watcher, generation, sessionId, frameId] {
+        const QImage image = watcher->result();
+        watcher->deleteLater();
+        m_decoding = false;
+        if (generation == m_generation && sessionId == m_activeSessionId && sessionId && !image.isNull()
+                && frameId == m_latestCompletedFrame)
+            emit frameReady(sessionId, image);
+        if (!m_pendingJpeg.isEmpty() && m_activeSessionId) {
+            QByteArray next = std::move(m_pendingJpeg);
+            m_pendingJpeg.clear();
+            decodeFrame(m_pendingFrameId, std::move(next));
+        }
+    });
+    watcher->setFuture(QtConcurrent::run([jpeg = std::move(jpeg)]() mutable {
+        QBuffer buffer(&jpeg);
+        if (!buffer.open(QIODevice::ReadOnly)) return QImage();
+        QImageReader reader(&buffer, "jpeg");
+        const QSize dimensions = reader.size();
+        if (!dimensions.isValid() || dimensions.width() > 8192 || dimensions.height() > 8192
+                || qint64(dimensions.width()) * dimensions.height() > 16777216) return QImage();
+        return reader.read();
+    }));
 }
 
 void AdminSessionController::failPendingRequest(const QString &reason)
@@ -178,25 +254,6 @@ void AdminSessionController::failPendingRequest(const QString &reason)
     emit requestFailed(failedAgentSessionId, reason);
 }
 
-void AdminSessionController::disconnectSession()
-{
-    if (m_activeSessionId == 0)
-        return;
-
-    const quint64 oldSessionId = m_activeSessionId;
-    const QString oldAgentSessionId = m_activeAgentSessionId;
-
-    m_activeSessionId = 0;
-    m_activeAgentSessionId.clear();
-    m_frameReassembler.clear();
-
-    if (m_connected) {
-        m_relayClient->DisconnectFromServer();
-    }
-
-    emit sessionEnded(oldSessionId, oldAgentSessionId, QStringLiteral("Nguoi dung chu dong ngat ket noi."));
-}
-
 void AdminSessionController::handleFatalRelayTermination(const QString &reason)
 {
     const QString tmp_activeAgentSessionId = m_activeAgentSessionId;
@@ -205,7 +262,7 @@ void AdminSessionController::handleFatalRelayTermination(const QString &reason)
     const bool tmp_requestPending = m_requestPending;
 
     m_streamParser = Protocol::RdtpStreamParser{};
-    m_frameReassembler.clear();
+    resetFrames();
     m_activeAgentSessionId.clear();
     m_pendingAgentSessionId.clear();
     m_activeSessionId = 0;

@@ -23,6 +23,7 @@ public final class RelayRegistry {
     private final ConcurrentMap<ChannelId, Long> adminSessions = new ConcurrentHashMap<>();
     private final ConcurrentMap<ChannelId, Long> childSessions = new ConcurrentHashMap<>();
     private final Set<ChannelId> closingChannels = new HashSet<>();
+    private final java.util.Map<ChannelId, SessionRecord> disconnectingChildren = new java.util.HashMap<>();
     private long nextSessionId = 1L;
     private static final java.time.Duration DEFAULT_SESSION_TIMEOUT = java.time.Duration.ofSeconds(15);
 
@@ -87,7 +88,8 @@ public final class RelayRegistry {
      * are rejected without replacing the existing registration.
      */
     public synchronized boolean registerChild(String agentSessionId, Channel channel) {
-        if (closingChannels.contains(channel.id()) || !channel.isActive()) return false;
+        if (closingChannels.contains(channel.id()) || disconnectingChildren.containsKey(channel.id())
+                || !channel.isActive()) return false;
         String existingSessionId = agentSessionIds.putIfAbsent(channel.id(), agentSessionId);
         if (existingSessionId != null) {
             return existingSessionId.equals(agentSessionId)
@@ -126,6 +128,7 @@ public final class RelayRegistry {
     public synchronized SessionRecord createPendingSession(
             Channel adminChannel, Channel childChannel, String agentSessionId) {
         if (closingChannels.contains(adminChannel.id()) || closingChannels.contains(childChannel.id())
+                || disconnectingChildren.containsKey(childChannel.id())
                 || isRegisteredChild(adminChannel)
                 || !adminChannel.isActive()
                 || !childChannel.isActive()
@@ -214,6 +217,33 @@ public final class RelayRegistry {
     private void retireChild(Channel child) {
         reserveClosing(child);
         unregisterChild(child);
+    }
+
+    /** Atomically remove the active session and reserve its CHILD until the write completes. */
+    public synchronized SessionRecord beginDisconnect(long sessionId, Channel adminChannel) {
+        SessionRecord session = sessions.get(sessionId);
+        if (sessionId == 0 || session == null || session.state != SessionState.ACTIVE
+                || session.adminChannel != adminChannel) return null;
+        disconnectingChildren.put(session.childChannel.id(), session);
+        removeSession(session);
+        return session;
+    }
+
+    /** Returns true only to the caller responsible for closing a failed CHILD. */
+    public synchronized boolean completeDisconnect(SessionRecord session, boolean success) {
+        Channel child = session.childChannel;
+        if (disconnectingChildren.get(child.id()) != session) return false;
+        if (!success) {
+            closingChannels.add(child.id());
+            unregisterChild(child);
+        }
+        disconnectingChildren.remove(child.id());
+        return !success;
+    }
+
+    /** Called after the failed CHILD's close future completes. */
+    public synchronized void releaseFailedDisconnectChannel(Channel child) {
+        closingChannels.remove(child.id());
     }
 
     public synchronized SessionRecord findActiveSessionForChild(

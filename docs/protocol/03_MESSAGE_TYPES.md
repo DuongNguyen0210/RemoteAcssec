@@ -382,3 +382,16 @@ Chi tiet xem: [06_HEADER_SERIALIZATION.md - MessageType Serialization](06_HEADER
 
 - [02_PROTOCOL_CONSTANTS.md](02_PROTOCOL_CONSTANTS.md) - Cac hang so khac (MAGIC, VERSION, ...)
 - [04_PROTOCOL_HEADER_MODEL.md](04_PROTOCOL_HEADER_MODEL.md) - Field `type` trong ProtocolHeader
+
+
+## F5: DISCONNECT của ADMIN (`0x60`)
+
+ADMIN gửi DISCONNECT khi session đang ACTIVE: header RDTP v2 có `sessionId` của phiên,
+`flags = 0`, `sequenceNumber = 0`, `payloadLength = 0`, payload rỗng. Relay chỉ chấp nhận
+channel ADMIN đang sở hữu session ACTIVE đó; ID sai, PENDING, channel khác, gói sai định dạng
+hoặc gói lặp được bỏ qua. Relay xóa mapping session và giữ CHILD bận cho đến khi thao tác gửi
+thông điệp tới CHILD hoàn tất. Nếu gửi thất bại hoặc không hoàn tất trong 15 giây, Relay hủy
+đăng ký và đóng CHILD; ADMIN vẫn mở.
+CHILD nhận đúng session sẽ dừng stream và
+trở lại trạng thái đã đăng ký; cả hai kết nối TCP vẫn được giữ. Nếu TCP lỗi thì teardown F2
+vẫn áp dụng. Đây là thông báo một chiều, không có ACK và không dành cho yêu cầu CHILD.

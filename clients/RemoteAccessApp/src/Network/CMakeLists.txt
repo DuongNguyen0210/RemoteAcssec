@@ -12,6 +12,8 @@ target_link_libraries(Network PUBLIC
     Domain
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Gui
+    Qt${QT_VERSION_MAJOR}::Concurrent
 )
 
 target_include_directories(Network PUBLIC

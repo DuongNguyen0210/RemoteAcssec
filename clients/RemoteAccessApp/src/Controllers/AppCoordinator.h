@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QtGlobal>
 
+class QImage;
 class AuthController;
 class MainWindow;
 class RemoteDesktopWindow;
@@ -28,7 +29,7 @@ public:
 private slots:
     void handleLoginSuccess(const QString &role, const QString &username);
     void handleRemoteSessionStarted(quint64 sessionId, const QString &agentSessionId);
-    void handleFrameReceived(quint32 frameId, const QByteArray &jpegData);
+    void handleFrameReady(quint64 sessionId, const QImage &image);
     void handleSessionEnded(quint64 sessionId, const QString &agentSessionId, const QString &reason);
     void handleDisconnectRequested();
     void handlePageSelected(int pageIndex);
@@ -37,6 +38,7 @@ private:
     QPointer<AuthController> m_authController;
     QPointer<MainWindow> m_mainWindow;
     QPointer<RemoteDesktopWindow> m_remoteDesktopWindow;
+    quint64 m_remoteSessionId = 0;
     HeartbeatReporter *m_heartbeatReporter;
     ScreenStreamSender *m_screenStreamSender;
 

@@ -27,6 +27,8 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
         else if (m_view) m_view->showError(message);
     });
 
+    connect(m_sessionController, &AdminSessionController::frameReady,
+            this, &DevicesController::remoteFrameReady);
     connect(m_sessionController, &AdminSessionController::sessionEstablished,
             this, &DevicesController::handleSessionEstablished);
 
@@ -44,7 +46,8 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
             this, [this](quint64 remoteSessionId, const QString &agentSessionId, const QString &reason)
             {
                 emit sessionEnded(remoteSessionId, agentSessionId, reason);
-                if (m_view)
+                emit remoteSessionEnded();
+                if (m_view && !m_requestedDisconnect)
                 {
                     m_view->showError(QStringLiteral("Phiên điều khiển đã kết thúc: %1").arg(reason));
                 }
@@ -82,7 +85,9 @@ void DevicesController::refresh()
 void DevicesController::disconnectCurrentSession()
 {
     if (m_sessionController) {
+        m_requestedDisconnect = true;
         m_sessionController->disconnectSession();
+        m_requestedDisconnect = false;
     }
 }
 
