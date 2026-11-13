@@ -3,10 +3,9 @@ package com.remotecontrol.api.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "child")
+@Table(name = "child", indexes = @Index(name = "idx_child_user_id", columnList = "user_id"))
 @Data
 @Builder
 @NoArgsConstructor
