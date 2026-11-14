@@ -82,8 +82,10 @@ void DevicesPage::renderDevices()
     if (!m_flowLayout) return;
 
     while (QLayoutItem *item = m_flowLayout->takeAt(0)) {
-        if (item->widget())
+        if (item->widget()) {
+            item->widget()->hide();
             item->widget()->deleteLater();
+        }
         delete item;
     }
 
