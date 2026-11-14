@@ -7,8 +7,10 @@ import com.remotecontrol.api.entity.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 /** Run explicitly against an isolated Redis: mvn -Dtest=PresenceRedisIT test. */
 class PresenceRedisIT {
@@ -34,13 +36,25 @@ class PresenceRedisIT {
             assertEquals("PC", service.getDevice(ownerId, b.getSessionId()).getDeviceName());
             assertTrue(service.getDevices(ownerId + 1).isEmpty());
             assertNull(service.getDevice(ownerId + 1, a.getSessionId()));
-            long ttl = redis.getExpire("presence:v2:" + ownerId + ":" + a.getSessionId());
+            long ttl = redis.getExpire("presence:" + ownerId + ":" + a.getSessionId());
             assertTrue(ttl > 0 && ttl <= 20);
             service.closeSession(ownerId, a.getSessionId());
             assertFalse(service.markDeviceOnline(owner, a, null, laptop), "Late heartbeat cannot undo logout");
             assertEquals(1, service.getDevices(ownerId).size());
+            var devices = mock(DeviceService.class);
+            var admin = UserPrincipal.builder().id(Long.toString(ownerId)).build();
+            when(devices.getDevices(admin)).thenAnswer(call -> service.getDevices(ownerId));
+            var notifier = new SseNotifier(devices, new ObjectMapper());
+            var emitter = mock(SseEmitter.class);
+            notifier.register(ownerId, emitter, admin, service.getDevices(ownerId));
+            notifier.reconcile();
+            verify(emitter, never()).send(any(SseEmitter.SseEventBuilder.class));
             Thread.sleep(21000); // Exercise the real production TTL, not a mocked clock.
             assertTrue(service.getDevices(ownerId).isEmpty());
+            notifier.reconcile();
+            var event = org.mockito.ArgumentCaptor.forClass(SseEmitter.SseEventBuilder.class);
+            verify(emitter).send(event.capture());
+            assertTrue(event.getValue().build().stream().anyMatch(part -> "[]".equals(part.getData())));
             assertTrue(service.isSessionActive("12", b.getSessionId()), "Presence expiry is not logout");
             assertTrue(service.markDeviceOnline(owner, b, null, pc));
             assertEquals(1, service.getDevices(ownerId).size());
@@ -50,4 +64,5 @@ class PresenceRedisIT {
             factory.destroy();
         }
     }
+
 }
