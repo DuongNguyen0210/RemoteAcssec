@@ -55,6 +55,8 @@ in XTest library teardown. It does not exercise relay transport or Windows.
   dynamic allocation/failover and Windows remain unverified. A static-scene
   host/guest hold received 596 decoded frames in 120000 ms (4.97 FPS), with a
   maximum frame gap of 312 ms, then disconnected cleanly.
+  A separate required-TLS host/guest run passed the same input/disconnect
+  checks with 49 frames in 10 seconds and a maximum gap of 207 ms.
   `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required observations.
 
 The two remaining isolated validation containers later became stopped. Both

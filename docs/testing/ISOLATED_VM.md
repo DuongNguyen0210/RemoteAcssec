@@ -78,12 +78,26 @@ average and no gap over 5 seconds, including the gap at the end. The temporary
 X server runner's timeout is extended with the requested hold duration.
 
 The harness starts/stops its own loopback relay and fake HTTP authorizer; no
-user account or project database is used. Static discovery and plaintext
-transport are confined to host/guest NAT. This does not verify the full
-login/sharing UI, dynamic allocation, TLS, relay failover,
+user account or project database is used. Static discovery is used; default
+plaintext transport is confined to host/guest NAT, with optional required TLS
+below. This does not verify the full login/sharing UI, dynamic allocation, relay failover,
 Windows or independent physical-host performance. Those rows remain open.
 The measured scene is static and mostly solid color; this is continuity
 evidence, not a benchmark for video or many concurrent desktops.
+
+### TLS host/guest run
+
+Add `--tls` to the harness command to generate a one-day test certificate,
+enable TLS on the Java relay and require certificate/hostname verification on
+both clients. The certificate SAN covers host loopback and the guest's relay
+address. Only the public certificate is copied into the guest; the private key
+stays in a temporary host directory. The harness removes both after the run.
+
+A 10-second TLS run passed screen, native mouse, native keyboard and clean
+disconnect checks: 49 decoded frames in 10000 ms, maximum gap 207 ms. Both
+clients used `REMOTE_RELAY_TLS=required`; the relay had only its TLS listener.
+Guest certificate cleanup was checked before shutting down the VM. This run
+uses an isolated test CA and does not validate a public deployment certificate.
 
 When testing ends, shut down only this VM gracefully, for example by running
 `sudo poweroff` inside the guest. Its disk can be retained for reproducibility;
