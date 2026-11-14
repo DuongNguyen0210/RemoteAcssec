@@ -13,6 +13,7 @@
 #include "Network/Relay/ChildSessionController.h"
 #include "Streaming/ScreenStreamSender.h"
 #include "Controllers/AppCoordinator.h"
+#include "Controllers/RemoteInputInjector.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Components/RemoteScreenWidget.h"
 #include "Network/Protocol/RemoteInputPacket.h"
@@ -41,6 +42,17 @@ class AdminScreenViewerTest : public QObject {
         c.onRelayBytesReceived(packet(session, id, index, count, size, part));
     }
 private slots:
+    void mapsFramePixelsToDesktopCoordinates() {
+        const QRect desktop(100, 50, 1920, 1080);
+        QCOMPARE(RemoteInputInjector::desktopPosition(1919, 1079, QSize(1920, 1080), desktop),
+                 std::optional<QPoint>(QPoint(2019, 1129)));
+        QCOMPARE(RemoteInputInjector::desktopPosition(1920, 1080, QSize(3840, 2160), desktop),
+                 std::optional<QPoint>(QPoint(1060, 590)));
+        QCOMPARE(RemoteInputInjector::desktopPosition(3839, 2159, QSize(3840, 2160), desktop),
+                 std::optional<QPoint>(QPoint(2019, 1129)));
+        QVERIFY(!RemoteInputInjector::desktopPosition(3840, 0, QSize(3840, 2160), desktop));
+        QVERIFY(!RemoteInputInjector::desktopPosition(0, 0, QSize(), desktop));
+    }
     void viewerEncodesMouseAndKeyboardForRemoteSession() {
         RemoteScreenWidget view;
         view.resize(320, 240);

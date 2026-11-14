@@ -44,6 +44,7 @@ void ScreenStreamSender::onTick()
         qWarning() << "[ScreenStreamSender] Chụp khung hình thất bại.";
         return;
     }
+    emit frameCaptured(frame.size());
 
     const QByteArray encoded = ScreenEncoder::encodeJpeg(frame);
     if (encoded.isEmpty()) {

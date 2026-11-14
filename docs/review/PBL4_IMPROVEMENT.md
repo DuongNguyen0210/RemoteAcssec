@@ -22,7 +22,7 @@ Keep the existing Qt Widgets/QSS palette and Spring/Netty architecture. Improve 
 ## Current feature audit
 | Core capability | Current evidence | Remaining gap |
 |---|---|---|
-| Screen and control | Qt captures/encodes JPEG, relay forwards RDTP, ADMIN viewer decodes and sends input; CHILD injects on Windows/X11 (`ScreenStreamSender`, `AdminSessionController`, `RemoteInputInjector`) | Verify real two-machine input, DPI mapping, FPS and Wayland behavior |
+| Screen and control | Qt captures/encodes JPEG, relay forwards RDTP, ADMIN viewer decodes and sends input; CHILD injects on Windows/X11 (`ScreenStreamSender`, `AdminSessionController`, `RemoteInputInjector`). CHILD now maps frame pixels to Qt desktop coordinates for high-DPI screens; the local 100%/200% mapping test passes. | Verify real two-machine input at both scales, FPS and Wayland behavior |
 | Relay and dispatch | Redis Lua allocates by reserved/registered load; real two-node API/relay integration and failure reallocation passed (`allocate.lua`, `server/tests/relay_load_balancing.py`, `relay_failover.py`) | Active sessions end on relay loss; multi-host recovery and user reconnect need field testing |
 | Transport and overload | SSE bounded/retried, server presence coalesced, screen send skips frames under backpressure, relay has write watermarks, CHILD retries back off; TLS can be required (`SseClient`, `DevicePresencePublisher`, `ScreenStreamSender`, `RelayServer`) | Enable TLS in deployment; measure full Qt capture/network load across two hosts |
 | User control | CHILD explicitly enables unattended sharing and can stop locally; ADMIN can end the viewer session (`AppCoordinator`, `RemoteDesktopWindow`) | Test visibility and stop behavior on actual desktops |

@@ -119,6 +119,8 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                     [injector](const QString &) { injector->releaseAll(); });
             connect(session, &QObject::destroyed, this, [injector] { delete injector; });
             m_screenStreamSender = new ScreenStreamSender(session, this);
+            connect(m_screenStreamSender, &ScreenStreamSender::frameCaptured, this,
+                    [injector](const QSize &size) { injector->setFrameSize(size); });
             session->setParent(m_screenStreamSender);
             provider->setParent(session);
             connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost,

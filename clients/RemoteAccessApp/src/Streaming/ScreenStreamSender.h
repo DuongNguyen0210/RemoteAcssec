@@ -21,6 +21,9 @@ public:
     explicit ScreenStreamSender(ChildSessionController *session, QObject *parent = nullptr);
     ~ScreenStreamSender();
 
+signals:
+    void frameCaptured(const QSize &size);
+
 private slots:
     void onTick();
 

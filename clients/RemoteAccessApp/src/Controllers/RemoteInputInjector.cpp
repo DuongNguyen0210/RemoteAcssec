@@ -36,16 +36,25 @@ unsigned long nativeKey(quint32 key) {
     }
 }
 
-bool movePointer(const QByteArray &payload) {
+bool movePointer(const QByteArray &payload, const QSize &frameSize, QPoint &lastRemotePosition) {
     quint32 x, y;
     if (!RemoteInputPacket::readPosition(payload, x, y)) return false;
     auto *screen = QGuiApplication::primaryScreen();
     if (!screen) return false;
-    const auto geometry = screen->geometry();
-    if (x >= quint32(geometry.width()) || y >= quint32(geometry.height())) return false;
-    QCursor::setPos(geometry.x() + int(x), geometry.y() + int(y));
+    const auto position = RemoteInputInjector::desktopPosition(x, y, frameSize, screen->geometry());
+    if (!position) return false;
+    QCursor::setPos(*position);
+    lastRemotePosition = QPoint(int(x), int(y));
     return true;
 }
+}
+
+std::optional<QPoint> RemoteInputInjector::desktopPosition(quint32 x, quint32 y,
+                                                            const QSize &frameSize, const QRect &screenGeometry) {
+    if (frameSize.isEmpty() || screenGeometry.isEmpty()
+            || x >= quint32(frameSize.width()) || y >= quint32(frameSize.height())) return std::nullopt;
+    return QPoint(screenGeometry.x() + int(quint64(x) * screenGeometry.width() / frameSize.width()),
+                  screenGeometry.y() + int(quint64(y) * screenGeometry.height() / frameSize.height()));
 }
 
 bool RemoteInputInjector::inject(Protocol::MessageType type, const QByteArray &payload) {
@@ -60,9 +69,10 @@ bool RemoteInputInjector::inject(Protocol::MessageType type, const QByteArray &p
         return false;
     }
 #endif
-    if (type == T::MOUSE_MOVE) return payload.size() == 8 && movePointer(payload);
+    if (type == T::MOUSE_MOVE) return payload.size() == 8 && movePointer(payload, m_frameSize, m_lastRemotePosition);
     if (type == T::MOUSE_BUTTON_DOWN || type == T::MOUSE_BUTTON_UP || type == T::MOUSE_WHEEL) {
-        if (payload.size() != (type == T::MOUSE_WHEEL ? 12 : 9) || !movePointer(payload)) return false;
+        if (payload.size() != (type == T::MOUSE_WHEEL ? 12 : 9)
+                || !movePointer(payload, m_frameSize, m_lastRemotePosition)) return false;
     } else if (type == T::KEY_PRESS || type == T::KEY_RELEASE) {
         if (payload.size() != 4) return false;
     } else return false;
@@ -157,12 +167,11 @@ bool RemoteInputInjector::inject(Protocol::MessageType type, const QByteArray &p
 void RemoteInputInjector::releaseAll() {
     const auto keys = m_keys;
     for (quint32 key : keys) inject(Protocol::MessageType::KEY_RELEASE, RemoteInputPacket::key(key));
-    const auto position = QCursor::pos();
-    const auto geometry = QGuiApplication::primaryScreen() ? QGuiApplication::primaryScreen()->geometry() : QRect();
     const auto buttons = m_buttons;
-    if (!geometry.isEmpty()) for (quint8 id : buttons)
+    if (!m_frameSize.isEmpty()) for (quint8 id : buttons)
         inject(Protocol::MessageType::MOUSE_BUTTON_UP,
-               RemoteInputPacket::button(quint32(qBound(0, position.x() - geometry.x(), geometry.width() - 1)),
-                                         quint32(qBound(0, position.y() - geometry.y(), geometry.height() - 1)), id));
+               RemoteInputPacket::button(quint32(m_lastRemotePosition.x()),
+                                         quint32(m_lastRemotePosition.y()), id));
     m_keys.clear(); m_buttons.clear();
+    m_frameSize = {};
 }
