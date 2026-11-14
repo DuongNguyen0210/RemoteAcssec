@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory)]
-    [uri] $BaseUrl
+    [uri] $BaseUrl,
+    [string] $ExpectedRelay
 )
 
 $ErrorActionPreference = 'Stop'
@@ -51,6 +52,9 @@ $endpoint = (Invoke-SmokeApi GET $relayRoute $null $ownerToken).data
 if (!$allocation.instanceId -or $endpoint.instanceId -ne $allocation.instanceId -or
     $endpoint.host -ne $allocation.host -or $endpoint.port -ne $allocation.port) {
     throw 'Owner relay lookup did not match the CHILD allocation.'
+}
+if ($ExpectedRelay -and $allocation.instanceId -ne $ExpectedRelay) {
+    throw "Expected allocation on $ExpectedRelay, received $($allocation.instanceId)."
 }
 
 Invoke-SmokeApi POST '/api/v1/child/logout' $null $account.token | Out-Null
