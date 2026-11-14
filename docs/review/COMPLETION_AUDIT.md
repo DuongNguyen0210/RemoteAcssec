@@ -52,7 +52,9 @@ in XTest library teardown. It does not exercise relay transport or Windows.
   native X11 tests at 100%/200% pass there. See `docs/testing/ISOLATED_VM.md`.
   Host/guest relay screen, native click, keyboard and disconnect now pass via
   `DesktopRelayAcceptance` using a real relay and fake authorizer. Full UI,
-  dynamic allocation/failover, sustained streaming and Windows remain unverified.
+  dynamic allocation/failover and Windows remain unverified. A static-scene
+  host/guest hold received 596 decoded frames in 120000 ms (4.97 FPS), with a
+  maximum frame gap of 312 ms, then disconnected cleanly.
   `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required observations.
 
 The two remaining isolated validation containers later became stopped. Both

@@ -3,6 +3,7 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QDebug>
+#include <QElapsedTimer>
 #include "Network/Http/ApiClient.h"
 #include "Network/Relay/StaticRelayEndpointProvider.h"
 #include "Network/Relay/ChildSessionController.h"
@@ -16,7 +17,9 @@ int main(int argc, char **argv) {
     const QString role = qEnvironmentVariable("PBL4_DESKTOP_ROLE");
     const QString agent = qEnvironmentVariable("PBL4_DESKTOP_AGENT");
     if (agent.isEmpty() || (role != "child" && role != "admin")) return 2;
-    QTimer::singleShot(30000, &app, [&] { qCritical() << "ACCEPTANCE_TIMEOUT"; app.exit(1); });
+    const int duration = qEnvironmentVariableIntValue("PBL4_DESKTOP_DURATION");
+    if (duration < 0 || duration > 300) return 2;
+    QTimer::singleShot((duration + 30) * 1000, &app, [&] { qCritical() << "ACCEPTANCE_TIMEOUT"; app.exit(1); });
     if (role == "child") {
         StaticRelayEndpointProvider provider;
         if (qEnvironmentVariable("PBL4_ISOLATED_X11") != "1") return 2;
@@ -63,6 +66,10 @@ int main(int argc, char **argv) {
     ApiClient::instance().setToken("bench-admin");
     AdminSessionController admin(new StaticRelayEndpointProvider, nullptr);
     int stage = 0;
+    int heldFrames = 0;
+    qint64 maxGapMs = 0;
+    QElapsedTimer lastFrame;
+    QElapsedTimer holdTime;
     auto click = [&](int x, int y) {
         const auto payload = RemoteInputPacket::button(x, y, 1);
         return admin.sendInput(Protocol::MessageType::MOUSE_BUTTON_DOWN, payload)
@@ -71,6 +78,11 @@ int main(int argc, char **argv) {
     QObject::connect(&admin, &AdminSessionController::frameReady, &app,
                      [&](quint64, const QImage &image) {
         if (image.size() != QSize(1280, 800)) { qCritical() << "UNEXPECTED_FRAME_SIZE" << image.size(); app.exit(1); return; }
+        if (stage == 3) {
+            maxGapMs = qMax(maxGapMs, lastFrame.restart());
+            ++heldFrames;
+            return;
+        }
         const auto pixel = image.pixelColor(102, 102);
         if (stage == 0 && pixel.red() > 180 && pixel.blue() > 180 && pixel.green() < 60) {
             qInfo() << "SCREEN_RECEIVED"; stage = 1;
@@ -81,11 +93,25 @@ int main(int argc, char **argv) {
                 || !admin.sendInput(Protocol::MessageType::KEY_PRESS, RemoteInputPacket::key(Qt::Key_A))
                 || !admin.sendInput(Protocol::MessageType::KEY_RELEASE, RemoteInputPacket::key(Qt::Key_A))) app.exit(1);
         } else if (stage == 2 && pixel.blue() > 180 && pixel.red() < 60 && pixel.green() < 60) {
-            qInfo() << "REMOTE_KEY_CONFIRMED"; stage = 3; admin.disconnectSession();
+            qInfo() << "REMOTE_KEY_CONFIRMED"; stage = 3; lastFrame.start(); holdTime.start();
+            QTimer::singleShot(duration * 1000, Qt::PreciseTimer, &app, [&] {
+                maxGapMs = qMax(maxGapMs, lastFrame.elapsed());
+                qInfo() << "STREAM_HOLD" << "seconds=" << duration
+                        << "elapsed_ms=" << holdTime.elapsed()
+                        << "frames=" << heldFrames << "max_gap_ms=" << maxGapMs;
+                if (duration > 0 && (holdTime.elapsed() < duration * 1000
+                                    || heldFrames < duration * 2 || maxGapMs > 5000)) {
+                    qCritical() << "STREAM_STARVED"; app.exit(1); return;
+                }
+                stage = 4; admin.disconnectSession();
+            });
         }
     });
     QObject::connect(&admin, &AdminSessionController::sessionEnded, &app,
-                     [&](quint64, const QString &, const QString &) { app.exit(stage == 3 ? 0 : 1); });
+                     [&](quint64, const QString &, const QString &reason) {
+        qInfo() << "ADMIN_SESSION_ENDED" << "stage=" << stage << reason;
+        app.exit(stage == 4 ? 0 : 1);
+    });
     QObject::connect(&admin, &AdminSessionController::sessionFailed, &app,
                      [&](const QString &reason) { qCritical() << reason; app.exit(1); });
     QTimer::singleShot(0, &app, [&] { admin.requestSession(agent); });

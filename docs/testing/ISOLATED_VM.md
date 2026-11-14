@@ -58,7 +58,8 @@ python3 server/tests/desktop_vm_acceptance.py \
   --admin-binary /tmp/pbl4-qt-build/DesktopRelayAcceptance \
   --ssh-key /home/duongnguyen/.cache/pbl4-vm/test-key \
   --known-hosts /home/duongnguyen/.cache/pbl4-vm/known_hosts \
-  --log-dir /home/duongnguyen/.cache/pbl4-vm/acceptance-transport
+  --log-dir /home/duongnguyen/.cache/pbl4-vm/acceptance-transport \
+  --duration-seconds 120
 ```
 
 This passed with host Qt 6.10.2 and guest Qt 6.4.2. The real Java relay forwards
@@ -70,11 +71,19 @@ CHILD observes disconnect and both processes exit successfully. Logs contain
 `SCREEN_RECEIVED`, `REMOTE_CLICK_CONFIRMED`, `REMOTE_KEY_CONFIRMED`,
 `CHILD_READY` and `CHILD_DISCONNECTED`.
 
+The sustained run held the stream for exactly 120000 ms after input
+confirmation, received 596 decoded frames (4.97 FPS), and recorded a maximum
+inter-frame gap of 312 ms. The acceptance checks require at least 2 FPS on
+average and no gap over 5 seconds, including the gap at the end. The temporary
+X server runner's timeout is extended with the requested hold duration.
+
 The harness starts/stops its own loopback relay and fake HTTP authorizer; no
 user account or project database is used. Static discovery and plaintext
 transport are confined to host/guest NAT. This does not verify the full
-login/sharing UI, dynamic allocation, TLS, a two-minute stream, relay failover,
+login/sharing UI, dynamic allocation, TLS, relay failover,
 Windows or independent physical-host performance. Those rows remain open.
+The measured scene is static and mostly solid color; this is continuity
+evidence, not a benchmark for video or many concurrent desktops.
 
 When testing ends, shut down only this VM gracefully, for example by running
 `sudo poweroff` inside the guest. Its disk can be retained for reproducibility;

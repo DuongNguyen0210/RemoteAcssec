@@ -48,7 +48,7 @@ for the two-machine, Windows, network or high-DPI acceptance rows below.
 
 | Check | Expected observation | Result and evidence |
 |---|---|---|
-| Screen | Viewer shows current CHILD desktop and keeps updating for 2 minutes | |
+| Screen | Viewer shows current CHILD desktop and keeps updating for 2 minutes | Host/guest fixture: 596 decoded frames in 120000 ms, max gap 312 ms; full login/sharing GUI remains pending |
 | Pointer | Move and click all four screen corners at 100% and a high-DPI scale such as 200%; no offset or clipped area | |
 | Keyboard | Type letters, digits, Backspace, Enter and modifiers into a test editor; releasing viewer focus releases held keys | |
 | Local stop | CHILD clicks **Dừng chia sẻ**; viewer ends and further input no longer affects CHILD | |

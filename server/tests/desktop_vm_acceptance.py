@@ -24,6 +24,7 @@ parser.add_argument("--guest-relay-host", default="10.0.2.2")
 parser.add_argument("--guest-binary", default="/home/pbl4/build/DesktopRelayAcceptance")
 parser.add_argument("--guest-runner", default="/home/pbl4/source/clients/RemoteAccessApp/tests/run_x11_integration.py")
 parser.add_argument("--log-dir", required=True)
+parser.add_argument("--duration-seconds", type=int, choices=range(0, 301), default=0, metavar="0..300")
 args = parser.parse_args()
 logs = Path(args.log_dir)
 logs.mkdir(parents=True, exist_ok=True)
@@ -46,7 +47,9 @@ try:
     wait_for_relay(relay, port)
     remote = shlex.join(["env", "PBL4_DESKTOP_ROLE=child", f"PBL4_DESKTOP_AGENT={agent}",
                          f"REMOTE_RELAY_HOST={args.guest_relay_host}", f"REMOTE_RELAY_PORT={port}",
-                         "REMOTE_RELAY_TLS=off", "REMOTE_RELAY_CA_CERT=", "python3", args.guest_runner, args.guest_binary])
+                         f"PBL4_DESKTOP_DURATION={args.duration_seconds}",
+                         "REMOTE_RELAY_TLS=off", "REMOTE_RELAY_CA_CERT=", "python3", args.guest_runner,
+                         "--timeout-seconds", str(40 + args.duration_seconds), args.guest_binary])
     child_log = (logs / "child.log").open("w")
     handles.append(child_log)
     child = subprocess.Popen(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
@@ -62,11 +65,12 @@ try:
             raise TimeoutError("CHILD did not register within 20 seconds")
         time.sleep(0.1)
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PBL4_DESKTOP_ROLE="admin",
+               PBL4_DESKTOP_DURATION=str(args.duration_seconds),
                PBL4_DESKTOP_AGENT=agent, REMOTE_RELAY_HOST="127.0.0.1",
                REMOTE_RELAY_PORT=str(port), REMOTE_RELAY_TLS="off", REMOTE_RELAY_CA_CERT="")
     with (logs / "admin.log").open("w") as output:
         subprocess.run([args.admin_binary], env=env, stdout=output,
-                       stderr=subprocess.STDOUT, timeout=40, check=True)
+                       stderr=subprocess.STDOUT, timeout=40 + args.duration_seconds, check=True)
     if child.wait(timeout=10) != 0:
         raise RuntimeError("CHILD failed after ADMIN disconnected")
     admin_text = (logs / "admin.log").read_text()
@@ -75,6 +79,9 @@ try:
             raise RuntimeError(f"Missing confirmation: {marker}")
     if "CHILD_DISCONNECTED" not in (logs / "child.log").read_text():
         raise RuntimeError("CHILD did not observe session disconnect")
+    for line in admin_text.splitlines():
+        if line.startswith("STREAM_HOLD"):
+            print(line)
     print("PASS: host/guest screen, native mouse, native keyboard and disconnect")
 finally:
     for process in reversed(processes):

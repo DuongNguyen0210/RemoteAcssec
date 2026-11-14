@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("test_binary")
 parser.add_argument("--xvfb", default="Xvfb")
 parser.add_argument("--scale", choices=["1", "2"], default="1")
+parser.add_argument("--timeout-seconds", type=int, choices=range(1, 361), default=40, metavar="1..360")
 args = parser.parse_args()
 server = subprocess.Popen(
     [args.xvfb, "-displayfd", "1", "-screen", "0", "1280x800x24", "-nolisten", "tcp", "-ac"],
@@ -23,7 +24,7 @@ try:
     env = os.environ.copy()
     env.update(DISPLAY=":" + display, QT_QPA_PLATFORM="xcb", PBL4_ISOLATED_X11="1",
                QT_SCALE_FACTOR=args.scale)
-    result = subprocess.run([args.test_binary, "-nocrashhandler"], env=env, timeout=40)
+    result = subprocess.run([args.test_binary, "-nocrashhandler"], env=env, timeout=args.timeout_seconds)
     raise SystemExit(result.returncode)
 finally:
     server.terminate()
