@@ -148,8 +148,10 @@ bool RemoteInputInjector::inject(Protocol::MessageType type, const QByteArray &p
         }
         XFlush(display);
     }
-    dlclose(library);
+    // XCloseDisplay invokes extension cleanup callbacks owned by libXtst.
+    // Keep the library loaded until those callbacks have finished.
     XCloseDisplay(display);
+    dlclose(library);
 #else
     const bool sent = false;
 #endif

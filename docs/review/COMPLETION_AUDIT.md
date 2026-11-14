@@ -41,6 +41,11 @@ Integration findings:
 
 ## Remaining external evidence
 
+Native Linux X11 capture and injection now pass on a private Xvfb desktop via
+`X11InputIntegrationTest`: a real button click, keyboard entry, modifier release
+and screen color marker are verified. This test reproduced and guarded a crash
+in XTest library teardown. It does not exercise relay transport or Windows.
+
 - The owner currently has no two-machine or two-desktop-VM environment.
   `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required Windows/X11
   pointer, keyboard, DPI, local-stop and relay-recovery observations.

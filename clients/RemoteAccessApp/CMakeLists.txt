@@ -37,6 +37,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 include(CTest)
+option(ENABLE_X11_INPUT_INTEGRATION "Build native input test for an isolated X11 display" OFF)
+if(BUILD_TESTING AND ENABLE_X11_INPUT_INTEGRATION AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(X11InputIntegrationTest tests/X11InputIntegrationTest.cpp)
+    target_link_libraries(X11InputIntegrationTest PRIVATE Controllers Streaming Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+endif()
 if(BUILD_TESTING)
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
     add_executable(AccountDeviceFlowTest tests/AccountDeviceFlowTest.cpp project.qrc)

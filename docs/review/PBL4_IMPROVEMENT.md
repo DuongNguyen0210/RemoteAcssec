@@ -103,3 +103,12 @@ The Java relay also contained `ScreenFrameHandler` and a second frame reassemble
 
 ### Local API default
 A fresh Qt client previously fell back to a fixed ngrok hostname when no Settings value or `REMOTE_API_URL` existed. That could direct login credentials to an unrelated endpoint after the demo tunnel changes ownership. The fallback is now `http://localhost:9090`, matching the Management API's local default. Remote deployments must set their own HTTPS API URL. The Qt app builds and the account/device flow test passes after the change.
+
+### Native X11 input acceptance
+An opt-in Xvfb test now exercises real CHILD screen capture and XTest input on
+an isolated desktop. The first run crashed during input cleanup: the injector
+unloaded libXtst before XCloseDisplay could invoke its extension callbacks.
+The display is now closed before unloading the library. The same test passes
+native mouse click, keyboard entry, modifier release and capture color checks.
+See `docs/testing/TWO_MACHINE_ACCEPTANCE.md` for the isolated runner; real
+Windows and two-host acceptance remain outstanding.

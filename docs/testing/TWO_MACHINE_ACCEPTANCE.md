@@ -6,6 +6,24 @@ OS, display server, resolution, scale factor, API address, relay hosts, and
 Git commit before starting. The current CHILD input backend supports Windows
 and Linux X11 (`xcb` with `libXtst.so.6`); native Wayland input is unsupported.
 
+## Local X11 backend check
+
+Before using two desktops, native capture/input can be checked on a private
+Xvfb server. Install Xvfb and the XTest runtime, then run:
+
+```sh
+cmake -S clients/RemoteAccessApp -B /tmp/pbl4-qt-build -DBUILD_TESTING=ON -DENABLE_X11_INPUT_INTEGRATION=ON
+cmake --build /tmp/pbl4-qt-build -j 4 --target X11InputIntegrationTest
+python3 clients/RemoteAccessApp/tests/run_x11_integration.py /tmp/pbl4-qt-build/X11InputIntegrationTest
+```
+
+The runner allocates and stops its own X server and never uses the existing
+desktop display. It verifies a captured color marker, native button click,
+text input and releasing a held modifier. This reproduced a CHILD crash caused
+by unloading XTest before X11 extension cleanup; closing the display first
+fixed it and the test passes. This is local Linux backend evidence, not a pass
+for the two-machine, Windows, network or high-DPI acceptance rows below.
+
 ## Prepare
 
 1. Start the Management API, PostgreSQL, Redis and two relay nodes. Their
