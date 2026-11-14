@@ -12,12 +12,23 @@ Keep the existing Qt Widgets/QSS palette and Spring/Netty architecture. Improve 
 | persistence | Validate schema/contracts and migration need | Existing JPA/PostgreSQL |
 
 ## Acceptance and tasks
-- [ ] Audit core/missing/out-of-scope functions with concrete source evidence.
+- [x] Audit core/missing/out-of-scope functions with concrete source evidence.
 - [ ] Realtime: SSE uses configured API URL; safe cancellation; retry transient failures with capped jitter; idle watchdog and bounded input. Server avoids full-list fanout per heartbeat, periodically reconciles expiry, cleans failed emitters. Proxy streams without buffering.
 - [ ] Streaming: review backpressure and redundant session handling; retain session authorization/consent.
 - [ ] Desktop UX: remove demo records and misleading controls, expose reliable connection state; preserve all existing palette values.
-- [ ] Persistence: run isolated Redis and PostgreSQL checks, introduce only evidenced schema changes.
-- [ ] Build/test both stacks and record limits and remaining feature gaps.
+- [x] Persistence: run isolated Redis and PostgreSQL checks, introduce only evidenced schema changes.
+- [x] Build/test both stacks and record limits and remaining feature gaps.
+
+## Current feature audit
+| Core capability | Current evidence | Remaining gap |
+|---|---|---|
+| Screen and control | Qt captures/encodes JPEG, relay forwards RDTP, ADMIN viewer decodes and sends input; CHILD injects on Windows/X11 (`ScreenStreamSender`, `AdminSessionController`, `RemoteInputInjector`) | Verify real two-machine input, DPI mapping, FPS and Wayland behavior |
+| Relay and dispatch | Redis Lua allocates by reserved/registered load; real two-node API/relay integration and failure reallocation passed (`allocate.lua`, `server/tests/relay_load_balancing.py`, `relay_failover.py`) | Active sessions end on relay loss; multi-host recovery and user reconnect need field testing |
+| Transport and overload | SSE bounded/retried, server presence coalesced, screen send skips frames under backpressure, relay has write watermarks, CHILD retries back off; TLS can be required (`SseClient`, `DevicePresencePublisher`, `ScreenStreamSender`, `RelayServer`) | Enable TLS in deployment; measure full Qt capture/network load across two hosts |
+| User control | CHILD explicitly enables unattended sharing and can stop locally; ADMIN can end the viewer session (`AppCoordinator`, `RemoteDesktopWindow`) | Test visibility and stop behavior on actual desktops |
+| Persistence | Isolated PostgreSQL migration and Redis TTL tests passed; `child.user_id` index added | No further schema change is evidenced |
+
+Chat, file transfer, clipboard sync, AI features and Kubernetes are outside the core PBL4 remote-control goal. Disabled demo actions and unused relay registration code were removed; the remaining account/settings pages support administering and connecting devices.
 
 ## Commands and conventions
 - Server: `mvn -f server/pom.xml test`
@@ -26,7 +37,7 @@ Keep the existing Qt Widgets/QSS palette and Spring/Netty architecture. Improve 
 - Keep Qt signal/slot boundary between GUI/controllers/network; Java constructor injection; small classes with one responsibility.
 - Example: `if (m_loading) return;` prevents overlapping requests; do not introduce global polling.
 
-## Initial evidence
+## Initial evidence before fixes
 PresenceService scans Redis and serializes owner snapshots on each heartbeat. TTL expiration has no notification. SseClient ignores saved API URL and can dereference a null reply during abort's synchronous finished signal. Nginx buffers SSE and has a 15-second read timeout. Logs/Sessions include demo data. RemoteScreenWidget only renders frames; actual mouse/keyboard capture and injection are absent.
 
 ## Git reconciliation (2026-11-13)
@@ -39,11 +50,11 @@ Database read-only inspection: child.user_id has FK but no lookup index; users/c
 - Restored 401 for deleted owners instead of misleading empty device list. Full Maven reactor passes (17 management + 26 relay tests).
 - Added regression for decode progress with multiple queued frames: reproduced failure (only newest delivered), then removed newest-arrival equality guard. One decoding task plus one latest pending JPEG remains bounded; session generation still rejects images from ended sessions.
 
-## Remaining work
-SSE retry/address/idle behavior and bounded fanout; presence expiry and Redis lookup cost; misleading logs/settings and streaming duplication; database index/migration verification; runtime UX evidence and final review. Actual input capture/injection is missing despite protocol message types and relay forwarding; record this honestly as a core capability gap in the final feature audit.
+## Outstanding work now
+The code and local integration tests do not prove actual two-computer interaction. Test screen/input on Windows and X11 with different DPI, record Qt capture FPS and end-to-end latency, and verify recovery after a relay fails on a separate host. Enable TLS in any untrusted network deployment. Finish and reconcile the teammate's uncommitted deployment configuration before claiming a deployment-ready stack. The isolated validation PostgreSQL and Redis containers still require removal when Docker permits it.
 
 ### SSE client recovery
-Uses ApiClient's configured base URL (regression reproduced with local HTTP server before fix). Retries transient HTTP failures with exponential 3–30 second delay plus 0–999 ms jitter; stops on 401/403, including empty bodies. A 45-second transfer inactivity timeout recovers silent streams. Network read buffer and incomplete event buffer are bounded to 1 MiB; overflow disconnects and retries. Complete SSE blocks reset backoff. Verified local HTTP tests for configured address, synchronous cancellation, 503 reconnect followed by empty 401, and oversized incomplete event; account/device flow also passes. Server-side periodic snapshots/keepalives remain necessary and pending.
+Uses ApiClient's configured base URL (regression reproduced with local HTTP server before fix). Retries transient HTTP failures with exponential 3–30 second delay plus 0–999 ms jitter; stops on 401/403, including empty bodies. A 45-second transfer inactivity timeout recovers silent streams. Network read buffer and incomplete event buffer are bounded to 1 MiB; overflow disconnects and retries. Complete SSE blocks reset backoff. Verified local HTTP tests for configured address, synchronous cancellation, 503 reconnect followed by empty 401, and oversized incomplete event; account/device flow also passes. The server now coalesces heartbeat-driven snapshots per owner and periodically reconciles expiry with bounded workers and connections (`DevicePresencePublisher`, `SseNotifier`).
 
 ### Database check (2026-11-13)
 The live PostgreSQL database had 1 users row and 2 child rows. `child.user_id` lacked an index, while `ChildRepository.findByOwner` is used by account listing and periodic presence snapshots. Added `idx_child_user_id` in the JPA mapping and an idempotent SQL migration. Tested the migration twice in a disposable PostgreSQL 16 container, then applied it to the live local `remote_db`; row counts remained 1 and 2. No table data was changed. Redis integration tests were not run in this increment; the existing 20-second presence TTL still requires an isolated Redis run for final verification.
@@ -55,7 +66,7 @@ Ran `PresenceRedisIT` against a disposable Redis 7 container on port 16379. The 
 The sidebar's “Kết nối mới” action now opens Devices, where an actual device can be selected. Removed disabled notification/help/profile icons from the top bar; they had no backing behavior. QSS was not modified. Built the Qt client and ran the account/device and screen viewer test executables after the edit.
 
 ### Remaining acceptance evidence
-A full two-machine demonstration is still outstanding: real input injection and DPI mapping, relay node failure/reallocation, and one-vs-two relay load measurements. The CHILD auto-accepts sessions, so an explicit consent/unattended-access policy is still needed. Relay TCP has no TLS; do not expose its token-bearing traffic on an untrusted network. See CORE_IDEA_REVIEW.md for the capability audit. These are product/architecture gaps, not proven complete by unit tests.
+A full two-machine demonstration is still outstanding: real input injection and DPI mapping, measured Qt capture/stream quality, and a failure/reconnect demonstration with relay nodes on separate hosts. Local two-relay allocation, reassignment and synthetic transport benchmarks are recorded below. Unattended access is explicitly enabled on CHILD, and relay TLS must be configured before using an untrusted network. Unit and single-host integration tests do not prove multi-host desktop behavior.
 
 ### Two-relay integration (2026-11-13)
 Built an isolated Compose stack with two API instances, two relays, disposable PostgreSQL/Redis and separate loopback ports (18089, 19091, 19092). `server/tests/relay_load_balancing.py` passed: two CHILD sessions allocated to different relays, affinity/lookup and wrong-node authorization held, and screen/input packets crossed the active relay. `server/tests/relay_failover.py` passed after isolating the assigned relay from the Compose network: its Redis lease expired and a subsequent allocation returned the other relay. Docker `stop` was denied by the local daemon, and process `SIGSTOP` did not pause its heartbeat here; network disconnection was the verified failure injection. This does not prove seamless migration of an active remote-control session. Build initially hit a truncated Maven Central download and succeeded on retry. Cleanup was attempted after testing, but this Docker daemon returned `permission denied` for stop/kill/remove on the validation containers. The five application containers were disconnected from the validation network; PostgreSQL and Redis remain connected to each other. `pbl4-validation-*` containers and two volumes still need removal when Docker permissions recover. The temporary environment file was deleted.
