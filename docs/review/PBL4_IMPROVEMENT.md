@@ -65,6 +65,8 @@ Ran `PresenceRedisIT` against a disposable Redis 7 container on port 16379. The 
 ### Desktop navigation cleanup
 The sidebar's “Kết nối mới” action now opens Devices, where an actual device can be selected. Removed disabled notification/help/profile icons from the top bar; they had no backing behavior. QSS was not modified. Built the Qt client and ran the account/device and screen viewer test executables after the edit.
 
+The Sessions page no longer shows three metric cards with no data or a disabled “Xem màn hình” action. It keeps the real viewer, current-session indicator and working disconnect control. With no active session it now prompts the user to choose a device instead of implying that a screen stream is pending. The existing QSS palette was not changed; the screen viewer test passes after the cleanup.
+
 ### Remaining acceptance evidence
 A full two-machine demonstration is still outstanding: real input injection and DPI mapping, measured Qt capture/stream quality, and a failure/reconnect demonstration with relay nodes on separate hosts. Local two-relay allocation, reassignment and synthetic transport benchmarks are recorded below. Unattended access is explicitly enabled on CHILD, and relay TLS must be configured before using an untrusted network. Unit and single-host integration tests do not prove multi-host desktop behavior.
 

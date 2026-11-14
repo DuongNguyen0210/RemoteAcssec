@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QImage>
 class QFrame;
+class QLabel;
 
 class SessionsPage : public QWidget
 {
@@ -19,5 +20,6 @@ private:
     void setupUi();
     QWidget *m_viewer = nullptr;
     QFrame *m_sessionCard = nullptr;
+    QLabel *m_emptyLabel = nullptr;
 };
 #endif

@@ -8,6 +8,7 @@
 #include "GUI/Pages/AccountPage.h"
 #include "GUI/Windows/MainWindow.h"
 #include <QLineEdit>
+#include <QLabel>
 #include <QStackedWidget>
 #include <QPushButton>
 #include "Network/Relay/ChildSessionController.h"
@@ -170,15 +171,23 @@ private slots:
         QCOMPARE(search->placeholderText(), QStringLiteral("Tìm phiên kết nối — Sắp có"));
     }
     void disconnectButtonClearsViewer() {
-        SessionsPage page; page.resize(900,700); page.showSession(); page.show();
+        SessionsPage page; page.resize(900,700); page.show();
+        auto *empty = page.findChild<QLabel *>("sessionsEmptyState"); QVERIFY(empty);
+        QVERIFY(empty->isVisible());
+        page.showSession();
+        QVERIFY(!empty->isVisible());
         auto *button = page.findChild<QPushButton *>("disconnectSessionButton"); QVERIFY(button);
         auto *viewer = page.findChild<QWidget *>("screenViewer"); QVERIFY(viewer);
+        QVERIFY(viewer->isVisible());
         QImage image(32,24,QImage::Format_RGB32); image.fill(Qt::red); page.setFrame(image);
         QSignalSpy requested(&page, &SessionsPage::disconnectRequested);
         connect(&page, &SessionsPage::disconnectRequested, &page, &SessionsPage::clearFrame);
         auto before = viewer->grab().toImage();
         QTest::mouseClick(button, Qt::LeftButton);
         QCOMPARE(requested.count(),1); QVERIFY(viewer->grab().toImage() != before);
+        page.clearFrame();
+        QVERIFY(empty->isVisible());
+        QVERIFY(!viewer->isVisible());
     }
     void singleChunkAndWidget() {
         AdminSessionController c; c.m_activeSessionId = 42;
@@ -190,10 +199,9 @@ private slots:
         QCOMPARE(image.size(), QSize(32, 24));
         SessionsPage page; page.resize(320,240); page.setFrame(image); page.show();
         QTest::qWait(20);
-        int metricCards = 0;
         for (auto *widget : page.findChildren<QWidget *>())
-            if (widget->property("role") == "metricCard") ++metricCards;
-        QCOMPARE(metricCards, 3);
+            QVERIFY(widget->property("role") != "metricCard");
+        QCOMPARE(page.findChildren<QPushButton *>().size(), 1);
         auto *viewer = page.findChild<QWidget *>("screenViewer"); QVERIFY(viewer);
         auto shown = viewer->grab().toImage();
         QVERIFY(shown.pixelColor(shown.width()/2,shown.height()/2).red() > 180);
