@@ -99,7 +99,11 @@ def main():
             agent.sendall(screen)
             assert read(controller) == screen
             for kind in [0x20, 0x21, 0x22, 0x23, 0x30, 0x31]:
-                event = packet(kind, session, b"\0\xffinput", sequence=456)
+                payload = (struct.pack("!II", 0, 0) if kind == 0x20 else
+                           struct.pack("!IIB", 0, 0, 1) if kind in (0x21, 0x22) else
+                           struct.pack("!IIi", 0, 0, 120) if kind == 0x23 else
+                           struct.pack("!I", 65))
+                event = packet(kind, session, payload, sequence=456)
                 controller.sendall(event)
                 assert read(agent) == event
     print("PASS: two-node allocation, affinity, authorization, screen and all mouse/key packet types")

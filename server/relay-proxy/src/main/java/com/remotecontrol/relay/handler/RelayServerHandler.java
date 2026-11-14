@@ -61,6 +61,10 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
 
         var target = relayRegistry.findActivePeer(msg.getHeader().getSessionId(), ctx.channel());
         if (target != null && RelayForwardingPolicy.allows(msg.getHeader().getType(), target.fromChild())) {
+            if (!target.fromChild() && !RelayForwardingPolicy.validInput(msg)) {
+                ctx.close();
+                return;
+            }
             // Keep header, flags, sequence and payload unchanged. Never decode/reassemble video here.
             if (!target.channel().isWritable()) {
                 ctx.close(); // Bound memory without silently dropping input or frame fragments.

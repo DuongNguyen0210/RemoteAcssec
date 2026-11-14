@@ -300,6 +300,9 @@ chính của CHILD (gốc là góc trên trái của frame):
 CHILD kiểm tra đúng kích thước payload và tọa độ nằm trong màn hình. Linux
 thực thi qua X11/XTest khi Qt chạy với `xcb`; Windows dùng `SendInput`.
 Wayland không hỗ trợ inject toàn hệ thống trong phiên bản này.
+Relay cũng kiểm tra kích thước input theo loại ngay từ header và đóng kết nối
+gửi gói sai. Gói không phải `SCREEN_FRAME` bị giới hạn ở 8192 byte trước khi
+cấp phát payload; giới hạn chung của `SCREEN_FRAME` là 524288 byte.
 
 | Ten | Hex | Y nghia |
 |---|---|---|
