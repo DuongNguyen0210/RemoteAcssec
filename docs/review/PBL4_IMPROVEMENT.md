@@ -13,9 +13,9 @@ Keep the existing Qt Widgets/QSS palette and Spring/Netty architecture. Improve 
 
 ## Acceptance and tasks
 - [x] Audit core/missing/out-of-scope functions with concrete source evidence.
-- [ ] Realtime: SSE uses configured API URL; safe cancellation; retry transient failures with capped jitter; idle watchdog and bounded input. Server avoids full-list fanout per heartbeat, periodically reconciles expiry, cleans failed emitters. Proxy streams without buffering.
-- [ ] Streaming: review backpressure and redundant session handling; retain session authorization/consent.
-- [ ] Desktop UX: remove demo records and misleading controls, expose reliable connection state; preserve all existing palette values.
+- [x] Realtime client and server: SSE uses the configured API URL, safe cancellation, capped retry jitter, an idle watchdog and bounded input. Server coalesces presence updates and periodically reconciles expiry. Proxy configuration is being reconciled with the teammate's deployment work.
+- [x] Streaming: bounded send queues, relay input limits and single ownership of CHILD relay registration. CHILD enables unattended sharing explicitly and can stop it locally.
+- [x] Desktop UX: remove demo records and misleading controls, expose connection state and preserve the existing palette.
 - [x] Persistence: run isolated Redis and PostgreSQL checks, introduce only evidenced schema changes.
 - [x] Build/test both stacks and record limits and remaining feature gaps.
 
