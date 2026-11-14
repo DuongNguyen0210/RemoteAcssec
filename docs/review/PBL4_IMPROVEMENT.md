@@ -67,6 +67,8 @@ The sidebar's “Kết nối mới” action now opens Devices, where an actual 
 
 The Sessions page no longer shows three metric cards with no data or a disabled “Xem màn hình” action. It keeps the real viewer, current-session indicator and working disconnect control. With no active session it now prompts the user to choose a device instead of implying that a screen stream is pending. The existing QSS palette was not changed; the screen viewer test passes after the cleanup.
 
+The top bar's previously disabled search field now filters the locally held online device list by machine name, account, OS or IP. Typing from another page opens Devices once, so subsequent keystrokes do not trigger repeated API refreshes. A no-match state can clear the query. No QSS color values were changed. The navigation test checks filtering, the one-time page switch and clearing from the no-match state.
+
 ### Remaining acceptance evidence
 A full two-machine demonstration is still outstanding: real input injection and DPI mapping, measured Qt capture/stream quality, and a failure/reconnect demonstration with relay nodes on separate hosts. Local two-relay allocation, reassignment and synthetic transport benchmarks are recorded below. Unattended access is explicitly enabled on CHILD, and relay TLS must be configured before using an untrusted network. Unit and single-host integration tests do not prove multi-host desktop behavior.
 

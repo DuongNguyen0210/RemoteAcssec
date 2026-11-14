@@ -156,7 +156,12 @@ private slots:
         QVERIFY(!timer->isActive());
     }
     void sessionNavigationKeepsSidebarAndTopbarInSync() {
-        MainWindow window(new DevicesPage, new AccountPage);
+        auto *devicePage = new DevicesPage;
+        MainWindow window(devicePage, new AccountPage);
+        devicePage->updateDeviceList({
+            {"session-a", 1, "alice", "DESKTOP-A", "Windows", "10.0.0.1", 0},
+            {"session-b", 2, "bob", "DESKTOP-B", "Linux", "10.0.0.2", 0}
+        });
         window.show();
         auto *stack = window.findChild<QStackedWidget *>("contentStack");
         auto *search = window.findChild<QLineEdit *>("topbarSearchInput");
@@ -174,16 +179,29 @@ private slots:
         QCOMPARE(stack->currentIndex(), 1);
         QVERIFY(qobject_cast<SessionsPage *>(stack->currentWidget()));
         QVERIFY(sessions->isChecked());
-        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm phiên kết nối — Sắp có"));
+        QVERIFY(search->isEnabled());
+        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm thiết bị"));
         QCOMPARE(changed.count(), 1);
-        QTest::mouseClick(devices, Qt::LeftButton);
+        search->setText("alice");
         QCOMPARE(stack->currentIndex(), 0);
         QVERIFY(devices->isChecked());
-        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm thiết bị — Sắp có"));
+        QCOMPARE(changed.count(), 2);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(devicePage->findChildren<QWidget *>("deviceCard").size(), 1);
+        search->setText("alice-x");
+        QCOMPARE(changed.count(), 2);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(devicePage->findChildren<QWidget *>("deviceCard").size(), 0);
+        auto *clear = devicePage->findChild<QPushButton *>("emptyStateActionBtn");
+        QVERIFY(clear);
+        QTest::mouseClick(clear, Qt::LeftButton);
+        QCOMPARE(search->text(), QString());
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(devicePage->findChildren<QWidget *>("deviceCard").size(), 2);
         window.showRemoteSession();
         QCOMPARE(stack->currentIndex(), 1);
         QVERIFY(sessions->isChecked());
-        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm phiên kết nối — Sắp có"));
+        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm thiết bị"));
     }
     void disconnectButtonClearsViewer() {
         SessionsPage page; page.resize(900,700); page.show();

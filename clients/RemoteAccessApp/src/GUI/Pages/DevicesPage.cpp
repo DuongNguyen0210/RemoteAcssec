@@ -64,8 +64,22 @@ void DevicesPage::setupUi()
 
 void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
 {
-    if (!m_flowLayout) return;
+    m_allDevices = devices;
     m_refreshStatus->setText("Cập nhật lúc: " + QDateTime::currentDateTime().toString("HH:mm:ss"));
+    renderDevices();
+}
+
+void DevicesPage::setSearchQuery(const QString &query)
+{
+    const QString normalized = query.trimmed();
+    if (m_searchQuery == normalized) return;
+    m_searchQuery = normalized;
+    renderDevices();
+}
+
+void DevicesPage::renderDevices()
+{
+    if (!m_flowLayout) return;
 
     while (QLayoutItem *item = m_flowLayout->takeAt(0)) {
         if (item->widget())
@@ -73,7 +87,7 @@ void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
         delete item;
     }
 
-    if (devices.isEmpty()) {
+    if (m_allDevices.isEmpty()) {
         EmptyStateWidget *emptyState = new EmptyStateWidget(
             "Chưa có thiết bị nào",
             "Hiện tại chưa có máy con nào kết nối đến hệ thống.",
@@ -86,14 +100,28 @@ void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
         return;
     }
 
-    for (const DeviceInfo &device : devices) {
+    int matches = 0;
+    for (const DeviceInfo &device : m_allDevices) {
+        if (!m_searchQuery.isEmpty()
+                && !device.deviceName.contains(m_searchQuery, Qt::CaseInsensitive)
+                && !device.username.contains(m_searchQuery, Qt::CaseInsensitive)
+                && !device.os.contains(m_searchQuery, Qt::CaseInsensitive)
+                && !device.ipAddress.contains(m_searchQuery, Qt::CaseInsensitive)) continue;
         DeviceCardWidget *card = new DeviceCardWidget(device, m_scrollContent);
         connect(card, &DeviceCardWidget::connectRequested,
                 this, &DevicesPage::connectRequested);
         m_flowLayout->addWidget(card);
+        ++matches;
+    }
+    if (matches == 0) {
+        auto *emptyState = new EmptyStateWidget("Không tìm thấy thiết bị",
+            "Thử từ khóa khác hoặc xóa ô tìm kiếm.", "Xóa tìm kiếm", m_scrollContent);
+        connect(emptyState, &EmptyStateWidget::actionClicked,
+                this, &DevicesPage::clearSearchRequested);
+        m_flowLayout->addWidget(emptyState);
     }
 
-    qDebug() << "[DevicesPage] Rendered" << devices.size() << "devices.";
+    qDebug() << "[DevicesPage] Rendered" << matches << "of" << m_allDevices.size() << "devices.";
 }
 
 void DevicesPage::showError(const QString &message)

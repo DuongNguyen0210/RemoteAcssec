@@ -6,7 +6,6 @@
 #include "GUI/Pages/AccountPage.h"
 
 #include <QHBoxLayout>
-#include <QStringList>
 #include <QVBoxLayout>
 
 MainWindow::MainWindow(DevicesPage *devicesPage, AccountPage *accountPage, SettingsPage *settingsPage, QWidget *parent)
@@ -63,7 +62,17 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage, Set
     if (accountPage) {
         stackedWidget->addWidget(accountPage);
         stackedWidget->setCurrentWidget(accountPage);
-        topbar->setSearchPlaceholder("Tìm tài khoản");
+    }
+
+    if (devicesPage) {
+        connect(topbar, &TopBarWidget::searchChanged, this,
+                [this, devicesPage](const QString &query) {
+                    devicesPage->setSearchQuery(query);
+                    if (!query.trimmed().isEmpty() && stackedWidget->currentIndex() != 0)
+                        sidebar->selectPage(0);
+                });
+        connect(devicesPage, &DevicesPage::clearSearchRequested,
+                topbar, &TopBarWidget::clearSearch);
     }
 
     rightLayout->addWidget(topbar);
@@ -75,17 +84,6 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage, Set
     connect(sidebar, &SidebarWidget::pageChanged, this, [this](int pageIndex) {
         stackedWidget->setCurrentIndex(pageIndex);
         emit pageSelected(pageIndex);
-
-        const QStringList placeholders = {
-            "Tìm thiết bị",
-            "Tìm phiên kết nối",
-            "Tìm cài đặt",
-            "Tìm nhật ký",
-            "Tìm tài khoản"
-        };
-        if (pageIndex >= 0 && pageIndex < placeholders.size()) {
-            topbar->setSearchPlaceholder(placeholders.at(pageIndex));
-        }
     });
 }
 

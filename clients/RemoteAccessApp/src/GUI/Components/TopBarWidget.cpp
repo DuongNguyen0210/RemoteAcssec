@@ -21,22 +21,16 @@ void TopBarWidget::setupUi()
     searchInput = new QLineEdit(this);
     searchInput->setObjectName("topbarSearchInput");
     searchInput->setPlaceholderText("Tìm thiết bị");
+    searchInput->setAccessibleName("Tìm thiết bị");
     searchInput->setClearButtonEnabled(true);
     searchInput->setMinimumWidth(280);
     searchInput->setMaximumWidth(440);
     searchInput->setFixedHeight(40);
-    searchInput->setEnabled(false);
-    searchInput->setPlaceholderText("Tìm kiếm chung — Sắp có");
-    searchInput->setToolTip("Sắp có. Dùng ô tìm kiếm trong từng trang.");
+    connect(searchInput, &QLineEdit::textChanged, this, &TopBarWidget::searchChanged);
     layout->addWidget(searchInput, 1, Qt::AlignVCenter);
-
-
 }
 
-void TopBarWidget::setSearchPlaceholder(const QString &placeholder)
+void TopBarWidget::clearSearch()
 {
-    if (searchInput) {
-        searchInput->setPlaceholderText(placeholder + QStringLiteral(" — Sắp có"));
-        searchInput->clear();
-    }
+    searchInput->clear();
 }
