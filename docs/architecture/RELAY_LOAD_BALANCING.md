@@ -6,16 +6,26 @@ From the repository root:
 
 ```sh
 cp infrastructure/.env.example infrastructure/.env
-# Set RELAY_NODE_TOKEN to a random shared service token.
-# Set RELAY_ADVERTISED_HOST to an IP/DNS name reachable from BOTH clients.
+# Set JWT_SECRET, RELAY_NODE_TOKEN and POSTGRES_PASSWORD to separate random values.
 docker compose -f infrastructure/docker-compose.yml up --build -d
 ```
 
-Management HTTP is available through Nginx on port 80 (override `MANAGEMENT_PUBLIC_PORT`).
-The two public TCP endpoints are `RELAY_ADVERTISED_HOST:9091` and `:9092`.
+Management HTTP is balanced across `management-api-1` and `management-api-2`
+through Nginx on port 80 (override `MANAGEMENT_PUBLIC_PORT`). Nginx uses
+round-robin for new requests and re-resolves Docker DNS when an API container
+is replaced. Both API instances use the same PostgreSQL and Redis services;
+SSE streams stay on their selected API until disconnect, then reconnect through
+Nginx. The event publisher reads shared presence state on each instance every
+three seconds, so updates also reach streams opened on another instance.
+The two public TCP endpoints are `RELAY_1_ADVERTISED_HOST:RELAY_1_PUBLIC_PORT`
+and `RELAY_2_ADVERTISED_HOST:RELAY_2_PUBLIC_PORT`.
 `localhost` works only when clients run on the Docker host. PostgreSQL and Redis have
-persistent volumes and no published ports. `/internal/` is blocked at Nginx; node
-registration also requires `X-Relay-Token`. The API listens on internal port 9090.
+persistent volumes and no published ports. `/internal/` is blocked on the public
+Nginx listener. Relay nodes use Nginx's Docker-only port 9090 for registration
+and authorization; node registration also requires `X-Relay-Token`. API
+instances listen on internal port 9090.
+See [VPS and cloud deployment](../deployment/VPS_CLOUD.md) for environment
+variables, public DNS, TLS ingress and managed service options.
 
 Run both Qt clients with:
 
@@ -61,6 +71,12 @@ Nginx only handles HTTP. TCP round-robin cannot pair clients when sessions are
 process-local. On node failure, the child reconnects and obtains another endpoint
 after liveness expiry. The admin must reconnect; in-flight sessions are not migrated.
 Redis scripts target the standalone Redis deployed here, not Redis Cluster.
+New API requests can use the remaining instance after one API fails; relay
+connections recover through the existing lease and reconnect flow. Nginx,
+PostgreSQL and Redis remain single-instance dependencies in this Compose stack.
+An in-flight SSE stream drops if its API instance fails; the Qt client reconnects.
+For production, replace Hibernate's `ddl-auto: update` with a controlled schema
+migration before starting multiple API instances.
 
 ## Client integration
 
@@ -75,10 +91,20 @@ allows a producer to preserve backpressure.
 The additional `ScreenStreamSender(ChildSessionController*, QObject*)` constructor
 connects the existing timer to session signals. AppCoordinator starts/stops the
 session controller; it does not invoke the legacy sender's `start()` path. The
-existing capture/encode/packetize/onTick code is unchanged and uses the controller's
-transport via a compatibility accessor. The original constructor remains available.
-AdminSessionController accepts an explicit host/port, exposes `sendInput`,
-`screenReceived`, `endSession`, and has a bounded session-setup timeout.
+capture/encode/packetize loop uses the controller's transport via a compatibility
+accessor. Encoded frames are limited to 1 MiB by reducing dimensions when needed;
+whole-frame admission keeps the socket send queue within 2 MiB. The actual
+encoded dimensions are used by CHILD pointer mapping.
+AdminSessionController looks up the selected CHILD's endpoint before each
+connection in dynamic mode; static mode remains configurable for local use.
+It sends input only for an active session. The viewer maps pointer positions
+from the letterboxed image to CHILD screen pixels. CHILD injects supported
+mouse and keyboard events on Windows or X11; Wayland injection is unsupported.
+On Linux the CHILD must run in an X11 session with Qt's `xcb` platform and
+`libXtst.so.6` available at runtime. Run ADMIN and CHILD with
+`REMOTE_RELAY_MODE=dynamic` against the same Management API when demonstrating
+two assigned relays. Click the viewer before typing; losing focus releases
+held keys and mouse buttons.
 
 ## Verification
 

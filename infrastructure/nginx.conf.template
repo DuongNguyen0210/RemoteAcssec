@@ -1,0 +1,58 @@
+worker_processes auto;
+events { worker_connections 1024; }
+http {
+    log_format upstream '$remote_addr "$request" $status upstream=$upstream_addr';
+    access_log /var/log/nginx/access.log upstream;
+    upstream management_api {
+        zone management_api 64k;
+        resolver ${API_DNS_RESOLVER} valid=5s ipv6=off;
+        server ${API_UPSTREAM_1} resolve max_fails=2 fail_timeout=10s;
+        server ${API_UPSTREAM_2} resolve max_fails=2 fail_timeout=10s;
+    }
+    server {
+        listen 80;
+        client_max_body_size 1m;
+        location /internal/ { return 404; }
+        location = /api/v1/devices/events {
+            proxy_pass http://management_api;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 45s;
+            send_timeout 15s;
+        }
+        location /api/ {
+            proxy_pass http://management_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 15s;
+        }
+        location / { return 404; }
+    }
+    server {
+        listen 9090;
+        client_max_body_size 1m;
+        location /internal/ {
+            proxy_pass http://management_api;
+            proxy_set_header Host $host;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 15s;
+        }
+        location /api/ {
+            proxy_pass http://management_api;
+            proxy_set_header Host $host;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 15s;
+        }
+        location / { return 404; }
+    }
+}
