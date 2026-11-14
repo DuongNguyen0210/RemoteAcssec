@@ -22,6 +22,7 @@
 #include "GUI/Windows/MainWindow.h"
 #include "GUI/Pages/AccountPage.h"
 #include "GUI/Pages/DevicesPage.h"
+#include "GUI/Pages/LogsPage.h"
 #include "GUI/Components/DeviceCardWidget.h"
 #include "Network/Protocol/RelayAuthPayload.h"
 
@@ -35,6 +36,17 @@ private slots:
         QFile stylesheet(":/styles/Resources/styles/main.qss");
         QVERIFY(stylesheet.open(QIODevice::ReadOnly));
         qApp->setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
+    }
+    void logsPageShowsUnavailableStateWithoutDemoRecords() {
+        LogsPage page;
+        auto *state = page.findChild<QLabel *>("emptyStateTitle");
+        QVERIFY(state);
+        QCOMPARE(state->text(), QStringLiteral("Nhật ký chưa khả dụng"));
+        QVERIFY(page.findChildren<QLineEdit *>().isEmpty());
+        for (auto *widget : page.findChildren<QWidget *>()) {
+            QVERIFY(widget->property("role").toString() != QStringLiteral("logRow"));
+            QVERIFY(widget->property("role").toString() != QStringLiteral("filterButton"));
+        }
     }
     void inputContextMenuIsVietnamese() {
         QLineEdit input;
