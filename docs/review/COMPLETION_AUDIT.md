@@ -3,6 +3,9 @@
 This audit covers the original improvement request. The goal is not yet fully
 accepted: native Windows acceptance remains open.
 See `PBL4_IMPROVEMENT.md` for the implementation and measurement history.
+The dedicated Windows VM and official evaluation media/SDK have been prepared;
+installation is running. See `docs/testing/WINDOWS_VM.md`; no Windows runtime
+result is claimed yet.
 
 | Requested outcome | Current evidence | Acceptance status |
 |---|---|---|

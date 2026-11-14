@@ -8,13 +8,18 @@
 #include "Network/Protocol/RemoteInputPacket.h"
 #include "Streaming/ScreenCapture.h"
 
-// Run only against a private Xvfb display, never the user's desktop.
-class X11InputIntegrationTest : public QObject {
+// Run only against a private Xvfb display or a dedicated Windows test VM.
+class NativeInputIntegrationTest : public QObject {
     Q_OBJECT
 private slots:
     void capturesDesktopAndInjectsNativeMouseAndKeyboard() {
+#ifdef Q_OS_WIN
+        QVERIFY2(qEnvironmentVariable("PBL4_ISOLATED_WINDOWS") == "1", "Requires a dedicated Windows test VM");
+        QCOMPARE(QGuiApplication::platformName(), QStringLiteral("windows"));
+#else
         QVERIFY2(qEnvironmentVariable("PBL4_ISOLATED_X11") == "1", "Requires a private Xvfb display");
         QCOMPARE(QGuiApplication::platformName(), QStringLiteral("xcb"));
+#endif
         QWidget window;
         window.move(100, 100);
         window.resize(400, 240);
@@ -65,5 +70,5 @@ private slots:
         QTRY_COMPARE(edit->text(), QStringLiteral("ac"));
     }
 };
-QTEST_MAIN(X11InputIntegrationTest)
-#include "X11InputIntegrationTest.moc"
+QTEST_MAIN(NativeInputIntegrationTest)
+#include "NativeInputIntegrationTest.moc"
