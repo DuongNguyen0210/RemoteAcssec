@@ -12,6 +12,10 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProtocols;
+import java.io.File;
 
 public class RelayServer {
 
@@ -20,6 +24,16 @@ public class RelayServer {
     public RelayServer(com.remotecontrol.relay.config.RelayConfig config) { this.config = config; }
 
     public void start() throws InterruptedException {
+
+        final SslContext sslContext;
+        try {
+            sslContext = config.tlsEnabled()
+                    ? SslContextBuilder.forServer(new File(config.tlsCertificate()), new File(config.tlsPrivateKey()))
+                            .protocols(SslProtocols.TLS_v1_3, SslProtocols.TLS_v1_2).build()
+                    : null;
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to initialize relay TLS", e);
+        }
 
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -36,6 +50,7 @@ public class RelayServer {
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  protected void initChannel(SocketChannel ch) {
+                     if (sslContext != null) ch.pipeline().addLast(sslContext.newHandler(ch.alloc()));
                      ch.pipeline().addLast(new ProtocolDecoder());
                      ch.pipeline().addLast(new ProtocolEncoder());
                      ch.pipeline().addLast(new RelayServerHandler(relayRegistry, authorizer));

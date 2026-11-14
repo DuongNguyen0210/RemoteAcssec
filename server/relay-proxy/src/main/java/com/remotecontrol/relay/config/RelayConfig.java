@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public record RelayConfig(String instanceId, String bootId, int port, String advertisedHost,
         int advertisedPort, String managementApiUrl, String nodeToken, int capacity,
-        int heartbeatSeconds, boolean discoveryEnabled) {
+        int heartbeatSeconds, boolean discoveryEnabled, String tlsCertificate, String tlsPrivateKey) {
     public RelayConfig {
         if (!instanceId.matches("[A-Za-z0-9_-]{1,64}") || !bootId.matches("[A-Za-z0-9-]{1,64}"))
             throw new IllegalArgumentException("Invalid relay identity");
@@ -21,8 +21,12 @@ public record RelayConfig(String instanceId, String bootId, int port, String adv
             throw new IllegalArgumentException("Invalid capacity or heartbeat interval");
         if (discoveryEnabled && nodeToken.isBlank())
             throw new IllegalArgumentException("RELAY_NODE_TOKEN is required for discovery");
+        if (tlsCertificate.isBlank() != tlsPrivateKey.isBlank())
+            throw new IllegalArgumentException("RELAY_TLS_CERT and RELAY_TLS_KEY must be configured together");
         managementApiUrl = managementApiUrl.replaceAll("/+$", "");
     }
+
+    public boolean tlsEnabled() { return !tlsCertificate.isBlank(); }
 
     public static RelayConfig fromEnvironment() { return fromEnvironment(System.getenv()); }
 
@@ -34,7 +38,8 @@ public record RelayConfig(String instanceId, String bootId, int port, String adv
                 env.getOrDefault("MANAGEMENT_API_URL", "http://localhost:9090"),
                 env.getOrDefault("RELAY_NODE_TOKEN", ""), integer(env, "RELAY_CAPACITY", 1000),
                 integer(env, "RELAY_HEARTBEAT_SECONDS", 5),
-                Boolean.parseBoolean(env.getOrDefault("RELAY_DISCOVERY_ENABLED", "false")));
+                Boolean.parseBoolean(env.getOrDefault("RELAY_DISCOVERY_ENABLED", "false")),
+                env.getOrDefault("RELAY_TLS_CERT", ""), env.getOrDefault("RELAY_TLS_KEY", ""));
     }
 
     private static int integer(Map<String, String> env, String key, int fallback) {

@@ -38,6 +38,73 @@ class RelaySessionTest : public QObject {
         return Protocol::ProtocolSerializer::serializeHeader(header) + payload;
     }
 private slots:
+    void tlsDoesNotExposeProtocolBeforeHandshake() {
+        const QByteArray oldMode = qgetenv("REMOTE_RELAY_TLS");
+        const QByteArray oldCa = qgetenv("REMOTE_RELAY_CA_CERT");
+        qputenv("REMOTE_RELAY_TLS", "required");
+        qunsetenv("REMOTE_RELAY_CA_CERT");
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        RelayClient client;
+        QSignalSpy ready(&client, &RelayClient::connected);
+        client.ConnectToServer(QStringLiteral("127.0.0.1"), server.serverPort());
+        QTRY_VERIFY(server.hasPendingConnections());
+        auto *peer = server.nextPendingConnection();
+        QTRY_VERIFY(peer->bytesAvailable() > 0);
+        QCOMPARE(ready.count(), 0);
+        QCOMPARE(client.sendRawPacket(QByteArray("secret-token")), qint64(-1));
+        QVERIFY(!peer->readAll().contains("secret-token"));
+        client.DisconnectFromServer();
+        if (oldMode.isNull()) qunsetenv("REMOTE_RELAY_TLS"); else qputenv("REMOTE_RELAY_TLS", oldMode);
+        if (oldCa.isNull()) qunsetenv("REMOTE_RELAY_CA_CERT"); else qputenv("REMOTE_RELAY_CA_CERT", oldCa);
+    }
+
+    void tlsCaConfigurationCannotFallBackToPlaintext() {
+        const QByteArray oldMode = qgetenv("REMOTE_RELAY_TLS");
+        const QByteArray oldCa = qgetenv("REMOTE_RELAY_CA_CERT");
+        qputenv("REMOTE_RELAY_TLS", "off");
+        qputenv("REMOTE_RELAY_CA_CERT", "/tmp/relay-ca.pem");
+        RelayClient client;
+        QSignalSpy error(&client, &RelayClient::transportError);
+        client.ConnectToServer(QStringLiteral("localhost"), 1);
+        QCOMPARE(error.count(), 1);
+        QCOMPARE(client.sendRawPacket(QByteArray("secret-token")), qint64(-1));
+        if (oldMode.isNull()) qunsetenv("REMOTE_RELAY_TLS"); else qputenv("REMOTE_RELAY_TLS", oldMode);
+        if (oldCa.isNull()) qunsetenv("REMOTE_RELAY_CA_CERT"); else qputenv("REMOTE_RELAY_CA_CERT", oldCa);
+    }
+
+    void tlsConnectsOnlyToTrustedName() {
+        const QByteArray portText = qgetenv("TEST_TLS_RELAY_PORT");
+        const QByteArray certPath = qgetenv("TEST_TLS_RELAY_CERT");
+        if (portText.isEmpty() || certPath.isEmpty()) QSKIP("Set TEST_TLS_RELAY_PORT and TEST_TLS_RELAY_CERT for TLS integration test");
+        const QByteArray oldMode = qgetenv("REMOTE_RELAY_TLS");
+        const QByteArray oldCa = qgetenv("REMOTE_RELAY_CA_CERT");
+        qputenv("REMOTE_RELAY_TLS", "required");
+        qputenv("REMOTE_RELAY_CA_CERT", certPath);
+        const quint16 port = portText.toUShort();
+        QVERIFY(port != 0);
+        {
+            RelayClient client;
+            QSignalSpy ready(&client, &RelayClient::connected);
+            client.ConnectToServer(QStringLiteral("localhost"), port);
+            QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, 5000);
+            QCOMPARE(client.sendRawPacket(QByteArray("tls-test")), qint64(8));
+            client.DisconnectFromServer();
+        }
+        {
+            RelayClient client;
+            QSignalSpy ready(&client, &RelayClient::connected);
+            QSignalSpy error(&client, &RelayClient::transportError);
+            client.ConnectToServer(QStringLiteral("127.0.0.1"), port);
+            QTRY_VERIFY_WITH_TIMEOUT(!error.isEmpty(), 5000);
+            QCOMPARE(ready.count(), 0);
+            QCOMPARE(client.sendRawPacket(QByteArray("secret-token")), qint64(-1));
+            client.DisconnectFromServer();
+        }
+        if (oldMode.isNull()) qunsetenv("REMOTE_RELAY_TLS"); else qputenv("REMOTE_RELAY_TLS", oldMode);
+        if (oldCa.isNull()) qunsetenv("REMOTE_RELAY_CA_CERT"); else qputenv("REMOTE_RELAY_CA_CERT", oldCa);
+    }
+
     void initTestCase() {
         QVERIFY(m_api.listen(QHostAddress::LocalHost, 0));
         qputenv("REMOTE_API_URL", QByteArray("http://127.0.0.1:") + QByteArray::number(m_api.serverPort()));

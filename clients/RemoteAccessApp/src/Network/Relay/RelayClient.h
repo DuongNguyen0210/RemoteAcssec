@@ -2,7 +2,7 @@
 #define RELAYCLIENT_H
 
 #include <QObject>
-#include <QTcpSocket>
+#include <QSslSocket>
 #include <QString>
 #include <QByteArray>
 
@@ -10,7 +10,10 @@ class RelayClient : public QObject
 {
     Q_OBJECT
 private:
-    QTcpSocket* m_socket;
+    QSslSocket* m_socket;
+    bool m_tlsRequired = false;
+    bool m_tlsModeValid = true;
+    QString m_caCertificatePath;
 
 public:
     explicit RelayClient(QObject *parent = nullptr);

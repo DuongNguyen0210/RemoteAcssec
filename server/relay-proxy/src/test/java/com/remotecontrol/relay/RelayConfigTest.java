@@ -24,5 +24,9 @@ class RelayConfigTest {
         assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_PORT", "bad")));
         assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_DISCOVERY_ENABLED", "true")));
         assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_HEARTBEAT_SECONDS", "31")));
+        assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_TLS_CERT", "/tmp/cert.pem")));
+        assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_TLS_KEY", "/tmp/key.pem")));
+        var tls = RelayConfig.fromEnvironment(Map.of("RELAY_TLS_CERT", "/tmp/cert.pem", "RELAY_TLS_KEY", "/tmp/key.pem"));
+        assertTrue(tls.tlsEnabled());
     }
 }
