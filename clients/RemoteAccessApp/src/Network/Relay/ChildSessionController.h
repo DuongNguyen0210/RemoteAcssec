@@ -48,4 +48,5 @@ private:
     bool m_allocating = false;
     bool m_connecting = false;
     bool m_registered = false;
+    int m_retryAttempt = 0;
 };

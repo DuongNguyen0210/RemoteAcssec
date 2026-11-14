@@ -198,6 +198,23 @@ private slots:
         QCOMPARE(child.sendScreenPacket(frame), qint64(-1));
     }
 
+    void childBacksOffRepeatedAllocationFailures() {
+        CallbackRelayEndpointProvider provider;
+        int allocations = 0;
+        provider.onAllocate = [&](RelayEndpointProvider::Callback callback) {
+            ++allocations;
+            callback({}, QStringLiteral("Relay unavailable"));
+        };
+        ChildSessionController child(&provider);
+        child.start();
+        QCOMPARE(allocations, 1);
+        QTRY_COMPARE_WITH_TIMEOUT(allocations, 2, 2500);
+        QTest::qWait(2200);
+        QCOMPARE(allocations, 2);
+        QTRY_COMPARE_WITH_TIMEOUT(allocations, 3, 2000);
+        child.stop();
+    }
+
     void childPendingTimeoutCloseResetsAndRegistersOnceAfterReconnect() {
         QTcpServer server;
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));

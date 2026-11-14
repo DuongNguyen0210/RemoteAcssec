@@ -65,3 +65,6 @@ CHILD now opens a small status window after login with sharing initially off. Th
 
 ### Relay TLS transport
 Added optional TLS to the Netty relay and Qt relay client. Relay certificate/key must be configured together; when `REMOTE_RELAY_TLS=required`, Qt waits for the encrypted handshake and verifies the hostname before allowing RDTP writes. A CA path cannot silently fall back to plaintext. The relay module tests and Qt relay tests pass. A local TLS relay with a temporary `localhost` certificate passed a positive Qt handshake and rejected a connection to `127.0.0.1` for hostname mismatch. See `docs/security/RELAY_TLS.md` for configuration. Plaintext remains the local compatibility default, so deployment configuration must explicitly enable TLS on both sides.
+
+### Relay reconnect pacing
+Repeated CHILD allocation/transport failures now use an exponential delay from 1.5 seconds up to 30 seconds with up to 499 ms jitter. A successful relay registration or local stop resets the delay. A regression test first reproduced the old fixed 1.5-second retry interval, then verified that the third failed allocation is deferred. All seven Qt test executables pass after the change. This reduces synchronized reconnect bursts when a relay node or Management API is unavailable.
