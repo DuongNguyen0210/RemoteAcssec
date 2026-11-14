@@ -15,10 +15,10 @@ See `PBL4_IMPROVEMENT.md` for the implementation and measurement history.
 | Check teammate Git work | Remote refs fetched; `git branch -r --no-merged HEAD` returns no branches; local deployment edits reviewed with owner confirmation | All fetched remote heads included; teammate deployment work integrated |
 | Use CodeGraph | Index synchronized after changes; symbol/caller/impact queries used for streaming and controller work | Done |
 
-## Integration review of uncommitted deployment work
+## Integration review of shared deployment work
 
-The shared worktree contains deployment/JWT changes that were already present
-when this review began. The owner confirmed that the teammate finished them
+The shared worktree contained deployment/JWT changes when this review began.
+The owner confirmed that the teammate finished them
 and authorized integration. Compose validation with disposable placeholder secrets passes. The
 current server test reports contain 20 Management API and 29 relay tests, with
 zero failures, errors or skips.
@@ -36,7 +36,7 @@ Integration findings:
    deployment document recognizes the migration requirement; concurrent schema
    updates have not been accepted as a production migration process.
 4. Keep the shared JWT secret identical on both API instances and require
-   configured secrets. The uncommitted JWT test verifies matching keys work,
+   configured secrets. The integrated JWT test verifies matching keys work,
    different keys reject tokens, and short keys fail at startup.
 
 ## Remaining external evidence
@@ -50,10 +50,12 @@ in XTest library teardown. It does not exercise relay transport or Windows.
 - The owner currently has no two-machine or two-desktop-VM environment.
   `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required Windows/X11
   pointer, keyboard, DPI, local-stop and relay-recovery observations.
-- Docker has repeatedly denied stopping the two isolated validation database
-  containers. Their restart policies are disabled and they are disconnected
-  from the validation network; they are not the user's development databases.
-  Remove those exact disposable resources when the daemon permits it.
+
+The two remaining isolated validation containers later became stopped. Both
+were removed, together with `pbl4-validation_postgres-data`,
+`pbl4-validation_redis-data` and `pbl4-validation_default`. No validation
+containers, volumes or networks remain. The user's development resources were
+not selected for removal.
 
 Do not interpret local unit tests, loopback benchmarks, or the existence of the
 manual checklist as proof that these remaining gates passed.

@@ -51,7 +51,7 @@ Database read-only inspection: child.user_id has FK but no lookup index; users/c
 - Added regression for decode progress with multiple queued frames: reproduced failure (only newest delivered), then removed newest-arrival equality guard. One decoding task plus one latest pending JPEG remains bounded; session generation still rejects images from ended sessions.
 
 ## Outstanding work now
-The code and local integration tests do not prove actual two-computer interaction. Test screen/input on Windows and X11 with different DPI, record Qt capture FPS and end-to-end latency, and verify recovery after a relay fails on a separate host. Enable TLS in any untrusted network deployment. Finish and reconcile the teammate's uncommitted deployment configuration before claiming a deployment-ready stack. The isolated validation PostgreSQL and Redis containers still require removal when Docker permits it.
+The code and local integration tests do not prove actual two-computer interaction. Test screen/input on Windows and X11 with different DPI, record Qt capture FPS and end-to-end latency, and verify recovery after a relay fails on a separate host. Enable TLS in any untrusted network deployment. The teammate's deployment work is integrated; actual deployment acceptance remains unverified. Validation containers and their disposable storage/network have now been removed.
 
 ### SSE client recovery
 Uses ApiClient's configured base URL (regression reproduced with local HTTP server before fix). Retries transient HTTP failures with exponential 3–30 second delay plus 0–999 ms jitter; stops on 401/403, including empty bodies. A 45-second transfer inactivity timeout recovers silent streams. Network read buffer and incomplete event buffer are bounded to 1 MiB; overflow disconnects and retries. Complete SSE blocks reset backoff. Verified local HTTP tests for configured address, synchronous cancellation, 503 reconnect followed by empty 401, and oversized incomplete event; account/device flow also passes. The server now coalesces heartbeat-driven snapshots per owner and periodically reconciles expiry with bounded workers and connections (`DevicePresencePublisher`, `SseNotifier`).
@@ -112,3 +112,8 @@ The display is now closed before unloading the library. The same test passes
 native mouse click, keyboard entry, modifier release and capture color checks.
 See `docs/testing/TWO_MACHINE_ACCEPTANCE.md` for the isolated runner; real
 Windows and two-host acceptance remain outstanding.
+
+### Validation cleanup completed
+After the remaining PostgreSQL and Redis validation containers became stopped,
+both were removed along with their two disposable volumes and the validation
+network. Follow-up Docker listings confirm no `pbl4-validation` resources remain.
