@@ -43,7 +43,8 @@ Integration findings:
 
 Native Linux X11 capture and injection now pass on a private Xvfb desktop via
 `X11InputIntegrationTest`: a real button click, keyboard entry, modifier release
-and screen color marker are verified. This test reproduced and guarded a crash
+and screen color marker are verified at both 100% and 200%, with assertions on
+the actual pixel ratio and capture dimensions. This test reproduced and guarded a crash
 in XTest library teardown. It does not exercise relay transport or Windows.
 
 - The owner currently has no two-machine or two-desktop-VM environment.

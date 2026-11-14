@@ -15,11 +15,14 @@ Xvfb server. Install Xvfb and the XTest runtime, then run:
 cmake -S clients/RemoteAccessApp -B /tmp/pbl4-qt-build -DBUILD_TESTING=ON -DENABLE_X11_INPUT_INTEGRATION=ON
 cmake --build /tmp/pbl4-qt-build -j 4 --target X11InputIntegrationTest
 python3 clients/RemoteAccessApp/tests/run_x11_integration.py /tmp/pbl4-qt-build/X11InputIntegrationTest
+python3 clients/RemoteAccessApp/tests/run_x11_integration.py /tmp/pbl4-qt-build/X11InputIntegrationTest --scale 2
 ```
 
 The runner allocates and stops its own X server and never uses the existing
 desktop display. It verifies a captured color marker, native button click,
-text input and releasing a held modifier. This reproduced a CHILD crash caused
+text input and releasing a held modifier at 100% and 200%. The test verifies
+the actual screen pixel ratio and capture dimensions before injecting input.
+This reproduced a CHILD crash caused
 by unloading XTest before X11 extension cleanup; closing the display first
 fixed it and the test passes. This is local Linux backend evidence, not a pass
 for the two-machine, Windows, network or high-DPI acceptance rows below.

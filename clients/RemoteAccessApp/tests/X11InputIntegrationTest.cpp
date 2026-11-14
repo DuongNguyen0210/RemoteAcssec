@@ -32,7 +32,12 @@ private slots:
         window.activateWindow();
         const auto frame = ScreenCapture().capture();
         QVERIFY(!frame.isNull());
-        const auto geometry = QGuiApplication::primaryScreen()->geometry();
+        const auto *screen = QGuiApplication::primaryScreen();
+        const auto geometry = screen->geometry();
+        const int scale = qEnvironmentVariableIntValue("QT_SCALE_FACTOR");
+        QVERIFY(scale == 1 || scale == 2);
+        QCOMPARE(screen->devicePixelRatio(), qreal(scale));
+        QCOMPARE(frame.size(), geometry.size() * scale);
         const auto marker = window.mapToGlobal(QPoint(2, 2)) - geometry.topLeft();
         QCOMPARE(frame.pixelColor(marker.x() * frame.width() / geometry.width(),
                                   marker.y() * frame.height() / geometry.height()), QColor(Qt::magenta));
