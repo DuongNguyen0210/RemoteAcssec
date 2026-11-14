@@ -45,8 +45,15 @@ void DevicesPage::setupUi()
     connect(refresh, &QPushButton::clicked, this, &DevicesPage::refreshRequested);
     mainLayout->addWidget(refresh, 0, Qt::AlignLeft);
     m_refreshStatus = new QLabel("Đang chờ cập nhật", this);
+    m_refreshStatus->setObjectName("deviceRefreshStatus");
     m_refreshStatus->setProperty("role", "metaLabel");
     mainLayout->addWidget(m_refreshStatus);
+    m_sessionStatus = new QLabel(this);
+    m_sessionStatus->setObjectName("deviceSessionStatus");
+    m_sessionStatus->setProperty("role", "pageSubtitle");
+    m_sessionStatus->setWordWrap(true);
+    m_sessionStatus->hide();
+    mainLayout->addWidget(m_sessionStatus);
 
     QScrollArea *scrollArea = new QScrollArea(this);
     scrollArea->setProperty("role", "scrollArea");
@@ -135,4 +142,10 @@ void DevicesPage::showError(const QString &message)
 void DevicesPage::showSuccess(const QString &message)
 {
     ConfirmDialog::showInfo(this, QStringLiteral("Thành công"), message);
+}
+
+void DevicesPage::showSessionStatus(const QString &message)
+{
+    m_sessionStatus->setText(message);
+    m_sessionStatus->setVisible(!message.isEmpty());
 }

@@ -18,6 +18,7 @@ public:
     void setSearchQuery(const QString &query);
     void showError(const QString &message);
     void showSuccess(const QString &message);
+    void showSessionStatus(const QString &message);
 
 signals:
     void connectRequested(const QString &agentSessionId);
@@ -31,6 +32,7 @@ private:
     FlowLayout *m_flowLayout;
     QWidget *m_scrollContent;
     class QLabel *m_refreshStatus;
+    class QLabel *m_sessionStatus;
     QList<DeviceInfo> m_allDevices;
     QString m_searchQuery;
 };

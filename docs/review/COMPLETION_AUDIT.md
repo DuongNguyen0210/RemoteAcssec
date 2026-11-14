@@ -1,7 +1,7 @@
 # PBL4 completion audit
 
 This audit covers the original improvement request. The goal is not yet fully
-accepted: real desktop interaction still needs the two-machine acceptance gate.
+accepted: Windows, relay-recovery and repeat-session acceptance remain open.
 See `PBL4_IMPROVEMENT.md` for the implementation and measurement history.
 
 | Requested outcome | Current evidence | Acceptance status |
@@ -51,12 +51,15 @@ in XTest library teardown. It does not exercise relay transport or Windows.
   `PBL4-Acceptance` now runs Ubuntu 24.04 separately; clean client builds and
   native X11 tests at 100%/200% pass there. See `docs/testing/ISOLATED_VM.md`.
   Host/guest relay screen, native click, keyboard and disconnect now pass via
-  `DesktopRelayAcceptance` using a real relay and fake authorizer. Full UI,
-  dynamic allocation/failover and Windows remain unverified. A static-scene
+  `DesktopRelayAcceptance` using a real relay and fake authorizer. A static-scene
   host/guest hold received 596 decoded frames in 120000 ms (4.97 FPS), with a
   maximum frame gap of 312 ms, then disconnected cleanly.
   A separate required-TLS host/guest run passed the same input/disconnect
-  checks with 49 frames in 10 seconds and a maximum gap of 207 ms.
+  checks with 49 frames in 10 seconds and a maximum gap of 207 ms. The real UI
+  login, sharing switch, dynamic allocation/lookup, native input and CHILD local
+  stop passed against a disposable two-API/two-relay stack; see
+  `docs/testing/FULL_UI_ACCEPTANCE.md`. Windows, failover and repeat-session
+  acceptance remain open.
   `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required observations.
 
 The two remaining isolated validation containers later became stopped. Both
