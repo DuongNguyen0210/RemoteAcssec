@@ -75,13 +75,13 @@ try:
         if child.wait(timeout=20) != 0:
             raise RuntimeError("CHILD UI did not pass")
     for filename, markers in {
-        "child.log": ["CHILD_UI_READY", "CHILD_LOCAL_STOP_CONFIRMED"],
-        "admin.log": ["ADMIN_UI_INPUT_CONFIRMED", "ADMIN_CHILD_STOP_CONFIRMED"],
+        "child.log": ["CHILD_UI_READY", "CHILD_LOCAL_STOP_CONFIRMED", "CHILD_REPEAT_CONFIRMED"],
+        "admin.log": ["ADMIN_UI_INPUT_CONFIRMED", "ADMIN_CHILD_STOP_CONFIRMED", "ADMIN_REPEAT_CONFIRMED"],
     }.items():
         text = (logs / filename).read_text()
         if any(marker not in text for marker in markers):
             raise RuntimeError("Missing UI acceptance confirmation in " + filename)
-    print("PASS: real UI login, explicit sharing, dynamic relay lookup, native input and CHILD local stop")
+    print("PASS: real UI login and two distinct dynamic relay sessions with native input and CHILD stop/re-enable")
 finally:
     if child is not None and child.poll() is None:
         child.terminate()

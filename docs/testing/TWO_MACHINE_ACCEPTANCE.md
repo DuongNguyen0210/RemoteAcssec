@@ -52,7 +52,7 @@ for the two-machine, Windows, network or high-DPI acceptance rows below.
 | Pointer | Move and click all four screen corners at 100% and a high-DPI scale such as 200%; no offset or clipped area | |
 | Keyboard | Type letters, digits, Backspace, Enter and modifiers into a test editor; releasing viewer focus releases held keys | |
 | Local stop | CHILD clicks **Dừng chia sẻ**; viewer ends and further input no longer affects CHILD | Full UI host/VM test passed: CHILD relay closes, ADMIN viewer closes and main window remains usable |
-| Unattended policy | CHILD re-enables sharing; a new valid ADMIN session starts without a per-session prompt | |
+| Unattended policy | CHILD re-enables sharing; a new valid ADMIN session starts without a per-session prompt | Full UI host/VM two-round run passed; distinct new session ID and native input confirmed |
 | Relay failure | Stop the assigned relay; after its lease expires, CHILD registers on the other relay and ADMIN opens a new session | |
 | Load | Repeat with two CHILD machines on different relays; record FPS, p50/p95 input delay, CPU/RAM and bytes/s for each node | |
 

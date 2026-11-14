@@ -45,9 +45,6 @@ private slots:
             auto *session = coordinator.findChild<ChildSessionController *>(); QVERIFY(session);
             QCOMPARE(sharing->text(), QStringLiteral("Bật chia sẻ"));
             QVERIFY(!session->relayReady());
-            QTest::mouseClick(sharing, Qt::LeftButton);
-            QTRY_VERIFY_WITH_TIMEOUT(session->relayReady(), 20000);
-            qInfo() << "CHILD_UI_READY";
             QWidget marker;
             marker.setGeometry(100, 100, 600, 400);
             marker.setAutoFillBackground(true);
@@ -66,12 +63,24 @@ private slots:
                     QTest::mouseClick(sharing, Qt::LeftButton); stopped = true;
                 });
             });
-            marker.show(); marker.raise(); marker.activateWindow();
-            QTRY_VERIFY_WITH_TIMEOUT(typed, 30000);
-            QTRY_VERIFY_WITH_TIMEOUT(stopped, 10000);
-            QVERIFY(!session->relayReady());
-            QCOMPARE(sharing->text(), QStringLiteral("Bật chia sẻ"));
-            qInfo() << "CHILD_LOCAL_STOP_CONFIRMED";
+            marker.show();
+            QSignalSpy started(session, &ChildSessionController::sessionStarted);
+            for (int round = 1; round <= 2; ++round) {
+                typed = false; stopped = false; edit->clear(); color(Qt::magenta);
+                QTest::mouseClick(sharing, Qt::LeftButton);
+                QTRY_VERIFY_WITH_TIMEOUT(session->relayReady(), 20000);
+                marker.raise(); marker.activateWindow();
+                qInfo() << "CHILD_UI_READY" << "round=" << round;
+                QTRY_VERIFY_WITH_TIMEOUT(typed, 30000);
+                QTRY_VERIFY_WITH_TIMEOUT(stopped, 10000);
+                QVERIFY(!session->relayReady());
+                QCOMPARE(sharing->text(), QStringLiteral("Bật chia sẻ"));
+                QCOMPARE(started.count(), round);
+                qInfo() << "CHILD_LOCAL_STOP_CONFIRMED" << "round=" << round;
+                if (round == 1) QTest::qWait(500);
+            }
+            QVERIFY(started.at(0).at(0).toULongLong() != started.at(1).at(0).toULongLong());
+            qInfo() << "CHILD_REPEAT_CONFIRMED";
         } else {
             QTRY_VERIFY_WITH_TIMEOUT(topWindow<MainWindow>(), 20000);
             auto *main = topWindow<MainWindow>();
@@ -83,37 +92,46 @@ private slots:
             connect(session, &AdminSessionController::frameReady, &observer,
                     [&](quint64, const QImage &image) { latest = image; });
             QSignalSpy ended(session, &AdminSessionController::sessionEnded);
-            QTest::mouseClick(main->findChild<QPushButton *>("connectButton"), Qt::LeftButton);
-            QTRY_VERIFY_WITH_TIMEOUT(topWindow<RemoteDesktopWindow>(), 20000);
-            QPointer<RemoteDesktopWindow> remote = topWindow<RemoteDesktopWindow>();
-            auto *viewer = remote->findChild<RemoteScreenWidget *>(); QVERIFY(viewer);
-            auto isColor = [&](int red, int green, int blue) {
-                if (latest.size() != QSize(1280, 800)) return false;
-                const auto pixel = latest.pixelColor(102, 102);
-                return qAbs(pixel.red()-red)<60 && qAbs(pixel.green()-green)<60 && qAbs(pixel.blue()-blue)<60;
-            };
-            auto clickRemote = [&](const QPoint &pixel) {
-                const QSize drawn = latest.size().scaled(viewer->size(), Qt::KeepAspectRatio);
-                const QPoint origin((viewer->width()-drawn.width())/2, (viewer->height()-drawn.height())/2);
-                QTest::mouseClick(viewer, Qt::LeftButton, Qt::NoModifier,
-                                  origin + QPoint(pixel.x()*drawn.width()/latest.width(), pixel.y()*drawn.height()/latest.height()));
-            };
-            QTRY_VERIFY_WITH_TIMEOUT(isColor(255,0,255), 15000);
-            clickRemote(QPoint(250,190));
-            QTRY_VERIFY_WITH_TIMEOUT(isColor(0,255,0), 10000);
-            clickRemote(QPoint(250,290));
-            QTest::keyClick(viewer, Qt::Key_A);
-            QTRY_VERIFY_WITH_TIMEOUT(isColor(0,0,255), 10000);
-            qInfo() << "ADMIN_UI_INPUT_CONFIRMED";
-            QTRY_COMPARE_WITH_TIMEOUT(ended.count(), 1, 15000);
-            QTRY_VERIFY(!remote || !remote->isVisible());
-            QVERIFY(main->isVisible());
-            QVERIFY(!QApplication::activeModalWidget());
-            auto *notice = main->findChild<QLabel *>("deviceSessionStatus"); QVERIFY(notice);
-            QVERIFY(!notice->text().isEmpty());
-            auto *refresh = main->findChild<QLabel *>("deviceRefreshStatus"); QVERIFY(refresh);
-            QVERIFY(!refresh->text().contains(QStringLiteral("Dữ liệu có thể đã cũ")));
-            qInfo() << "ADMIN_CHILD_STOP_CONFIRMED";
+            QSignalSpy established(session, &AdminSessionController::sessionEstablished);
+            for (int round = 1; round <= 2; ++round) {
+                latest = QImage();
+                QTRY_VERIFY_WITH_TIMEOUT(main->findChild<QPushButton *>("connectButton"), 20000);
+                QTest::mouseClick(main->findChild<QPushButton *>("connectButton"), Qt::LeftButton);
+                QTRY_VERIFY_WITH_TIMEOUT(topWindow<RemoteDesktopWindow>(), 20000);
+                QPointer<RemoteDesktopWindow> remote = topWindow<RemoteDesktopWindow>();
+                auto *viewer = remote->findChild<RemoteScreenWidget *>(); QVERIFY(viewer);
+                auto isColor = [&](int red, int green, int blue) {
+                    if (latest.size() != QSize(1280, 800)) return false;
+                    const auto pixel = latest.pixelColor(102, 102);
+                    return qAbs(pixel.red()-red)<60 && qAbs(pixel.green()-green)<60 && qAbs(pixel.blue()-blue)<60;
+                };
+                auto clickRemote = [&](const QPoint &pixel) {
+                    const QSize drawn = latest.size().scaled(viewer->size(), Qt::KeepAspectRatio);
+                    const QPoint origin((viewer->width()-drawn.width())/2, (viewer->height()-drawn.height())/2);
+                    QTest::mouseClick(viewer, Qt::LeftButton, Qt::NoModifier,
+                                      origin + QPoint(pixel.x()*drawn.width()/latest.width(), pixel.y()*drawn.height()/latest.height()));
+                };
+                QTRY_VERIFY_WITH_TIMEOUT(isColor(255,0,255), 15000);
+                clickRemote(QPoint(250,190));
+                QTRY_VERIFY_WITH_TIMEOUT(isColor(0,255,0), 10000);
+                clickRemote(QPoint(250,290));
+                QTest::keyClick(viewer, Qt::Key_A);
+                QTRY_VERIFY_WITH_TIMEOUT(isColor(0,0,255), 10000);
+                qInfo() << "ADMIN_UI_INPUT_CONFIRMED";
+                QTRY_COMPARE_WITH_TIMEOUT(ended.count(), round, 15000);
+                QTRY_VERIFY(!remote || !remote->isVisible());
+                QVERIFY(main->isVisible());
+                QVERIFY(!QApplication::activeModalWidget());
+                auto *notice = main->findChild<QLabel *>("deviceSessionStatus"); QVERIFY(notice);
+                QVERIFY(!notice->text().isEmpty());
+                auto *refresh = main->findChild<QLabel *>("deviceRefreshStatus"); QVERIFY(refresh);
+                QVERIFY(!refresh->text().contains(QStringLiteral("Dữ liệu có thể đã cũ")));
+                qInfo() << "ADMIN_CHILD_STOP_CONFIRMED" << "round=" << round;
+                if (round == 1) QTest::qWait(1500); // Allow the explicit CHILD re-enable cycle to register.
+            }
+            QCOMPARE(established.count(), 2);
+            QVERIFY(established.at(0).at(0).toULongLong() != established.at(1).at(0).toULongLong());
+            qInfo() << "ADMIN_REPEAT_CONFIRMED";
         }
     }
 };

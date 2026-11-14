@@ -42,12 +42,17 @@ the Qt clients: both clients fill and submit the actual login form.
 - CHILD selects “Dừng chia sẻ”; its relay connection closes, ADMIN closes the
   viewer, and the main window stays usable with an inline session-ended notice.
   Session termination does not mark otherwise current device data as stale.
+- On the same login, CHILD re-enables sharing and ADMIN opens a second session.
+  Both clients observe a new session ID. Native input and CHILD local stop
+  pass again, without a per-session consent dialog. Each client observes exactly
+  two session starts/ends; old frame state is cleared between them.
 
 The first run exposed a modal session-ended error in `DevicesController` that
 also reused the data-refresh error state. It is now an inline session notice,
 cleared on the next connection attempt. The revised full UI run passed on host
-Qt 6.10.2 and guest Qt 6.4.2. This test does not cover Windows, relay failover,
-re-enabling sharing for another session, or every keyboard/mouse variant.
+Qt 6.10.2 and guest Qt 6.4.2. The subsequent two-round run also passed and logs
+`CHILD_REPEAT_CONFIRMED` and `ADMIN_REPEAT_CONFIRMED`. This test does not cover
+Windows, relay failover, or every keyboard/mouse variant.
 
 After the run, remove only this disposable Compose project with `down --volumes`
 using the same environment/config files, then shut down only `PBL4-Acceptance`.

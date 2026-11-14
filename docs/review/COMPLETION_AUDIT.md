@@ -1,7 +1,7 @@
 # PBL4 completion audit
 
 This audit covers the original improvement request. The goal is not yet fully
-accepted: Windows, relay-recovery and repeat-session acceptance remain open.
+accepted: Windows and relay-recovery acceptance remain open.
 See `PBL4_IMPROVEMENT.md` for the implementation and measurement history.
 
 | Requested outcome | Current evidence | Acceptance status |
@@ -58,8 +58,9 @@ in XTest library teardown. It does not exercise relay transport or Windows.
   checks with 49 frames in 10 seconds and a maximum gap of 207 ms. The real UI
   login, sharing switch, dynamic allocation/lookup, native input and CHILD local
   stop passed against a disposable two-API/two-relay stack; see
-  `docs/testing/FULL_UI_ACCEPTANCE.md`. Windows, failover and repeat-session
-  acceptance remain open.
+  `docs/testing/FULL_UI_ACCEPTANCE.md`. A subsequent two-round run also passed
+  stop/re-enable, distinct new session IDs, native input and local stop again
+  on the same login. Windows and failover acceptance remain open.
   `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required observations.
 
 The two remaining isolated validation containers later became stopped. Both
