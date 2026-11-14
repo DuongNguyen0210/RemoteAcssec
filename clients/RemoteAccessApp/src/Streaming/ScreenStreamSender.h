@@ -16,7 +16,8 @@ class ScreenStreamSender : public QObject
 
 public:
     static constexpr int STREAM_INTERVAL_MS = 200;
-    static constexpr qint64 MAX_PENDING_BYTES = 2 * 524288LL;
+    static constexpr qint64 MAX_PENDING_BYTES = 2 * 1024 * 1024LL;
+    static constexpr qsizetype MAX_ENCODED_FRAME_BYTES = 1024 * 1024;
 
     explicit ScreenStreamSender(ChildSessionController *session, QObject *parent = nullptr);
     ~ScreenStreamSender();

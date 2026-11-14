@@ -9,10 +9,12 @@
 #include "GUI/Windows/MainWindow.h"
 #include <QLineEdit>
 #include <QLabel>
+#include <QRandomGenerator>
 #include <QStackedWidget>
 #include <QPushButton>
 #include "Network/Relay/ChildSessionController.h"
 #include "Streaming/ScreenStreamSender.h"
+#include "Streaming/ScreenEncoder.h"
 #include "Controllers/AppCoordinator.h"
 #include "Controllers/RemoteInputInjector.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
@@ -43,6 +45,19 @@ class AdminScreenViewerTest : public QObject {
         c.onRelayBytesReceived(packet(session, id, index, count, size, part));
     }
 private slots:
+    void boundsEncodedFramesWithoutDroppingLargeScreens() {
+        QImage noisy(1600, 1200, QImage::Format_RGB32);
+        QRandomGenerator random(42);
+        for (int y = 0; y < noisy.height(); ++y) {
+            auto *pixels = reinterpret_cast<QRgb *>(noisy.scanLine(y));
+            for (int x = 0; x < noisy.width(); ++x) pixels[x] = 0xff000000u | random.generate();
+        }
+        const auto encoded = ScreenEncoder::encodeWithinLimit(noisy, 256 * 1024);
+        QVERIFY(!encoded.jpeg.isEmpty());
+        QVERIFY(encoded.jpeg.size() <= 256 * 1024);
+        QVERIFY(encoded.size.width() < noisy.width());
+        QCOMPARE(QImage::fromData(encoded.jpeg, "JPEG").size(), encoded.size);
+    }
     void mapsFramePixelsToDesktopCoordinates() {
         const QRect desktop(100, 50, 1920, 1080);
         QCOMPARE(RemoteInputInjector::desktopPosition(1919, 1079, QSize(1920, 1080), desktop),

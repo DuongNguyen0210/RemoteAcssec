@@ -35,7 +35,7 @@ void ScreenStreamSender::onTick()
         return;
 
     const qint64 pending = m_relayClient->pendingBytes();
-    if (pending > MAX_PENDING_BYTES) {
+    if (pending >= MAX_PENDING_BYTES) {
         return;
     }
 
@@ -44,20 +44,23 @@ void ScreenStreamSender::onTick()
         qWarning() << "[ScreenStreamSender] Chụp khung hình thất bại.";
         return;
     }
-    emit frameCaptured(frame.size());
-
-    const QByteArray encoded = ScreenEncoder::encodeJpeg(frame);
-    if (encoded.isEmpty()) {
+    const EncodedScreenFrame encoded = ScreenEncoder::encodeWithinLimit(frame, MAX_ENCODED_FRAME_BYTES);
+    if (encoded.jpeg.isEmpty()) {
         qWarning() << "[ScreenStreamSender] Mã hoá JPEG thất bại.";
         return;
     }
 
     const QList<QByteArray> packets =
-        ScreenFramePacketizer::packetize(encoded, m_frameId, m_currentSessionId);
+        ScreenFramePacketizer::packetize(encoded.jpeg, m_frameId, m_currentSessionId);
     if (packets.isEmpty()) {
         qWarning() << "[ScreenStreamSender] Packetize returned empty, skipping frame.";
         return;
     }
+
+    qint64 frameBytes = 0;
+    for (const QByteArray &packet : packets) frameBytes += packet.size();
+    if (pending + frameBytes > MAX_PENDING_BYTES) return;
+    emit frameCaptured(encoded.size);
 
     for (const QByteArray &pkt : packets) {
         const qint64 written = m_relayClient->sendRawPacket(pkt);
