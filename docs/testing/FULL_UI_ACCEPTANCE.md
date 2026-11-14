@@ -52,7 +52,27 @@ also reused the data-refresh error state. It is now an inline session notice,
 cleared on the next connection attempt. The revised full UI run passed on host
 Qt 6.10.2 and guest Qt 6.4.2. The subsequent two-round run also passed and logs
 `CHILD_REPEAT_CONFIRMED` and `ADMIN_REPEAT_CONFIRMED`. This test does not cover
-Windows, relay failover, or every keyboard/mouse variant.
+Windows or every keyboard/mouse variant.
+
+## Active relay failure
+
+Add `--failover-project pbl4-ui-acceptance` to the harness command when using
+that disposable Compose project. After confirmed native input in the first
+session, the harness reads the actual relay assignment from the API, verifies
+the container's Compose project label, and stops only that assigned relay.
+CHILD keeps sharing enabled. ADMIN must observe session end; CHILD must
+register again, and the API must assign a different relay before ADMIN opens
+the next session. A marker file coordinates that readiness with the UI test.
+The second session must again pass native mouse/keyboard and CHILD local stop.
+
+The real host/VM run passed: `relay-proxy-2` stopped, CHILD registered on
+`relay-proxy-1` after 48.46 seconds measured from the start of the stop command,
+and ADMIN opened a working new session. This timing includes lease expiry and
+the client's capped retry backoff; it is one measurement, not a recovery SLA.
+The relay processes shared a host in separate containers. This proves node
+process loss and new-session recovery, not physical-host independence or live
+migration of an active session. Session IDs are local to each relay, so the
+failover run verifies the new instance rather than requiring unequal numeric IDs.
 
 After the run, remove only this disposable Compose project with `down --volumes`
 using the same environment/config files, then shut down only `PBL4-Acceptance`.

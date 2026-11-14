@@ -1,15 +1,15 @@
 # PBL4 completion audit
 
 This audit covers the original improvement request. The goal is not yet fully
-accepted: Windows and relay-recovery acceptance remain open.
+accepted: native Windows acceptance remains open.
 See `PBL4_IMPROVEMENT.md` for the implementation and measurement history.
 
 | Requested outcome | Current evidence | Acceptance status |
 |---|---|---|
-| Identify missing and excessive features | Capability audit in `PBL4_IMPROVEMENT.md`; demo metrics/actions and unused relay JPEG path removed; chat/file transfer/clipboard remain outside this PBL4 scope | Code audit complete; real screen/input acceptance pending |
+| Identify missing and excessive features | Capability audit in `PBL4_IMPROVEMENT.md`; demo metrics/actions and unused relay JPEG path removed; chat/file transfer/clipboard remain outside this PBL4 scope | Code audit and Linux host/VM screen/input acceptance complete; Windows pending |
 | Simplify code and preserve upgrade paths | CHILD session ownership consolidated in `ChildSessionController`; GUI/network separated by signals; relay forwards chunks without duplicate JPEG reassembly | Implemented and covered by module tests |
 | Bound client/server traffic and keep data current | Bounded SSE parsing/retries, coalesced server snapshots every 3 seconds, bounded publisher workers, CHILD relay backoff, whole-frame 1 MiB encoding and 2 MiB send budget | Local automated checks and synthetic relay measurements available; two-host quality/latency pending |
-| Improve UX | Explicit unattended sharing switch and local stop; real empty/error states; functional device search; removed nonfunctional session controls | Automated desktop checks available; real desktop interaction pending |
+| Improve UX | Explicit unattended sharing switch and local stop; real empty/error states; functional device search; removed nonfunctional session controls | Full UI Linux host/VM login, two sessions, input, local stop and failover pass; Windows pending |
 | Preserve desktop theme | Diff against `origin/main` changes no existing QSS rule or color; only adds CHILD window background using existing `#f7f9fb` | Verified by source diff |
 | Test and update database if needed | Idempotent `child.user_id` index migration tested on isolated PostgreSQL and applied without row-count changes; isolated Redis presence TTL test passed | Recorded in `PBL4_IMPROVEMENT.md`; no further schema change evidenced |
 | Check teammate Git work | Remote refs fetched; `git branch -r --no-merged HEAD` returns no branches; local deployment edits reviewed with owner confirmation | All fetched remote heads included; teammate deployment work integrated |
@@ -60,7 +60,10 @@ in XTest library teardown. It does not exercise relay transport or Windows.
   stop passed against a disposable two-API/two-relay stack; see
   `docs/testing/FULL_UI_ACCEPTANCE.md`. A subsequent two-round run also passed
   stop/re-enable, distinct new session IDs, native input and local stop again
-  on the same login. Windows and failover acceptance remain open.
+  on the same login. Active relay loss also passed: the harness stopped the
+  assigned relay-proxy-2, observed reassignment to relay-proxy-1 after 48.46 s,
+  and opened a new session with working native input and local stop. Both
+  relays ran in separate containers on one host. Windows acceptance remains open.
   `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required observations.
 
 The two remaining isolated validation containers later became stopped. Both

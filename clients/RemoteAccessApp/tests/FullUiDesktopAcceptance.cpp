@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QPointer>
 #include <cstdio>
+#include <QFile>
 #include "Controllers/AppCoordinator.h"
 #include "GUI/Windows/MainWindow.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
@@ -26,6 +27,7 @@ private slots:
     void initTestCase() { std::setvbuf(stdout, nullptr, _IONBF, 0); }
     void loginShareControlAndStop() {
         const auto role = qEnvironmentVariable("PBL4_DESKTOP_ROLE");
+        const bool failover = qEnvironmentVariable("PBL4_UI_FAILOVER") == "1";
         QVERIFY(role == "child" || role == "admin");
         QVERIFY(!qEnvironmentVariable("PBL4_UI_USERNAME").isEmpty());
         AppCoordinator coordinator;
@@ -56,22 +58,36 @@ private slots:
             auto *edit = new QLineEdit(&marker); edit->setGeometry(50, 160, 300, 60);
             connect(button, &QPushButton::clicked, &marker, [&] { color(Qt::green); });
             bool typed = false, stopped = false;
+            int currentRound = 0;
             connect(edit, &QLineEdit::textChanged, &marker, [&](const QString &text) {
                 if (text != "a" || typed) return;
                 typed = true; color(Qt::blue);
+                if (failover && currentRound == 1) {
+                    qInfo() << "CHILD_FAILOVER_POINT";
+                    return;
+                }
                 QTimer::singleShot(2000, &marker, [&] {
                     QTest::mouseClick(sharing, Qt::LeftButton); stopped = true;
                 });
             });
             marker.show();
             QSignalSpy started(session, &ChildSessionController::sessionStarted);
+            QSignalSpy childEnded(session, &ChildSessionController::sessionEnded);
             for (int round = 1; round <= 2; ++round) {
+                currentRound = round;
                 typed = false; stopped = false; edit->clear(); color(Qt::magenta);
-                QTest::mouseClick(sharing, Qt::LeftButton);
+                if (!failover || round == 1) QTest::mouseClick(sharing, Qt::LeftButton);
                 QTRY_VERIFY_WITH_TIMEOUT(session->relayReady(), 20000);
                 marker.raise(); marker.activateWindow();
                 qInfo() << "CHILD_UI_READY" << "round=" << round;
                 QTRY_VERIFY_WITH_TIMEOUT(typed, 30000);
+                if (failover && round == 1) {
+                    QTRY_COMPARE_WITH_TIMEOUT(childEnded.count(), 1, 90000);
+                    QTRY_VERIFY_WITH_TIMEOUT(session->relayReady(), 90000);
+                    QCOMPARE(sharing->text(), QStringLiteral("Dừng chia sẻ"));
+                    qInfo() << "CHILD_RECOVERED";
+                    continue;
+                }
                 QTRY_VERIFY_WITH_TIMEOUT(stopped, 10000);
                 QVERIFY(!session->relayReady());
                 QCOMPARE(sharing->text(), QStringLiteral("Bật chia sẻ"));
@@ -79,7 +95,7 @@ private slots:
                 qInfo() << "CHILD_LOCAL_STOP_CONFIRMED" << "round=" << round;
                 if (round == 1) QTest::qWait(500);
             }
-            QVERIFY(started.at(0).at(0).toULongLong() != started.at(1).at(0).toULongLong());
+            if (!failover) QVERIFY(started.at(0).at(0).toULongLong() != started.at(1).at(0).toULongLong());
             qInfo() << "CHILD_REPEAT_CONFIRMED";
         } else {
             QTRY_VERIFY_WITH_TIMEOUT(topWindow<MainWindow>(), 20000);
@@ -117,8 +133,8 @@ private slots:
                 clickRemote(QPoint(250,290));
                 QTest::keyClick(viewer, Qt::Key_A);
                 QTRY_VERIFY_WITH_TIMEOUT(isColor(0,0,255), 10000);
-                qInfo() << "ADMIN_UI_INPUT_CONFIRMED";
-                QTRY_COMPARE_WITH_TIMEOUT(ended.count(), round, 15000);
+                qInfo() << "ADMIN_UI_INPUT_CONFIRMED" << "round=" << round;
+                QTRY_COMPARE_WITH_TIMEOUT(ended.count(), round, failover ? 90000 : 15000);
                 QTRY_VERIFY(!remote || !remote->isVisible());
                 QVERIFY(main->isVisible());
                 QVERIFY(!QApplication::activeModalWidget());
@@ -126,11 +142,16 @@ private slots:
                 QVERIFY(!notice->text().isEmpty());
                 auto *refresh = main->findChild<QLabel *>("deviceRefreshStatus"); QVERIFY(refresh);
                 QVERIFY(!refresh->text().contains(QStringLiteral("Dữ liệu có thể đã cũ")));
-                qInfo() << "ADMIN_CHILD_STOP_CONFIRMED" << "round=" << round;
-                if (round == 1) QTest::qWait(1500); // Allow the explicit CHILD re-enable cycle to register.
+                if (failover && round == 1) qInfo() << "ADMIN_RELAY_LOSS_CONFIRMED";
+                else qInfo() << "ADMIN_CHILD_STOP_CONFIRMED" << "round=" << round;
+                if (round == 1 && failover) {
+                    const QString ready = qEnvironmentVariable("PBL4_UI_RECOVERY_MARKER");
+                    QVERIFY(!ready.isEmpty());
+                    QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(ready), 90000);
+                } else if (round == 1) QTest::qWait(1500); // Allow the explicit CHILD re-enable cycle to register.
             }
             QCOMPARE(established.count(), 2);
-            QVERIFY(established.at(0).at(0).toULongLong() != established.at(1).at(0).toULongLong());
+            if (!failover) QVERIFY(established.at(0).at(0).toULongLong() != established.at(1).at(0).toULongLong());
             qInfo() << "ADMIN_REPEAT_CONFIRMED";
         }
     }

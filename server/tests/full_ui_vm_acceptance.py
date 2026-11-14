@@ -11,6 +11,7 @@ import time
 import urllib.parse
 import urllib.request
 import uuid
+import re
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--api-url", default="http://127.0.0.1:18089")
@@ -21,18 +22,21 @@ parser.add_argument("--known-hosts", required=True)
 parser.add_argument("--ssh-port", type=int, default=22224)
 parser.add_argument("--guest-user", default="pbl4")
 parser.add_argument("--log-dir", required=True)
+parser.add_argument("--failover-project", help="Stop the assigned relay in this disposable pbl4-* Compose project")
 args = parser.parse_args()
 if os.environ.get("TEST_DISPOSABLE_UI_STACK") != "1":
     raise SystemExit("Requires TEST_DISPOSABLE_UI_STACK=1; creates temporary accounts")
 if urllib.parse.urlparse(args.api_url).hostname not in ("localhost", "127.0.0.1", "::1"):
     raise SystemExit("API must be a disposable loopback stack")
+if args.failover_project and not re.fullmatch(r"pbl4-[a-z0-9-]+", args.failover_project):
+    raise SystemExit("Failover project must be a disposable pbl4-* project")
 
 def request(path, data, token=None):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
     req = urllib.request.Request(args.api_url + "/api/v1/" + path,
-                                 data=json.dumps(data).encode(), headers=headers)
+                                 data=json.dumps(data).encode() if data is not None else None, headers=headers)
     with urllib.request.urlopen(req, timeout=10) as response:
         return json.load(response)
 
@@ -50,11 +54,12 @@ remote_config = "/tmp/pbl4-ui-" + uuid.uuid4().hex
 child = None
 try:
     remote = shlex.join(["env", "PBL4_DESKTOP_ROLE=child", f"PBL4_UI_USERNAME={owner}child",
+                         "PBL4_UI_FAILOVER=" + ("1" if args.failover_project else "0"),
                          f"PBL4_UI_PASSWORD={password}", f"REMOTE_API_URL={args.guest_api_url}",
                          "REMOTE_RELAY_MODE=dynamic", "REMOTE_RELAY_TLS=off", "REMOTE_RELAY_CA_CERT=",
                          f"XDG_CONFIG_HOME={remote_config}", "python3",
                          "/home/pbl4/source/clients/RemoteAccessApp/tests/run_x11_integration.py",
-                         "--timeout-seconds", "100", "/home/pbl4/build/FullUiDesktopAcceptance"])
+                         "--timeout-seconds", "260", "/home/pbl4/build/FullUiDesktopAcceptance"])
     with (logs / "child.log").open("w") as output:
         child = subprocess.Popen(ssh + [remote], stdout=output, stderr=subprocess.STDOUT)
         deadline = time.monotonic() + 45
@@ -65,13 +70,58 @@ try:
                 raise TimeoutError("CHILD UI was not ready within 45 seconds")
             time.sleep(0.1)
         with tempfile.TemporaryDirectory(prefix="pbl4-ui-admin-") as config:
+            recovery_marker = Path(config) / "relay-recovered"
             env = dict(os.environ, QT_QPA_PLATFORM="offscreen", XDG_CONFIG_HOME=config,
                        PBL4_DESKTOP_ROLE="admin", PBL4_UI_USERNAME=owner, PBL4_UI_PASSWORD=password,
                        REMOTE_API_URL=args.api_url, REMOTE_RELAY_MODE="dynamic",
-                       REMOTE_RELAY_TLS="off", REMOTE_RELAY_CA_CERT="")
+                       REMOTE_RELAY_TLS="off", REMOTE_RELAY_CA_CERT="",
+                       PBL4_UI_FAILOVER="1" if args.failover_project else "0",
+                       PBL4_UI_RECOVERY_MARKER=str(recovery_marker))
             with (logs / "admin.log").open("w") as admin_output:
-                subprocess.run([args.admin_binary, "-nocrashhandler"], env=env, stdout=admin_output,
-                               stderr=subprocess.STDOUT, check=True, timeout=90)
+                admin = subprocess.Popen([args.admin_binary, "-nocrashhandler"], env=env,
+                                         stdout=admin_output, stderr=subprocess.STDOUT)
+                try:
+                    deadline = time.monotonic() + 240
+                    failed_node = None
+                    recovery_start = None
+                    while admin.poll() is None:
+                        if time.monotonic() >= deadline:
+                            raise TimeoutError("ADMIN UI did not finish within 240 seconds")
+                        admin_text = (logs / "admin.log").read_text()
+                        child_text = (logs / "child.log").read_text()
+                        if args.failover_project and failed_node is None and "ADMIN_UI_INPUT_CONFIRMED" in admin_text:
+                            devices = request("devices", None, token)["data"]
+                            sid = next(d["sessionId"] for d in devices if d["username"] == owner + "child")
+                            assigned = request(f"devices/{sid}/relay", None, token)["data"]
+                            failed_node = assigned["instanceId"]
+                            if failed_node not in ("relay-proxy-1", "relay-proxy-2"):
+                                raise RuntimeError("Unexpected assigned relay instance")
+                            container = f"{args.failover_project}-{failed_node}-1"
+                            project = subprocess.check_output(["docker", "inspect", "--format",
+                                '{{index .Config.Labels "com.docker.compose.project"}}', container], text=True).strip()
+                            if project != args.failover_project:
+                                raise RuntimeError("Refusing to stop a relay outside the test project")
+                            recovery_start = time.monotonic()
+                            subprocess.run(["docker", "stop", container], check=True, timeout=20,
+                                           stdout=subprocess.DEVNULL)
+                        if failed_node and not recovery_marker.exists() and "CHILD_RECOVERED" in child_text:
+                            assigned = request(f"devices/{sid}/relay", None, token)["data"]
+                            if assigned["instanceId"] == failed_node:
+                                raise RuntimeError("CHILD recovered on the stopped node")
+                            recovery_marker.touch()
+                            print(f"RELAY_RECOVERED {failed_node} -> {assigned['instanceId']} in {time.monotonic()-recovery_start:.2f}s", flush=True)
+                        time.sleep(0.1)
+                    if admin.returncode:
+                        raise RuntimeError("ADMIN UI failed; inspect admin.log")
+                    if args.failover_project and (not failed_node or not recovery_marker.exists()):
+                        raise RuntimeError("UI finished without verified relay reassignment")
+                finally:
+                    if admin.poll() is None:
+                        admin.terminate()
+                        try:
+                            admin.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            admin.kill(); admin.wait()
         if child.wait(timeout=20) != 0:
             raise RuntimeError("CHILD UI did not pass")
     for filename, markers in {
@@ -81,7 +131,10 @@ try:
         text = (logs / filename).read_text()
         if any(marker not in text for marker in markers):
             raise RuntimeError("Missing UI acceptance confirmation in " + filename)
-    print("PASS: real UI login and two distinct dynamic relay sessions with native input and CHILD stop/re-enable")
+    if args.failover_project:
+        print("PASS: real UI relay loss, reassignment to another node, native input in a new session and CHILD stop")
+    else:
+        print("PASS: real UI login and two distinct dynamic relay sessions with native input and CHILD stop/re-enable")
 finally:
     if child is not None and child.poll() is None:
         child.terminate()
