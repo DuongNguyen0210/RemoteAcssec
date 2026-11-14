@@ -91,3 +91,6 @@ Added `server/tests/relay_transport_benchmark.py`, which starts one or two real 
 
 ### Input payload boundary
 The relay previously forwarded any payload length for mouse/key message types (up to the generic 512 KiB RDTP limit), even though CHILD discards input that does not match the 4/8/9/12-byte protocol shapes. A regression test reproduced a 256 KiB `MOUSE_MOVE` reaching CHILD. The relay now checks exact input lengths, closes a malformed sender, and rejects oversized input from the RDTP header before allocating its payload. Other non-screen messages are capped at 8 KiB, above the maximum 4200-byte authorization payload. Focused and full Maven tests pass; the two-relay E2E script now sends valid payloads for each input type. This bounds malformed-control allocation per connection but is not a global connection-rate limit.
+
+### Local API default
+A fresh Qt client previously fell back to a fixed ngrok hostname when no Settings value or `REMOTE_API_URL` existed. That could direct login credentials to an unrelated endpoint after the demo tunnel changes ownership. The fallback is now `http://localhost:9090`, matching the Management API's local default. Remote deployments must set their own HTTPS API URL. The Qt app builds and the account/device flow test passes after the change.

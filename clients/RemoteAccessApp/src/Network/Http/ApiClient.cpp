@@ -77,7 +77,7 @@ ApiClient::ApiClient(QObject *parent)
     if (!savedUrl.isEmpty()) {
         m_baseUrl = savedUrl;
     } else {
-        m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://cornball-ibuprofen-polygraph.ngrok-free.dev");
+        m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://localhost:9090");
     }
 }
 
