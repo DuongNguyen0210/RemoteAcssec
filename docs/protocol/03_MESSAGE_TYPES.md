@@ -273,13 +273,11 @@ nguồn đều bắt buộc.
 Protocol SCREEN_FRAME đầu vào
 → kiểm tra sessionId, trạng thái ACTIVE và channel nguồn
 → ghi chính đối tượng Protocol gốc đến channel ADMIN
-→ ScreenFrameHandler/ScreenFrameReassembler chẩn đoán có thể chạy sau đó
 ```
 
 Mỗi chunk gốc được chuyển độc lập. Relay không ghép ảnh trước khi định tuyến,
 không packetize lại, không sửa byte JPEG, metadata payload, `sequenceNumber` hay
-`sessionId`. Bộ ghép khung phía Relay chỉ phục vụ chẩn đoán và không phải điều
-kiện của đường chuyển tiếp.
+`sessionId`. ADMIN tự ghép các chunk thành ảnh JPEG.
 
 ADMIN ghép `SCREEN_FRAME`, giải mã JPEG thành `QImage` và hiển thị trong Qt.
 

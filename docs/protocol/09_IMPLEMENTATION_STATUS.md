@@ -312,9 +312,9 @@ vào đến channel ADMIN qua `ProtocolEncoder`. Relay không ghép khung trư�
 `frameId`, `chunkIndex`, `chunkCount`, `totalFrameSize` hoặc `sequenceNumber`.
 Mỗi chunk gốc được chuyển tiếp độc lập.
 
-`ScreenFrameHandler` và `ScreenFrameReassembler` phía Relay vẫn có thể chạy sau
-lệnh chuyển tiếp để ghi thông tin chẩn đoán. Chúng không phải điều kiện hoặc cơ
-chế định tuyến.
+Relay không ghép ảnh; ADMIN dùng `Protocol::ScreenFrameReassembler` để ghép
+chunk sau khi nhận. Hai lớp chẩn đoán phía Relay không nằm trong pipeline và đã
+được xóa để tránh duy trì một bộ ghép ảnh thứ hai không sử dụng.
 
 #### Trạng thái ADMIN
 
