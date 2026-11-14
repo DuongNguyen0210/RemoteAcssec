@@ -416,10 +416,15 @@ private slots:
             auto *stop = window->findChild<QPushButton *>("stopSharingButton");
             auto *heartbeat = coordinator.findChild<HeartbeatReporter *>();
             QVERIFY(status && stop && heartbeat);
+            QVERIFY(!heartbeat->isRunning());
+            QCOMPARE(stop->text(), QStringLiteral("Bật chia sẻ"));
+            QVERIFY(status->text().contains(QStringLiteral("đang tắt")));
+            stop->click();
             QVERIFY(heartbeat->isRunning());
+            QCOMPARE(stop->text(), QStringLiteral("Dừng chia sẻ"));
             stop->click();
             QVERIFY(status->text().contains(QStringLiteral("Đã dừng chia sẻ")));
-            QVERIFY(!stop->isEnabled());
+            QCOMPARE(stop->text(), QStringLiteral("Bật chia sẻ"));
             QVERIFY(!heartbeat->isRunning());
             window->close();
         }

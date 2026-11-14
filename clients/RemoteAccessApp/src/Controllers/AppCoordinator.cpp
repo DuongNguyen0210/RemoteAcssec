@@ -102,7 +102,6 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
         if (!m_heartbeatReporter)
         {
             m_heartbeatReporter = new HeartbeatReporter(this);
-            m_heartbeatReporter->start();
         }
 
         if (!m_screenStreamSender)
@@ -133,10 +132,10 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
             window->setAttribute(Qt::WA_DeleteOnClose);
             window->setMinimumWidth(380);
             auto *layout = new QVBoxLayout(window);
-            auto *status = new QLabel(QStringLiteral("Đang sẵn sàng nhận phiên điều khiển."), window);
+            auto *status = new QLabel(QStringLiteral("Chia sẻ đang tắt. Bật chia sẻ để cho phép kết nối không giám sát."), window);
             status->setObjectName(QStringLiteral("childSessionStatus"));
             status->setWordWrap(true);
-            auto *stopButton = new QPushButton(QStringLiteral("Dừng chia sẻ"), window);
+            auto *stopButton = new QPushButton(QStringLiteral("Bật chia sẻ"), window);
             stopButton->setObjectName(QStringLiteral("stopSharingButton"));
             layout->addWidget(status);
             layout->addWidget(stopButton);
@@ -154,17 +153,23 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                 stopButton->setEnabled(false);
             });
             connect(stopButton, &QPushButton::clicked, window, [this, session, status, stopButton] {
-                session->stop();
-                m_heartbeatReporter->stop();
-                status->setText(QStringLiteral("Đã dừng chia sẻ. Đóng cửa sổ để thoát."));
-                stopButton->setEnabled(false);
+                if (m_heartbeatReporter->isRunning()) {
+                    session->stop();
+                    m_heartbeatReporter->stop();
+                    status->setText(QStringLiteral("Đã dừng chia sẻ. Bạn có thể bật lại hoặc đóng cửa sổ."));
+                    stopButton->setText(QStringLiteral("Bật chia sẻ"));
+                } else {
+                    m_heartbeatReporter->start();
+                    session->start();
+                    status->setText(QStringLiteral("Đang kết nối Relay để sẵn sàng nhận phiên điều khiển."));
+                    stopButton->setText(QStringLiteral("Dừng chia sẻ"));
+                }
             });
             connect(window, &QObject::destroyed, session, &ChildSessionController::stop);
             connect(window, &QObject::destroyed, m_heartbeatReporter, &HeartbeatReporter::stop);
             connect(window, &QObject::destroyed, qApp, &QApplication::quit);
             m_childWindow = window;
             window->show();
-            session->start();
         }
     }
 
