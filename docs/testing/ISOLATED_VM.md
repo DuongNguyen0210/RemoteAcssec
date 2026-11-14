@@ -38,7 +38,43 @@ The client and test executables built successfully on Ubuntu 24.04 with Qt
 CMake now creates it. Six CTest executables passed initially; the remaining
 screen reassembler test needed an explicit offscreen platform in CTest and
 passed after that fix. Native X11 input/capture passed separately at both 100%
-and 200%. No host/guest relay session has been accepted yet.
+and 200%.
+
+## Host/guest transport acceptance
+
+Build `DesktopRelayAcceptance` on host and guest with the same opt-in CMake
+option. While this test VM is stopped, enable host loopback access for its NAT:
+
+```sh
+VBoxManage modifyvm PBL4-Acceptance --nat-localhostreachable1 on
+```
+
+See the [VirtualBox command reference](https://docs.oracle.com/en/virtualization/virtualbox/7.2/user/vboxmanage.html).
+Build the Java relay JAR and runtime dependencies as described in
+`server/tests/relay_transport_benchmark.py`. With the VM running, execute:
+
+```sh
+python3 server/tests/desktop_vm_acceptance.py \
+  --admin-binary /tmp/pbl4-qt-build/DesktopRelayAcceptance \
+  --ssh-key /home/duongnguyen/.cache/pbl4-vm/test-key \
+  --known-hosts /home/duongnguyen/.cache/pbl4-vm/known_hosts \
+  --log-dir /home/duongnguyen/.cache/pbl4-vm/acceptance-transport
+```
+
+This passed with host Qt 6.10.2 and guest Qt 6.4.2. The real Java relay forwards
+JPEG frames captured by `ScreenStreamSender`; `AdminSessionController` decodes
+them and sends mouse/key packets back. `ChildSessionController` delivers the
+packets to `RemoteInputInjector`. A native button click changes a color marker,
+and text entry changes it again; ADMIN verifies both changes in received images.
+CHILD observes disconnect and both processes exit successfully. Logs contain
+`SCREEN_RECEIVED`, `REMOTE_CLICK_CONFIRMED`, `REMOTE_KEY_CONFIRMED`,
+`CHILD_READY` and `CHILD_DISCONNECTED`.
+
+The harness starts/stops its own loopback relay and fake HTTP authorizer; no
+user account or project database is used. Static discovery and plaintext
+transport are confined to host/guest NAT. This does not verify the full
+login/sharing UI, dynamic allocation, TLS, a two-minute stream, relay failover,
+Windows or independent physical-host performance. Those rows remain open.
 
 When testing ends, shut down only this VM gracefully, for example by running
 `sudo poweroff` inside the guest. Its disk can be retained for reproducibility;

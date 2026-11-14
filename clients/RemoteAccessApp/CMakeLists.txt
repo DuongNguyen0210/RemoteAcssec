@@ -57,6 +57,8 @@ if(BUILD_TESTING AND ENABLE_X11_INPUT_INTEGRATION AND CMAKE_SYSTEM_NAME STREQUAL
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
     add_executable(X11InputIntegrationTest tests/X11InputIntegrationTest.cpp)
     target_link_libraries(X11InputIntegrationTest PRIVATE Controllers Streaming Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+    add_executable(DesktopRelayAcceptance tests/DesktopRelayAcceptance.cpp)
+    target_link_libraries(DesktopRelayAcceptance PRIVATE Controllers Streaming Qt${QT_VERSION_MAJOR}::Widgets)
 endif()
 if(BUILD_TESTING)
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)

@@ -50,7 +50,9 @@ in XTest library teardown. It does not exercise relay transport or Windows.
 - The owner excluded all three existing lab VMs and authorized a new test VM.
   `PBL4-Acceptance` now runs Ubuntu 24.04 separately; clean client builds and
   native X11 tests at 100%/200% pass there. See `docs/testing/ISOLATED_VM.md`.
-  Host/guest relay interaction and Windows remain unverified.
+  Host/guest relay screen, native click, keyboard and disconnect now pass via
+  `DesktopRelayAcceptance` using a real relay and fake authorizer. Full UI,
+  dynamic allocation/failover, sustained streaming and Windows remain unverified.
   `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required observations.
 
 The two remaining isolated validation containers later became stopped. Both
