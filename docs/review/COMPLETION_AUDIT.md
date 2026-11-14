@@ -47,9 +47,11 @@ and screen color marker are verified at both 100% and 200%, with assertions on
 the actual pixel ratio and capture dimensions. This test reproduced and guarded a crash
 in XTest library teardown. It does not exercise relay transport or Windows.
 
-- The owner currently has no two-machine or two-desktop-VM environment.
-  `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required Windows/X11
-  pointer, keyboard, DPI, local-stop and relay-recovery observations.
+- The owner excluded all three existing lab VMs and authorized a new test VM.
+  `PBL4-Acceptance` now runs Ubuntu 24.04 separately; clean client builds and
+  native X11 tests at 100%/200% pass there. See `docs/testing/ISOLATED_VM.md`.
+  Host/guest relay interaction and Windows remain unverified.
+  `docs/testing/TWO_MACHINE_ACCEPTANCE.md` records the required observations.
 
 The two remaining isolated validation containers later became stopped. Both
 were removed, together with `pbl4-validation_postgres-data`,

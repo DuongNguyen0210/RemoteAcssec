@@ -11,6 +11,19 @@ set(CMAKE_AUTORCC ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Svg Core Gui Widgets Network Concurrent)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Svg Core Gui Widgets Network Concurrent)
 
+find_program(PBL4_LRELEASE NAMES lrelease-qt${QT_VERSION_MAJOR} lrelease${QT_VERSION_MAJOR} lrelease
+    HINTS "${QT_HOST_PATH}/bin" "${Qt${QT_VERSION_MAJOR}_DIR}/../../../bin" "/usr/lib/qt${QT_VERSION_MAJOR}/bin")
+if(NOT PBL4_LRELEASE)
+    message(FATAL_ERROR "Qt lrelease is required to build translations (install qt6-l10n-tools or Qt Linguist tools).")
+endif()
+set(PBL4_TRANSLATION "${CMAKE_CURRENT_BINARY_DIR}/qt_vi.qm")
+add_custom_command(OUTPUT "${PBL4_TRANSLATION}"
+    COMMAND "${PBL4_LRELEASE}" "${CMAKE_CURRENT_SOURCE_DIR}/Resources/translations/qt_vi.ts" -qm "${PBL4_TRANSLATION}"
+    DEPENDS Resources/translations/qt_vi.ts VERBATIM)
+add_custom_target(Pbl4Translations DEPENDS "${PBL4_TRANSLATION}")
+set(PBL4_TRANSLATION_QRC "${CMAKE_CURRENT_BINARY_DIR}/translations.qrc")
+file(WRITE "${PBL4_TRANSLATION_QRC}" "<RCC><qresource prefix=\"/translations\"><file alias=\"qt_vi.qm\">${PBL4_TRANSLATION}</file></qresource></RCC>")
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_subdirectory(src/Utils)
@@ -23,7 +36,9 @@ add_subdirectory(src/Controllers)
 add_executable(${PROJECT_NAME}
     src/Main.cpp
     project.qrc
+    "${PBL4_TRANSLATION_QRC}"
 )
+add_dependencies(${PROJECT_NAME} Pbl4Translations)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -45,7 +60,8 @@ if(BUILD_TESTING AND ENABLE_X11_INPUT_INTEGRATION AND CMAKE_SYSTEM_NAME STREQUAL
 endif()
 if(BUILD_TESTING)
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
-    add_executable(AccountDeviceFlowTest tests/AccountDeviceFlowTest.cpp project.qrc)
+    add_executable(AccountDeviceFlowTest tests/AccountDeviceFlowTest.cpp project.qrc "${PBL4_TRANSLATION_QRC}")
+    add_dependencies(AccountDeviceFlowTest Pbl4Translations)
     target_link_libraries(AccountDeviceFlowTest PRIVATE
         Controllers GUI Streaming Network Domain Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME account_device_flow COMMAND AccountDeviceFlowTest)
@@ -95,6 +111,7 @@ if(BUILD_TESTING)
         NAME screen_frame_reassembler
         COMMAND ScreenFrameReassemblerTest
     )
+    set_tests_properties(screen_frame_reassembler PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     add_executable(SseClientTest tests/SseClientTest.cpp)
     target_link_libraries(SseClientTest PRIVATE Network Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Network)
