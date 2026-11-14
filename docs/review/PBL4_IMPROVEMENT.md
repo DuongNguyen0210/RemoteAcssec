@@ -68,3 +68,6 @@ Added optional TLS to the Netty relay and Qt relay client. Relay certificate/key
 
 ### Relay reconnect pacing
 Repeated CHILD allocation/transport failures now use an exponential delay from 1.5 seconds up to 30 seconds with up to 499 ms jitter. A successful relay registration or local stop resets the delay. A regression test first reproduced the old fixed 1.5-second retry interval, then verified that the third failed allocation is deferred. All seven Qt test executables pass after the change. This reduces synchronized reconnect bursts when a relay node or Management API is unavailable.
+
+### Validation container cleanup update
+After the Docker daemon restarted, the five validation application containers could be removed. Docker still denies killing the validation PostgreSQL and Redis containers. Their restart policies are disabled, and both were disconnected from the validation network. Only `pbl4-validation-postgres-1`, `pbl4-validation-redis-1`, and their two disposable volumes remain; remove these exact resources when the daemon permits it. Other project and user containers were not touched.
