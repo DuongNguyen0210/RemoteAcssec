@@ -26,6 +26,7 @@
 #include "GUI/Components/DeviceCardWidget.h"
 #include "Network/Protocol/RelayAuthPayload.h"
 #include "Network/Http/HeartbeatReporter.h"
+#include "Network/Relay/ChildSessionController.h"
 
 class AccountDeviceFlowTest : public QObject {
     Q_OBJECT
@@ -415,13 +416,19 @@ private slots:
             auto *status = window->findChild<QLabel *>("childSessionStatus");
             auto *stop = window->findChild<QPushButton *>("stopSharingButton");
             auto *heartbeat = coordinator.findChild<HeartbeatReporter *>();
-            QVERIFY(status && stop && heartbeat);
+            auto *session = coordinator.findChild<ChildSessionController *>();
+            QVERIFY(status && stop && heartbeat && session);
             QVERIFY(!heartbeat->isRunning());
             QCOMPARE(stop->text(), QStringLiteral("Bật chia sẻ"));
             QVERIFY(status->text().contains(QStringLiteral("đang tắt")));
+            const auto screenshotDir = qEnvironmentVariable("TEST_SCREENSHOT_DIR");
+            if (!screenshotDir.isEmpty()) window->grab().save(screenshotDir + "/child-sharing-off.png");
             stop->click();
             QVERIFY(heartbeat->isRunning());
             QCOMPARE(stop->text(), QStringLiteral("Dừng chia sẻ"));
+            emit session->relayRegistered();
+            QVERIFY(status->text().contains(QStringLiteral("Sẵn sàng nhận phiên")));
+            if (!screenshotDir.isEmpty()) window->grab().save(screenshotDir + "/child-sharing-on.png");
             stop->click();
             QVERIFY(status->text().contains(QStringLiteral("Đã dừng chia sẻ")));
             QCOMPARE(stop->text(), QStringLiteral("Bật chia sẻ"));

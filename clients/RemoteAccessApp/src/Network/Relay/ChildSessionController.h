@@ -18,7 +18,9 @@ public:
     // Compatibility seam for the unchanged ScreenStreamSender capture loop.
     RelayClient *relayClient() const { return m_client; }
     quint64 activeSessionId() const { return m_sessionId; }
+    bool relayReady() const { return m_registered; }
 signals:
+    void relayRegistered();
     void sessionStarted(quint64 sessionId);
     void sessionEnded(const QString &reason);
     void inputReceived(const Protocol::ProtocolHeader &header, const QByteArray &payload);

@@ -130,20 +130,34 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
             window->setObjectName(QStringLiteral("childStatusWindow"));
             window->setWindowTitle(QStringLiteral("RemoteAccess — máy được điều khiển"));
             window->setAttribute(Qt::WA_DeleteOnClose);
-            window->setMinimumWidth(380);
+            window->setAttribute(Qt::WA_StyledBackground);
+            window->setMinimumWidth(420);
             auto *layout = new QVBoxLayout(window);
+            layout->setContentsMargins(24, 24, 24, 24);
+            layout->setSpacing(16);
+            auto *title = new QLabel(QStringLiteral("Chia sẻ máy tính"), window);
+            title->setProperty("role", "sectionTitle");
             auto *status = new QLabel(QStringLiteral("Chia sẻ đang tắt. Bật chia sẻ để cho phép kết nối không giám sát."), window);
             status->setObjectName(QStringLiteral("childSessionStatus"));
+            status->setProperty("role", "pageSubtitle");
             status->setWordWrap(true);
             auto *stopButton = new QPushButton(QStringLiteral("Bật chia sẻ"), window);
             stopButton->setObjectName(QStringLiteral("stopSharingButton"));
+            stopButton->setProperty("role", "primaryActionButton");
+            stopButton->setMinimumHeight(40);
+            layout->addWidget(title);
             layout->addWidget(status);
             layout->addWidget(stopButton);
+            connect(session, &ChildSessionController::relayRegistered, window, [status] {
+                status->setText(QStringLiteral("Sẵn sàng nhận phiên điều khiển không giám sát."));
+            });
             connect(session, &ChildSessionController::sessionStarted, window, [status](quint64) {
                 status->setText(QStringLiteral("Đang có phiên điều khiển từ xa. Bạn có thể dừng chia sẻ bất cứ lúc nào."));
             });
-            connect(session, &ChildSessionController::sessionEnded, window, [status](const QString &) {
-                status->setText(QStringLiteral("Phiên đã kết thúc. Máy đang sẵn sàng nhận phiên mới."));
+            connect(session, &ChildSessionController::sessionEnded, window, [status, session](const QString &) {
+                status->setText(session->relayReady()
+                        ? QStringLiteral("Phiên đã kết thúc. Máy đang sẵn sàng nhận phiên mới.")
+                        : QStringLiteral("Phiên đã kết thúc. Đang kết nối lại Relay."));
             });
             connect(session, &ChildSessionController::sessionFailed, window, [status](const QString &) {
                 status->setText(QStringLiteral("Mất kết nối Relay. Đang thử kết nối lại."));

@@ -108,6 +108,7 @@ void ChildSessionController::receive(const QByteArray &bytes) {
             m_connecting = false;
             m_timeout.stop();
             if (m_endpoint.expiresAt != 0) m_renew.start();
+            emit relayRegistered();
         } else if (h.type == T::SESSION_REQUEST) {
             if (!m_registered || h.sessionId == 0 || h.flags != 0 || h.sequenceNumber != 0
                     || !message.payload.isEmpty()) {

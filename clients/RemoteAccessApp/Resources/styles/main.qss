@@ -6,6 +6,10 @@
     background-color: #f7f9fb;
 }
 
+#childStatusWindow {
+    background-color: #f7f9fb;
+}
+
 #devicesPage {
     background-color: #f7f9fb;
 }

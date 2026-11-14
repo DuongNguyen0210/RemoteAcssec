@@ -160,6 +160,7 @@ private slots:
         ChildSessionController child(&provider);
         ApiClient::instance().setToken("test-token");
         QSignalSpy started(&child, &ChildSessionController::sessionStarted);
+        QSignalSpy registered(&child, &ChildSessionController::relayRegistered);
         QSignalSpy ended(&child, &ChildSessionController::sessionEnded);
         QSignalSpy failed(&child, &ChildSessionController::sessionFailed);
         QByteArray inputPayload;
@@ -174,6 +175,8 @@ private slots:
                  Protocol::MessageType::REGISTER_HOST);
         peer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
         peer->write(packet(Protocol::MessageType::SESSION_REQUEST, 7));
+        QTRY_COMPARE(registered.count(), 1);
+        QVERIFY(child.relayReady());
         QTRY_COMPARE(started.count(), 1);
         QCOMPARE(child.activeSessionId(), quint64(7));
         QTRY_VERIFY(peer->bytesAvailable() >= 24);
