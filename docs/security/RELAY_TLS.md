@@ -9,6 +9,9 @@ by that process. The relay fails at startup if only one is set or the key and
 certificate cannot initialize TLS. Use a certificate whose DNS name or IP SAN
 matches the `host` returned in the relay endpoint. Configure each relay node
 separately; do not commit its private key.
+`RELAY_BIND_HOST` defaults to `0.0.0.0`; set it to `127.0.0.1` for a relay
+that must accept only local connections. The local transport benchmark uses
+this loopback binding.
 
 For the two-node Compose setup, load
 `infrastructure/docker-compose.tls.yml` after the base Compose file and set

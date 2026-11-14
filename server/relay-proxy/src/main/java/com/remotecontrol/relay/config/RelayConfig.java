@@ -4,7 +4,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.UUID;
 
-public record RelayConfig(String instanceId, String bootId, int port, String advertisedHost,
+public record RelayConfig(String instanceId, String bootId, int port, String bindHost, String advertisedHost,
         int advertisedPort, String managementApiUrl, String nodeToken, int capacity,
         int heartbeatSeconds, boolean discoveryEnabled, String tlsCertificate, String tlsPrivateKey) {
     public RelayConfig {
@@ -12,6 +12,7 @@ public record RelayConfig(String instanceId, String bootId, int port, String adv
             throw new IllegalArgumentException("Invalid relay identity");
         if (port < 1 || port > 65535 || advertisedPort < 1 || advertisedPort > 65535)
             throw new IllegalArgumentException("Invalid relay port");
+        if (bindHost.isBlank()) throw new IllegalArgumentException("Invalid relay bind host");
         if (advertisedHost.isBlank() || advertisedHost.length() > 253 || advertisedHost.contains("/"))
             throw new IllegalArgumentException("Invalid advertised host");
         URI uri = URI.create(managementApiUrl);
@@ -33,7 +34,8 @@ public record RelayConfig(String instanceId, String bootId, int port, String adv
     public static RelayConfig fromEnvironment(Map<String, String> env) {
         int port = integer(env, "RELAY_PORT", 8080);
         return new RelayConfig(env.getOrDefault("RELAY_INSTANCE_ID", "relay-local"), UUID.randomUUID().toString(),
-                port, env.getOrDefault("RELAY_ADVERTISED_HOST", "localhost"),
+                port, env.getOrDefault("RELAY_BIND_HOST", "0.0.0.0"),
+                env.getOrDefault("RELAY_ADVERTISED_HOST", "localhost"),
                 integer(env, "RELAY_ADVERTISED_PORT", port),
                 env.getOrDefault("MANAGEMENT_API_URL", "http://localhost:9090"),
                 env.getOrDefault("RELAY_NODE_TOKEN", ""), integer(env, "RELAY_CAPACITY", 1000),

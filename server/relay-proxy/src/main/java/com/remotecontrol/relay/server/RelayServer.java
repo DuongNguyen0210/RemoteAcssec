@@ -16,6 +16,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProtocols;
 import java.io.File;
+import java.net.InetSocketAddress;
 
 public class RelayServer {
 
@@ -61,7 +62,7 @@ public class RelayServer {
              .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,
                      new io.netty.channel.WriteBufferWaterMark(1024 * 1024, 2 * 1024 * 1024));
 
-            ChannelFuture f = b.bind(config.port()).sync();
+            ChannelFuture f = b.bind(new InetSocketAddress(config.bindHost(), config.port())).sync();
             if (config.discoveryEnabled()) reporter.start();
             f.channel().closeFuture().sync();
             
