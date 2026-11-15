@@ -7,8 +7,10 @@ import com.remotecontrol.api.entity.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 /** Run explicitly against an isolated Redis: mvn -Dtest=PresenceRedisIT test. */
 class PresenceRedisIT {
@@ -39,8 +41,20 @@ class PresenceRedisIT {
             service.closeSession(ownerId, a.getSessionId());
             assertFalse(service.markDeviceOnline(owner, a, null, laptop), "Late heartbeat cannot undo logout");
             assertEquals(1, service.getDevices(ownerId).size());
+            var devices = mock(DeviceService.class);
+            when(devices.getDevices(any())).thenAnswer(call -> service.getDevices(ownerId));
+            var notifier = new SseNotifier(new ObjectMapper());
+            var emitter = mock(SseEmitter.class);
+            notifier.register(ownerId, emitter);
             Thread.sleep(21000); // Exercise the real production TTL, not a mocked clock.
             assertTrue(service.getDevices(ownerId).isEmpty());
+            try (var publisher = new DevicePresencePublisher(devices, notifier)) {
+                publisher.publish();
+                verify(emitter, timeout(2000)).send(any(SseEmitter.SseEventBuilder.class));
+            }
+            var event = org.mockito.ArgumentCaptor.forClass(SseEmitter.SseEventBuilder.class);
+            verify(emitter).send(event.capture());
+            assertTrue(event.getValue().build().stream().anyMatch(part -> "[]".equals(part.getData())));
             assertTrue(service.isSessionActive("12", b.getSessionId()), "Presence expiry is not logout");
             assertTrue(service.markDeviceOnline(owner, b, null, pc));
             assertEquals(1, service.getDevices(ownerId).size());
@@ -50,4 +64,5 @@ class PresenceRedisIT {
             factory.destroy();
         }
     }
+
 }
