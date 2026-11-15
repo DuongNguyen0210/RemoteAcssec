@@ -15,6 +15,10 @@
 #include "Controllers/AppCoordinator.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Components/RemoteScreenWidget.h"
+#include "Network/Http/ApiClient.h"
+#include "Network/Protocol/ScreenFramePacketizer.h"
+#include "Network/Relay/RelayClient.h"
+#include "Network/Relay/StaticRelayEndpointProvider.h"
 
 class AdminScreenViewerTest : public QObject {
     Q_OBJECT
@@ -40,6 +44,66 @@ class AdminScreenViewerTest : public QObject {
         c.onRelayBytesReceived(packet(session, id, index, count, size, part));
     }
 private slots:
+    void loopbackRelayDeliversSyntheticFrame() {
+        if (!qEnvironmentVariableIsSet("PBL4_FRAME_SMOKE"))
+            QSKIP("Requires an isolated Management API and Relay.");
+
+        const auto agentId = qEnvironmentVariable("PBL4_SMOKE_AGENT_ID");
+        const auto adminToken = qEnvironmentVariable("PBL4_SMOKE_ADMIN_TOKEN");
+        const auto childToken = qEnvironmentVariable("PBL4_SMOKE_CHILD_TOKEN");
+        QCOMPARE(qEnvironmentVariable("REMOTE_RELAY_HOST"), QStringLiteral("127.0.0.1"));
+        QVERIFY(qEnvironmentVariableIntValue("REMOTE_RELAY_PORT") > 0);
+        QVERIFY(!agentId.isEmpty() && !adminToken.isEmpty() && !childToken.isEmpty());
+
+        StaticRelayEndpointProvider provider;
+        ChildSessionController child(&provider);
+        AdminSessionController admin;
+        QSignalSpy childStarted(&child, &ChildSessionController::sessionStarted);
+        QSignalSpy childEnded(&child, &ChildSessionController::sessionEnded);
+        QSignalSpy adminStarted(&admin, &AdminSessionController::sessionEstablished);
+        QSignalSpy frames(&admin, &AdminSessionController::frameReady);
+        Protocol::RdtpStreamParser registrationParser;
+        bool registered = false;
+        connect(child.relayClient(), &RelayClient::bytesReceived, &child, [&](const QByteArray &bytes) {
+            for (const auto &message : registrationParser.feed(bytes).messages) {
+                if (message.header.type == Protocol::MessageType::REGISTER_ACK
+                        && message.payload == QByteArray(1, '\1'))
+                    registered = true;
+            }
+        });
+        ApiClient::instance().setToken(childToken);
+        child.start();
+        QTRY_VERIFY_WITH_TIMEOUT(registered, 8000);
+        ApiClient::instance().setToken(adminToken);
+        admin.requestSession(agentId);
+        QTRY_COMPARE_WITH_TIMEOUT(adminStarted.count(), 1, 8000);
+        QCOMPARE(childStarted.count(), 1);
+        const quint64 id = child.activeSessionId();
+        QVERIFY(id != 0);
+        QCOMPARE(adminStarted.at(0).at(0).toULongLong(), id);
+
+        RemoteDesktopWindow viewer(id, QStringLiteral("Synthetic CHILD"));
+        auto *screen = viewer.findChild<RemoteScreenWidget *>();
+        QVERIFY(screen);
+        connect(&admin, &AdminSessionController::frameReady, &viewer,
+                [&viewer, id](quint64 session, const QImage &image) {
+            if (session == id)
+                viewer.updateFrame(image);
+        });
+        const auto packets = ScreenFramePacketizer::packetize(jpeg(), 1, id);
+        QVERIFY(!packets.isEmpty());
+        for (const auto &bytes : packets)
+            QCOMPARE(child.sendScreenPacket(bytes), qint64(bytes.size()));
+        QTRY_COMPARE(frames.count(), 1);
+        QCOMPARE(screen->frameResolution(), QSize(32, 24));
+        const auto image = qvariant_cast<QImage>(frames.at(0).at(1));
+        QVERIFY(image.pixelColor(5, 5).red() > 180);
+        admin.disconnectSession();
+        QTRY_COMPARE(childEnded.count(), 1);
+        QCOMPARE(child.activeSessionId(), quint64(0));
+        child.stop();
+        ApiClient::instance().setToken({});
+    }
     void remoteDesktopCloseIsIdempotentAndProgrammaticCloseIsSilent() {
         RemoteDesktopWindow userWindow(42, QStringLiteral("child"));
         userWindow.show();
