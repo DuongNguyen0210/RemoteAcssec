@@ -390,7 +390,7 @@ CHILD SCREEN_FRAME chunks
 | Hiển thị màn hình | ADMIN ghép các chunk JPEG, giải mã và hiển thị trong `RemoteDesktopWindow`. |
 | Kết thúc phiên | ADMIN và CHILD xử lý `DISCONNECT`. Relay dọn phiên khi mất kết nối TCP và áp dụng timeout cho phiên đang chờ. |
 | Khám phá thiết bị | CHILD gửi heartbeat tới Management API. ADMIN tải danh sách thiết bị và nhận cập nhật presence qua SSE. |
-| Điều khiển từ xa | ADMIN thu chuột/bàn phím; CHILD áp dụng qua Windows SendInput hoặc X11 XTest. Nghiệm thu Linux host/VM đã đạt; Windows native đang nghiệm thu. |
+| Điều khiển từ xa | ADMIN thu chuột/bàn phím; CHILD áp dụng qua Windows SendInput hoặc X11 XTest. Nghiệm thu Linux host/VM và native Windows 100%/200% đã đạt. |
 
 Bằng chứng thực thi hiện tại: [nghiệm thu UI](../testing/FULL_UI_ACCEPTANCE.md) và [kiểm toán](../review/COMPLETION_AUDIT.md). CHILD tự đăng ký lại trên relay còn hoạt động sau mất node; ADMIN mở phiên mới. Chưa có di chuyển liên tục phiên đang chạy.
 
@@ -421,7 +421,7 @@ Bằng chứng thực thi hiện tại: [nghiệm thu UI](../testing/FULL_UI_ACC
 [DONE] SESSION_REQUEST / SESSION_ACCEPT / SESSION_REJECT
 [DONE] Gắn sessionId vào SCREEN_FRAME và chuyển trực tiếp từng chunk đến ADMIN
 [DONE] ADMIN nhận, ghép lại và hiển thị màn hình (Phase 5)
-[DONE] Luồng chuột/bàn phím ADMIN đến CHILD; nghiệm thu native Windows còn mở
+[DONE] Luồng chuột/bàn phím ADMIN đến CHILD; nghiệm thu Linux và native Windows 100%/200% đã đạt
 [DONE] Luồng kết thúc phiên DISCONNECT tường minh
 [DONE] Xác thực JWT trên Relay theo RDTP v2
 ```

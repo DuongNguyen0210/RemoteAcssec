@@ -30,10 +30,10 @@ each archive was checked against its official `.sha1` download. The SDK and
 source are staged under `payload/`. No personal SSH keys, project `.env`, Git
 credentials or database data are included.
 
-`payload/run-tests.cmd` copies the read-only payload into `C:\pbl4`, builds the
+`payload/run-tests.cmd` copies the read-only payload into `%USERPROFILE%\pbl4`, builds the
 application/tests, runs `WindowsInputIntegrationTest` at scale 1 and 2 on the
 native Windows platform, then runs CTest. It writes individual build and test
-logs under `C:\pbl4-*.log` and creates `C:\pbl4-tests-passed.txt` only after all
+logs under `%USERPROFILE%\pbl4-*.log` and creates `%USERPROFILE%\pbl4-tests-passed.txt` only after all
 commands succeed. The native test requires `PBL4_ISOLATED_WINDOWS=1` and an
 interactive desktop session; a service/session-0 run is not valid evidence.
 
@@ -43,13 +43,16 @@ Linux executable name remains `X11InputIntegrationTest`; Windows builds opt in
 with `ENABLE_WINDOWS_INPUT_INTEGRATION=ON`. Linux 100% and 200% runs pass after
 this refactor.
 
-Unattended installation has started on this VM and was observed at 25%.
-The test account is `pbl4test`; the generated password is in the private cache's
-`test-password` file with mode 0600. Auxiliary unattended files also stay in
-that private directory. Guest Additions is selected for installation; the
-post-install command writes `C:\pbl4-setup-ready.txt` when it reaches that stage.
-To resume, inspect this VM's current state and guest properties/screenshots;
-do not restart installation merely because a polling call times out.
+Windows installation completed and Guest Additions 7.2.22 is running after a guest restart. The Windows installation DVD was replaced with the Guest Additions ISO to prevent another unattended installation on cold boot. The desktop reports that the evaluation is valid for 90 days. The test account is `pbl4test`; generated credentials and auxiliary unattended files remain in the private cache.
 
-Native Windows acceptance is pending installation/build/runtime results.
-Do not treat preparing this VM or downloading its SDK as a passed Windows test.
+The payload wrapper runs from the actual logged-in desktop, writes under the test user profile, and calls the canonical repository runner `clients/RemoteAccessApp/tests/run_windows_native.cmd`. The application and tests build successfully with Qt 6.10.2 and MinGW 13.1.0. An earlier root-directory log path was denied to the unelevated test account; moving test output to its profile resolved that setup issue.
+
+## Native acceptance result (2026-11-15)
+
+PASS at `QT_SCALE_FACTOR=1` and `2` on the native Windows platform, interactive session 1. Both runs assert the screen pixel ratio and capture dimensions, sample an actual colored client-area widget, click a real button using native injection, focus a real text field, type `a`, release Shift and type `c`, then verify `ac`. There are no skipped assertions. The revised fixture deliberately gives the injector a different current frame size while each click carries the viewed frame reference, and it verifies native mouse release after clearing capture geometry. All seven ordinary CTest executables also passed (33.08 seconds total after the review fixes). The wrapper wrote its PASS marker.
+
+The initial capture check sampled `(2,2)` near the native rounded window corner before presentation and saw gray instead of magenta. The shared fixture now samples a dedicated 32-pixel client-area marker and retries capture until the compositor presents it. The capture requirement remains strict. Windows compilation also exposed three narrowing warnings in mouse flag initialization; explicit DWORD conversion resolves them.
+
+Logs are retained outside Git at `/home/duongnguyen/.cache/pbl4-windows-vm/evidence/`: `pbl4-build-and-tests.log`, `native-100.log`, `native-200.log`, and `pbl4-tests-passed.txt`. This verifies native capture/input and desktop regression tests on Windows. The full UI API/relay/host-guest acceptance remains the Linux run documented separately; no Windows WAN or elevated-app/UAC-control result is claimed.
+
+The VM is shut down after evidence collection. The latest seven-test run also includes the stop/resume heartbeat ordering regression. No lab VM was started or modified.

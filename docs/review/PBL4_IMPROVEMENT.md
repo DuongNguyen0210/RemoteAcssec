@@ -117,3 +117,11 @@ Windows and two-host acceptance remain outstanding.
 After the remaining PostgreSQL and Redis validation containers became stopped,
 both were removed along with their two disposable volumes and the validation
 network. Follow-up Docker listings confirm no `pbl4-validation` resources remain.
+
+## Windows native acceptance and teammate integration (2026-11-15)
+
+A separately authorized Windows 11 LTSC evaluation VM built the app with Qt 6.10.2 / MinGW 13.1.0. Native input/capture passed at scale 1 and 2 in interactive session 1; all seven CTest executables passed. The shared native fixture now uses a dedicated colored client-area marker with compositor-aware capture retry, avoiding the native rounded window corner. Mouse flag initialization uses explicit DWORD conversions after Windows exposed narrowing warnings. See `docs/testing/WINDOWS_VM.md` for logs and limits.
+
+Five newly fetched teammate `agent/*` branches were integrated. Their smoke harness is retained with updated JWT/JDBC prerequisites; existing bounded presence publication, streaming Nginx template and real session activity log are retained where they already implement the intent. Owner-isolation and Redis expiry-to-SSE checks were adapted and passed. CodeGraph was synchronized after integration. The owner also requested local Antigravity collaboration; its installed agent API accepted a scoped independent review and created `ANTIGRAVITY_REVIEW.md`.
+
+The Antigravity review additionally found dynamic-frame input drift, potential held-button release failure, delayed presence removal on stop and password reset retaining existing sessions. Combined fixes now pass Linux/Windows native checks, 23 API + 31 relay unit tests, three real Redis cases, ordinary repeated UI sharing and active relay failover. The final UI harness also validates real PostgreSQL password-reset token revocation and new login. See `ANTIGRAVITY_RESOLUTIONS.md` and `COMPLETION_AUDIT.md` for evidence and upgrade requirements.

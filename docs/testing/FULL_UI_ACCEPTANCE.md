@@ -77,3 +77,11 @@ failover run verifies the new instance rather than requiring unequal numeric IDs
 After the run, remove only this disposable Compose project with `down --volumes`
 using the same environment/config files, then shut down only `PBL4-Acceptance`.
 Keep the user's three lab VMs and development databases untouched.
+
+## Review-fix acceptance (2026-11-15)
+
+The combined Codex/Antigravity fixes were rebuilt on host and Ubuntu guest. The real UI failover run passed again with the extended mouse frame references accepted by the real relay TCP decoder. The assigned relay-proxy-2 was stopped, the CHILD registered on relay-proxy-1 after 48.08 seconds, and native input worked in the new session.
+
+The CHILD fixture now waits for a successful `/api/v1/child/unshare` response before confirming local stop. The harness then checks the real owner device list is empty (`PRESENCE_UNSHARE_CONFIRMED`). In the same disposable PostgreSQL/Redis/two-API stack, it logs in another CHILD session, publishes presence, resets that account password through the real API, verifies four heartbeat requests using the old token all return 401, and verifies a fresh login with the new password can publish and log out (`PASSWORD_RESET_SESSION_REVOCATION_CONFIRMED`). No existing database accounts are used. Logs are in `/home/duongnguyen/.cache/pbl4-vm/acceptance-review-fixes/`.
+
+The separate ordinary stop/re-enable run also passed: two distinct sessions on the same login, successful unshare responses after both stops, an empty owner device list afterward, and the same password-reset revocation/fresh-login checks. Its logs are in `/home/duongnguyen/.cache/pbl4-vm/acceptance-review-repeat/`. The disposable stack and generated secrets were removed afterward; both dedicated VMs are powered off.
