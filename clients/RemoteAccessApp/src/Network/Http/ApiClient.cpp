@@ -72,13 +72,15 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
 ApiClient::ApiClient(QObject *parent) 
     : QObject(parent), m_networkManager(new QNetworkAccessManager(this))
 {
-    QSettings settings("DUT_PBL4", "RemoteAccessApp");
-    QString savedUrl = settings.value("server/apiUrl").toString();
-    if (!savedUrl.isEmpty()) {
-        m_baseUrl = savedUrl;
-    } else {
-        m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://cornball-ibuprofen-polygraph.ngrok-free.dev");
+    const QString overrideUrl = qEnvironmentVariable("REMOTE_API_URL").trimmed();
+    if (!overrideUrl.isEmpty()) {
+        setBaseUrl(overrideUrl);
+        return;
     }
+    QSettings settings("DUT_PBL4", "RemoteAccessApp");
+    const QString savedUrl = settings.value("server/apiUrl").toString();
+    setBaseUrl(savedUrl.isEmpty() ? QStringLiteral("http://cornball-ibuprofen-polygraph.ngrok-free.dev")
+                                  : savedUrl);
 }
 
 ApiClient::~ApiClient()
