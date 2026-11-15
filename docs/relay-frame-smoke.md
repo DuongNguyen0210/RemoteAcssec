@@ -2,6 +2,14 @@
 
 Run `AdminScreenViewerTest loopbackRelayDeliversSyntheticFrame` against an isolated local Management API and Relay. Build the Qt client with `BUILD_TESTING=ON` first. The regular CTest suite skips this case unless explicitly enabled.
 
+With the Qt runtime on PATH, use the Python 3 standard-library runner to provision the test accounts, select a Relay, run the case, and log out CHILD. The disposable account records persist in the test database.
+
+```powershell
+python infrastructure/smoke-relay-frame.py path/to/AdminScreenViewerTest.exe --api-port 19090
+```
+
+To run the case directly with existing disposable accounts:
+
 1. Create a disposable ADMIN and an owned CHILD using the Management API. Log in as both, then send one CHILD heartbeat so that the device is visible to the ADMIN.
 2. Call `POST /api/v1/relay/allocations` with the CHILD token. Use the returned Relay port, published on loopback.
 3. Set `PBL4_FRAME_SMOKE=1`, `PBL4_SMOKE_AGENT_ID` to the CHILD login's `sessionId`, and `PBL4_SMOKE_ADMIN_TOKEN` and `PBL4_SMOKE_CHILD_TOKEN` to the disposable login tokens in the test process environment. Set `REMOTE_RELAY_HOST=127.0.0.1`, `REMOTE_RELAY_PORT` to the allocated port, and `QT_QPA_PLATFORM=offscreen`.
