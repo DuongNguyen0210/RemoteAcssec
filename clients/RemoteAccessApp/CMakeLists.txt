@@ -10,6 +10,31 @@ set(CMAKE_AUTORCC ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Svg Core Gui Widgets Network Concurrent)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Svg Core Gui Widgets Network Concurrent)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS LinguistTools)
+
+set(translation_source "${CMAKE_CURRENT_SOURCE_DIR}/Resources/translations/qt_vi.ts")
+set(translation_catalog "${CMAKE_CURRENT_BINARY_DIR}/qt_vi.qm")
+set(translation_qrc "${CMAKE_CURRENT_BINARY_DIR}/translations.qrc")
+set(translation_resource "${CMAKE_CURRENT_BINARY_DIR}/qrc_translations.cpp")
+
+file(GENERATE OUTPUT "${translation_qrc}" CONTENT
+    "<RCC><qresource prefix=\"/translations\"><file>qt_vi.qm</file></qresource></RCC>")
+
+add_custom_command(
+    OUTPUT "${translation_catalog}"
+    COMMAND Qt${QT_VERSION_MAJOR}::lrelease "${translation_source}" -qm "${translation_catalog}"
+    DEPENDS "${translation_source}"
+    VERBATIM
+)
+add_custom_command(
+    OUTPUT "${translation_resource}"
+    COMMAND Qt${QT_VERSION_MAJOR}::rcc --name translations --output "${translation_resource}" "${translation_qrc}"
+    DEPENDS "${translation_catalog}" "${translation_qrc}"
+    VERBATIM
+)
+
+add_library(AppTranslations OBJECT "${translation_resource}")
+target_link_libraries(AppTranslations PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -26,6 +51,7 @@ add_executable(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    AppTranslations
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Svg
     Utils
@@ -41,7 +67,7 @@ if(BUILD_TESTING)
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
     add_executable(AccountDeviceFlowTest tests/AccountDeviceFlowTest.cpp project.qrc)
     target_link_libraries(AccountDeviceFlowTest PRIVATE
-        Controllers GUI Streaming Network Domain Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+        AppTranslations Controllers GUI Streaming Network Domain Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME account_device_flow COMMAND AccountDeviceFlowTest)
     set_tests_properties(account_device_flow PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(ProtocolContractTest
