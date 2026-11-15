@@ -1,6 +1,6 @@
 # 09 - Trạng thái triển khai
 
-> Cập nhật lần cuối: Giai đoạn 4 chuyển tiếp màn hình theo phiên đã hoàn thành và kiểm tra runtime thành công
+> Tài liệu đã tích hợp rà soát từ main `3cfd918` và cập nhật theo nhánh `codex/pbl4-reliability-ux`. Các phần giai đoạn bên dưới ghi lại mốc lịch sử. Xem [hợp đồng RDTP v2](11_SESSION_AUTH_V2.md) để triển khai đăng ký và kết nối.
 > Xem thêm: [README.md](README.md)
 
 ---
@@ -382,14 +382,21 @@ CHILD SCREEN_FRAME chunks
 
 ---
 
+## Trạng thái hiện tại
+
+| Hạng mục | Trạng thái |
+| --- | --- |
+| Đăng ký CHILD và mở phiên | RDTP v2 dùng JWT và UUID phiên đăng nhập. Management API kiểm tra quyền sở hữu trước khi Relay gửi `SESSION_REQUEST`. |
+| Hiển thị màn hình | ADMIN ghép các chunk JPEG, giải mã và hiển thị trong `RemoteDesktopWindow`. |
+| Kết thúc phiên | ADMIN và CHILD xử lý `DISCONNECT`. Relay dọn phiên khi mất kết nối TCP và áp dụng timeout cho phiên đang chờ. |
+| Khám phá thiết bị | CHILD gửi heartbeat tới Management API. ADMIN tải danh sách thiết bị và nhận cập nhật presence qua SSE. |
+| Điều khiển từ xa | ADMIN thu chuột/bàn phím; CHILD áp dụng qua Windows SendInput hoặc X11 XTest. Nghiệm thu Linux host/VM đã đạt; Windows native đang nghiệm thu. |
+
+Bằng chứng thực thi hiện tại: [nghiệm thu UI](../testing/FULL_UI_ACCEPTANCE.md) và [kiểm toán](../review/COMPLETION_AUDIT.md). CHILD tự đăng ký lại trên relay còn hoạt động sau mất node; ADMIN mở phiên mới. Chưa có di chuyển liên tục phiên đang chạy.
+
 ## Chưa triển khai
 
-Các chức năng dưới đây **chưa được triển khai** trong phạm vi hiện tại:
-
-- Chuyển tiếp chuột và bàn phím (Remote Input).
-- Luồng giao thức `DISCONNECT` tường minh.
-- Xác thực JWT trên kết nối Relay.
-- Tự động kết nối lại và phục hồi phiên.
+- Phục hồi phiên điều khiển đang chạy sau khi mất TCP.
 - Lưu phiên bền vững.
 - Triển khai qua Internet từ xa.
 
@@ -414,9 +421,9 @@ Các chức năng dưới đây **chưa được triển khai** trong phạm vi 
 [DONE] SESSION_REQUEST / SESSION_ACCEPT / SESSION_REJECT
 [DONE] Gắn sessionId vào SCREEN_FRAME và chuyển trực tiếp từng chunk đến ADMIN
 [DONE] ADMIN nhận, ghép lại và hiển thị màn hình (Phase 5)
-[ ]    Chuyển tiếp chuột và bàn phím (Remote Input - Phase 6)
-[ ]    Luồng kết thúc phiên DISCONNECT tường minh (Phase 7)
-[ ]    Xác thực JWT trên Relay & Tối ưu hiệu năng (Phase 8)
+[DONE] Luồng chuột/bàn phím ADMIN đến CHILD; nghiệm thu native Windows còn mở
+[DONE] Luồng kết thúc phiên DISCONNECT tường minh
+[DONE] Xác thực JWT trên Relay theo RDTP v2
 ```
 
 ---
