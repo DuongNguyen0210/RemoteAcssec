@@ -73,9 +73,11 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
         auto *deviceService = new DeviceService(this);
         m_devicesController = new DevicesController(m_deviceStore, deviceService, this);
         m_accountController = new AccountController(m_accountStore, new AccountService(this), this);
+        m_accountController->setOwnerUsername(username);
 
         auto *settingsPage = new SettingsPage();
         m_settingsController = new SettingsController(settingsPage, new UserService(this), this);
+        m_settingsController->setKnownUsername(username);
 
         m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView(), settingsPage);
 

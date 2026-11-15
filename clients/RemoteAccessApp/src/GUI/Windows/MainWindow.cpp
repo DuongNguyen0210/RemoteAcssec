@@ -75,6 +75,7 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage, Set
                 topbar, &TopBarWidget::clearSearch);
     }
 
+    topbar->setVisible(stackedWidget->currentIndex() == 0);
     rightLayout->addWidget(topbar);
     rightLayout->addWidget(stackedWidget);
 
@@ -83,6 +84,7 @@ void MainWindow::setupUi(DevicesPage *devicesPage, AccountPage *accountPage, Set
 
     connect(sidebar, &SidebarWidget::pageChanged, this, [this](int pageIndex) {
         stackedWidget->setCurrentIndex(pageIndex);
+        topbar->setVisible(pageIndex == 0);
         emit pageSelected(pageIndex);
     });
 }

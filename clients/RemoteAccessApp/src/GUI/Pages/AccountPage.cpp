@@ -17,6 +17,7 @@ AccountPage::AccountPage(QWidget *parent) : QWidget(parent)
 }
 
 void AccountPage::loadData() { emit loadRequested(); }
+void AccountPage::clearSearch() { m_searchInput->clear(); }
 void AccountPage::showLoading()
 {
     m_loading = true;
@@ -113,16 +114,17 @@ void AccountPage::setupUi()
     layout->addWidget(title);
     m_metrics = new QFrame(this);
     m_metrics->setProperty("role", "metricCard");
-    auto *metrics = new QVBoxLayout(m_metrics);
+    auto *metrics = new QHBoxLayout(m_metrics);
     metrics->setContentsMargins(16, 14, 16, 14);
     metrics->setSpacing(4);
     m_totalAccountsVal = new QLabel("0", m_metrics);
     m_totalAccountsVal->setObjectName("accountCount");
-    m_totalAccountsVal->setProperty("role", "metricValue");
+    m_totalAccountsVal->setProperty("role", "strongText");
     auto *caption = new QLabel("Tổng tài khoản", m_metrics);
     caption->setProperty("role", "metricTitle");
-    metrics->addWidget(m_totalAccountsVal);
     metrics->addWidget(caption);
+    metrics->addWidget(m_totalAccountsVal);
+    metrics->addStretch();
     layout->addWidget(m_metrics);
     m_toolbar = new QFrame(this);
     m_toolbar->setProperty("role", "toolbarCard");

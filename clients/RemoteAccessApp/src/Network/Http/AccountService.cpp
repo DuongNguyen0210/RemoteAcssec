@@ -41,7 +41,7 @@ void AccountService::onCreateAccountReply(QNetworkReply *reply)
 
 void AccountService::fetchListChildren()
 {
-    if (m_fetching) return;
+    if (m_fetching) { m_refreshPending = true; return; }
     QNetworkReply *reply = ApiClient::instance().get("/api/v1/child");
     if (!reply) {
         emit fetchListChildrenResult(false, QList<AccountInfo>(), QStringLiteral("Không gửi được yêu cầu. Thử lại."));
@@ -58,7 +58,12 @@ void AccountService::onFetchListChildrenReply(QNetworkReply *reply)
 {
     m_fetching = false;
     reply->deleteLater();
-    
+    if (m_refreshPending) {
+        m_refreshPending = false;
+        fetchListChildren();
+        return; // An account changed while this snapshot was being fetched.
+    }
+
     ApiParsedResponse res = ApiClient::parseReply(reply);
 
     if (res.success) {

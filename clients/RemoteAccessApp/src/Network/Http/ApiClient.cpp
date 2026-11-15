@@ -4,7 +4,6 @@
 #include <QNetworkRequest>
 #include <QDebug>
 #include <QHash>
-#include <QSettings>
 
 ApiClient& ApiClient::instance()
 {
@@ -72,13 +71,7 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
 ApiClient::ApiClient(QObject *parent) 
     : QObject(parent), m_networkManager(new QNetworkAccessManager(this))
 {
-    QSettings settings("DUT_PBL4", "RemoteAccessApp");
-    QString savedUrl = settings.value("server/apiUrl").toString();
-    if (!savedUrl.isEmpty()) {
-        m_baseUrl = savedUrl;
-    } else {
-        m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://localhost:9090");
-    }
+    m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://localhost:9090");
 }
 
 ApiClient::~ApiClient()

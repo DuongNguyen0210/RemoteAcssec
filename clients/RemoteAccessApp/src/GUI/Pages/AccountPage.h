@@ -22,6 +22,7 @@ signals:
     void deleteAccountRequested(const QString &username);
 public slots:
     void loadData();
+    void clearSearch();
 private:
     void setupUi();
     void renderAccounts();

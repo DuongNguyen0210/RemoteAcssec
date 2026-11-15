@@ -3,7 +3,9 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
-#include <QToolButton>
+#include <QApplication>
+#include <QClipboard>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -27,13 +29,6 @@ AccountCardWidget::AccountCardWidget(const AccountInfo &info, QWidget *parent)
         widget->setProperty("role", role);
         return widget;
     };
-    auto divider = [this, layout]() {
-        auto *line = new QFrame(this);
-        line->setProperty("role", "thinDivider");
-        line->setFixedHeight(1);
-        layout->addWidget(line);
-    };
-
     auto *header = new QHBoxLayout;
     header->setSpacing(12);
     const QString name = info.childUsername.isEmpty() ? info.username : info.childUsername;
@@ -50,7 +45,6 @@ AccountCardWidget::AccountCardWidget(const AccountInfo &info, QWidget *parent)
     identity->addWidget(title);
     header->addLayout(identity, 1);
     layout->addLayout(header);
-    divider();
 
     auto *details = new QHBoxLayout;
     details->setSpacing(20);
@@ -70,34 +64,22 @@ AccountCardWidget::AccountCardWidget(const AccountInfo &info, QWidget *parent)
     username->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
     badgeLayout->addWidget(username, 1);
     userColumn->addWidget(badge, 0, Qt::AlignLeft);
-    auto *passwordColumn = new QVBoxLayout;
-    passwordColumn->setSpacing(8);
-    passwordColumn->addWidget(label("MẬT KHẨU", "metaLabel"));
-    auto *passwordRow = new QHBoxLayout;
-    passwordRow->setSpacing(8);
-    auto *masked = label(QStringLiteral("• • • • • • • • • • • •"), "strongText");
-    masked->setAccessibleName(QStringLiteral("Mật khẩu được bảo vệ; không thể xem lại"));
-    passwordRow->addWidget(masked);
-    auto *eye = new QToolButton(this);
-    eye->setProperty("role", "accountEye");
-    eye->setIcon(icon("eye"));
-    eye->setEnabled(true);
-    eye->setIconSize(QSize(16, 16));
-    eye->setFixedSize(32, 36);
-    eye->setAccessibleName(QStringLiteral("Không thể xem mật khẩu hiện tại"));
-    const QString passwordHint = QStringLiteral("Chọn để xem mật khẩu.");
-    masked->setToolTip(passwordHint);
-    eye->setToolTip(passwordHint);
-    passwordRow->addWidget(eye);
-    passwordRow->addStretch();
-    passwordColumn->addLayout(passwordRow);
     details->addLayout(userColumn, 1);
-    details->addLayout(passwordColumn, 1);
     layout->addLayout(details);
-    divider();
 
     auto *actions = new QHBoxLayout;
     actions->setSpacing(8);
+    auto *copy = new QPushButton("Chép tên đăng nhập", this);
+    copy->setObjectName("copyAccountUsername");
+    copy->setProperty("role", "secondaryActionButton");
+    copy->setMinimumHeight(38);
+    copy->setCursor(Qt::PointingHandCursor);
+    connect(copy, &QPushButton::clicked, this, [copy, username = info.username] {
+        QApplication::clipboard()->setText(username);
+        copy->setText("Đã chép");
+        QTimer::singleShot(1500, copy, [copy] { copy->setText("Chép tên đăng nhập"); });
+    });
+    actions->addWidget(copy);
     actions->addStretch();
     auto button = [this, actions](const QString &text, const char *role, const QString &iconName) {
         auto *widget = new QPushButton(icon(iconName), text, this);

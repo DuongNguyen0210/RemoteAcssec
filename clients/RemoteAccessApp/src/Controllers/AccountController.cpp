@@ -38,7 +38,9 @@ AccountController::AccountController(AccountStore *store, AccountService *servic
         else onLoadFailed(message);
     });
     connect(m_accountService, &AccountService::updateAccountResult, this,
-            [this](qint64, bool success, const QString &) { if (success) fetchAccounts(); });
+            [this](qint64, bool success, const QString &) {
+                if (success) { if (m_view) m_view->clearSearch(); fetchAccounts(); }
+            });
     connect(m_accountService, &AccountService::createAccountResult,
             this, &AccountController::handleAccountCreated);
     connect(m_accountService, &AccountService::deleteAccountResult,
@@ -89,6 +91,7 @@ void AccountController::onAddAccountRequested()
     }
 
     m_createAccountDialog = new CreateAccountDialog(m_view);
+    m_createAccountDialog->setOwnerUsername(m_ownerUsername);
     m_createAccountDialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(m_createAccountDialog, &CreateAccountDialog::registerRequested,
             this, &AccountController::handleRegisterRequested);
@@ -97,7 +100,6 @@ void AccountController::onAddAccountRequested()
 
 void AccountController::handleRegisterRequested(const QString &childUsername, const QString &password, const QString &filepath)
 {
-    qDebug() << "Register requested - Filepath:" << filepath;
 
     // 1. Trường hợp tạo lẻ 1 tài khoản thủ công:
     if (filepath.isEmpty())
@@ -125,9 +127,8 @@ void AccountController::handleRegisterRequested(const QString &childUsername, co
     m_importErrors.clear();
 
 
-    for (const auto &acc : listAccounts) {
-        m_accountService->createSubAccount(acc.childUsername, acc.password);
-    }
+    m_importQueue = listAccounts;
+    createNextImportedAccount();
 }
 
 void AccountController::handleAccountCreated(bool success, const QString &message)
@@ -139,14 +140,15 @@ void AccountController::handleAccountCreated(bool success, const QString &messag
             m_successImportCount++;
         } else {
             m_failedImportCount++;
-            if (!message.isEmpty() && !m_importErrors.contains(message)) {
-                m_importErrors.append(message);
+            if (!message.isEmpty() && !m_importErrors.contains(m_importCurrentName + ": " + message)) {
+                m_importErrors.append(m_importCurrentName + ": " + message);
             }
         }
 
         // Khi toàn bộ danh sách đã được xử lý xong:
         if (m_pendingImportCount == 0) {
             if (m_successImportCount > 0 && m_store) {
+                if (m_view) m_view->clearSearch();
                 fetchAccounts();
             }
 
@@ -158,9 +160,12 @@ void AccountController::handleAccountCreated(bool success, const QString &messag
                                             .arg(m_successImportCount)
                                             .arg(m_failedImportCount)
                                             .arg(m_importErrors.join(", "));
+                    m_createAccountDialog->clearImportSelection();
                     m_createAccountDialog->showError(statusMsg);
                 }
             }
+        } else {
+            createNextImportedAccount();
         }
         return;
     }
@@ -175,6 +180,7 @@ void AccountController::handleAccountCreated(bool success, const QString &messag
     }
 
     if (success && m_store) {
+        if (m_view) m_view->clearSearch();
         fetchAccounts();
     }
 }
@@ -230,4 +236,12 @@ void AccountController::onEditAccountRequested(const QString &username)
         dialog->show();
         return;
     }
+}
+
+void AccountController::createNextImportedAccount()
+{
+    if (m_importQueue.isEmpty()) return;
+    const auto account = m_importQueue.takeFirst();
+    m_importCurrentName = account.childUsername;
+    m_accountService->createSubAccount(account.childUsername, account.password);
 }

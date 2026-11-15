@@ -51,6 +51,14 @@ EditAccountDialog::EditAccountDialog(const AccountInfo &info, QWidget *parent) :
     passwordLabel->setBuddy(m_password);
     layout->addWidget(passwordLabel);
     layout->addWidget(password);
+    auto *resetHint = new QLabel("Đổi mật khẩu sẽ yêu cầu máy con đăng nhập lại.", this);
+    resetHint->setProperty("role", "cardSubtitle");
+    resetHint->setWordWrap(true);
+    resetHint->hide();
+    layout->addWidget(resetHint);
+    connect(m_password, &QLineEdit::textChanged, resetHint, [resetHint](const QString &value) {
+        resetHint->setVisible(!value.isEmpty());
+    });
     m_status = new QLabel(this);
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);

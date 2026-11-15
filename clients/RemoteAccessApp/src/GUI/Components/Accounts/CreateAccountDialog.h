@@ -11,6 +11,9 @@ public:
     void showError(const QString &message);
     void reject() override;
     void onImportButtonClicked();
+    void selectImportFile(const QString &filepath);
+    void setOwnerUsername(const QString &username);
+    void clearImportSelection();
 signals:
     void registerRequested(const QString &username, const QString &password, const QString &filepath);
 private:
@@ -23,4 +26,7 @@ private:
     QPushButton *m_cancel;
     QLabel* m_filepath;
     QString m_selectedFilePath;
+    QString m_ownerUsername;
+    QLabel *m_loginPreview;
+    QPushButton *m_clearFile;
 };

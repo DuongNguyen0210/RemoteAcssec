@@ -11,7 +11,6 @@ class AccountStore;
 class AccountService;
 class CreateAccountDialog;
 class EditAccountDialog;
-class AccountCsvReader;
 
 class AccountController : public QObject
 {
@@ -21,6 +20,7 @@ public:
     ~AccountController();
 
     AccountPage* getView() const;
+    void setOwnerUsername(const QString &username) { m_ownerUsername = username; }
 
 public slots:
     void fetchAccounts();
@@ -42,6 +42,10 @@ private:
     QPointer<CreateAccountDialog> m_createAccountDialog;
     QPointer<EditAccountDialog> m_editAccountDialog;
 
+    void createNextImportedAccount();
+    QString m_ownerUsername;
+    QList<AccountInfo> m_importQueue;
+    QString m_importCurrentName;
     int m_pendingImportCount = 0;
     int m_successImportCount = 0;
     int m_failedImportCount = 0;

@@ -30,6 +30,15 @@ CreateAccountDialog::CreateAccountDialog(QWidget *parent) : QDialog(parent)
     nameLabel->setBuddy(m_name);
     layout->addWidget(nameLabel);
     layout->addWidget(m_name);
+    m_loginPreview = new QLabel(this);
+    m_loginPreview->setObjectName("createLoginPreview");
+    m_loginPreview->setProperty("role", "cardSubtitle");
+    m_loginPreview->setTextFormat(Qt::PlainText);
+    m_loginPreview->setWordWrap(true);
+    layout->addWidget(m_loginPreview);
+    connect(m_name, &QLineEdit::textChanged, this, [this] {
+        m_loginPreview->setText("Tên đăng nhập: " + m_ownerUsername + m_name->text().trimmed());
+    });
     auto *passwordLabel = new QLabel("Mật khẩu", this);
     passwordLabel->setProperty("role", "fieldLabel");
     auto *password = new PasswordField(this);
@@ -56,9 +65,10 @@ CreateAccountDialog::CreateAccountDialog(QWidget *parent) : QDialog(parent)
     m_save->setProperty("role", "primaryActionButton");
     m_save->setDefault(true);
 
-    m_import = new QPushButton("Thêm danh sách tài khoản", this);
+    m_import = new QPushButton("Nhập CSV…", this);
     m_import->setProperty("role", "TertiaryActionButton");
-    m_import->setDefault(false);
+    m_import->setAutoDefault(false);
+    m_import->setObjectName("importAccountsButton");
 
     for (auto *button : {m_cancel, m_import, m_save}) {
         button->setMinimumHeight(38);
@@ -70,15 +80,23 @@ CreateAccountDialog::CreateAccountDialog(QWidget *parent) : QDialog(parent)
     m_filepath = new QLabel(this);
     m_filepath->setStyleSheet("color: #0284c7; font-size: 13px; margin-top: 6px;");
     m_filepath->setWordWrap(true);
+    m_filepath->setTextFormat(Qt::PlainText);
     m_filepath->hide();
 
     layout->addWidget(m_filepath);
+    m_clearFile = new QPushButton("Bỏ file đã chọn", this);
+    m_clearFile->setObjectName("clearAccountCsv");
+    m_clearFile->setProperty("role", "secondaryActionButton");
+    m_clearFile->setAutoDefault(false);
+    m_clearFile->hide();
+    layout->addWidget(m_clearFile);
+    connect(m_clearFile, &QPushButton::clicked, this, &CreateAccountDialog::clearImportSelection);
 
     connect(m_cancel, &QPushButton::clicked, this, &QDialog::reject);
     connect(m_save, &QPushButton::clicked, this, [this]() {
         if (!m_save->isEnabled()) return;
         if (m_selectedFilePath.isEmpty() && (m_name->text().trimmed().isEmpty() || m_password->text().trimmed().isEmpty())) {
-            showError("Vui lòng nhập đầy đủ thông tin cần thiết hoặc thêm file.");
+            showError("Vui lòng nhập tên tài khoản và mật khẩu.");
             return;
         }
         setBusy(true);
@@ -99,28 +117,45 @@ void CreateAccountDialog::onImportButtonClicked()
         this,
         "Chọn file danh sách tài khoản",
         QString(),
-        "File dữ liệu (*.csv *.xlsx *.xls);;Tất cả file (*)"
+        "Danh sách CSV (*.csv)"
     );
 
     if (filepath.isEmpty())
         return;
 
+    selectImportFile(filepath);
+}
+
+void CreateAccountDialog::selectImportFile(const QString &filepath)
+{
+    if (filepath.isEmpty())
+        return;
+
     m_selectedFilePath = filepath;
+    m_name->clear();
+    m_password->clear();
+    m_name->setEnabled(false);
+    m_password->parentWidget()->setEnabled(false);
+    m_save->setText("Nhập danh sách");
     QFileInfo fileInfo(filepath);
     QString fileName = fileInfo.fileName();
 
-    m_filepath->setText(QString("Đã chọn file: <b>%1</b>").arg(fileName));
+    m_filepath->setText(QString("Đã chọn file: %1").arg(fileName));
     m_filepath->setToolTip(filepath);
     m_filepath->show();
+    m_clearFile->show();
+    m_status->hide();
 }
 
 void CreateAccountDialog::setBusy(bool busy)
 {
+    m_import->setEnabled(!busy);
+    m_clearFile->setEnabled(!busy);
     m_save->setEnabled(!busy);
     m_cancel->setEnabled(!busy);
-    m_name->setEnabled(!busy);
-    m_password->parentWidget()->setEnabled(!busy);
-    m_save->setText(busy ? "Đang thêm…" : "Thêm tài khoản");
+    m_name->setEnabled(!busy && m_selectedFilePath.isEmpty());
+    m_password->parentWidget()->setEnabled(!busy && m_selectedFilePath.isEmpty());
+    m_save->setText(busy ? "Đang thêm…" : (m_selectedFilePath.isEmpty() ? "Thêm tài khoản" : "Nhập danh sách"));
     m_status->hide();
 }
 void CreateAccountDialog::showError(const QString &message)
@@ -132,4 +167,23 @@ void CreateAccountDialog::showError(const QString &message)
 void CreateAccountDialog::reject()
 {
     if (m_save->isEnabled()) QDialog::reject();
+}
+
+void CreateAccountDialog::setOwnerUsername(const QString &username)
+{
+    m_ownerUsername = username;
+    m_name->setMaxLength(qMax(1, 50 - int(username.size())));
+    m_loginPreview->setText("Tên đăng nhập: " + username + m_name->text().trimmed());
+}
+
+void CreateAccountDialog::clearImportSelection()
+{
+    m_selectedFilePath.clear();
+    m_filepath->hide();
+    m_clearFile->hide();
+    m_status->hide();
+    m_name->setEnabled(true);
+    m_password->parentWidget()->setEnabled(true);
+    m_save->setText("Thêm tài khoản");
+    m_name->setFocus();
 }
