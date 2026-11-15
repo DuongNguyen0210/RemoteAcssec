@@ -8,7 +8,7 @@ Các điểm cần hiểu trước khi triển khai:
 
 - Compose VPS chỉ công khai API qua proxy HTTPS và các cổng relay; PostgreSQL/Redis không publish ra ngoài.
 - HTTPS của API và TLS của relay là hai cấu hình riêng. Bật HTTPS không tự mã hóa ảnh/chuột/phím trên relay.
-- Cấu hình API client đã lưu bằng giao diện được ưu tiên hơn `REMOTE_API_URL`; đổi biến môi trường có thể chưa đổi được địa chỉ đã lưu.
+- Sau đợt đơn giản hóa UX, địa chỉ API được cấu hình bằng `REMOTE_API_URL`; giao diện người dùng không còn mục đổi server. Giá trị `server/apiUrl` từng lưu ở phiên bản cũ được bỏ qua.
 - Qt desktop không tự đọc một file `.env`. Phải đặt biến vào môi trường tiến trình trước khi mở app.
 - Compose hiện là all-in-one: chuyển cả stack lên một Linux VM/VPS là đường đơn giản nhất. Trỏ DB ra ngoài vẫn khởi động DB/Redis nội bộ nếu không có override riêng.
 - Hibernate đang `ddl-auto: update`; đây chưa phải cơ chế migration production được quản lý. Redis hiện chưa cấu hình mật khẩu/TLS cho managed Redis. Hai API/relay chung một VPS không chống được sự cố mất cả VPS.
@@ -143,7 +143,7 @@ REMOTE_API_URL=https://api.example.com REMOTE_RELAY_MODE=dynamic REMOTE_RELAY_TL
 
 Nếu dùng CA riêng cho relay, đặt `REMOTE_RELAY_CA_CERT` tới chứng chỉ CA công khai trên từng desktop. Không tắt xác minh chứng chỉ để kết nối. Bản Qt cần có SSL backend khả dụng. Trong chế độ dynamic không cần đặt `REMOTE_RELAY_HOST`/`REMOTE_RELAY_PORT`; API chọn node và trả địa chỉ từ biến `ADVERTISED_HOST` phía server.
 
-Thứ tự API URL hiện tại là **địa chỉ đã lưu trong ứng dụng → biến `REMOTE_API_URL` → `http://localhost:9090`**. Nếu trước đây đã lưu URL local trong trang Cài đặt, phải đổi URL đã lưu trước khi chuyển, hoặc xóa riêng key `server/apiUrl` của QSettings `DUT_PBL4/RemoteAccessApp` khi app đã đóng. Windows lưu QSettings trong registry của tài khoản; Linux thường ở `~/.config/DUT_PBL4/RemoteAccessApp.conf`. Không cần xóa toàn bộ cài đặt. Giao diện đổi URL hiện nằm sau đăng nhập: vì vậy nên đổi trước khi ngắt server cũ. Biến chế độ relay/TLS được đọc lúc tạo kết nối/controller; đóng rồi mở lại app sau khi đổi cấu hình.
+Thứ tự API URL hiện tại là **biến `REMOTE_API_URL` → `http://localhost:9090`**. Đóng rồi mở lại app sau khi đổi môi trường. Giao diện Cài đặt không còn cấu hình server; các giá trị `server/apiUrl` của bản cũ không được dùng nữa. Đóng gói cấu hình địa chỉ trong launcher của bản phát hành để người dùng chỉ cần đăng nhập.
 
 Launcher `Open-RemoteAccess.cmd` từng tạo cho Windows VM thử nghiệm đang cố định API `10.0.2.2`, relay static và TLS off để test cùng máy. Không dùng nguyên launcher đó cho VPS; thay ba biến API/mode/TLS theo ví dụ trên. VM Windows vẫn có thể là CHILD trong khi Linux VPS khác đảm nhiệm server.
 

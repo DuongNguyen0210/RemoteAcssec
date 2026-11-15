@@ -37,8 +37,7 @@ for the two-machine, Windows, network or high-DPI acceptance rows below.
    described in `docs/security/RELAY_TLS.md`. The relay certificate's SAN must
    match the advertised host. Set `REMOTE_RELAY_TLS=required` and, for a
    private CA, `REMOTE_RELAY_CA_CERT` on both desktops.
-3. Point both apps at the same API in Settings or `REMOTE_API_URL`. An existing
-   saved Settings URL takes precedence over the environment variable. Set
+3. Point both apps at the same API using `REMOTE_API_URL` and set
    `REMOTE_RELAY_MODE=dynamic` on both desktops before launch.
 4. Log in as CHILD and confirm that sharing is initially off. Click **Bật
    chia sẻ** and wait for **Sẵn sàng nhận phiên điều khiển không giám sát**.
