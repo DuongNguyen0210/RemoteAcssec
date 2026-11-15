@@ -1,5 +1,7 @@
 # Deploy on a VPS or cloud network
 
+For the Vietnamese walkthrough explaining local versus VPS addresses, `.env`, desktop configuration and a complete TLS deployment command, see [LOCAL_TO_VPS.md](LOCAL_TO_VPS.md).
+
 The repository's Compose stack runs two Management API instances, two TCP
 relay instances, Nginx, PostgreSQL and Redis. The API instances share the same
 database, Redis and `JWT_SECRET`. Relay allocation and presence state are in

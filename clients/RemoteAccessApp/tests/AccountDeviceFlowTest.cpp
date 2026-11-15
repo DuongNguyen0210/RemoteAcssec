@@ -1,6 +1,8 @@
 #include <QtTest>
 #include <QTcpServer>
 #include <QScopeGuard>
+#include <QSettings>
+#include "Controllers/SettingsController.h"
 #include <QTcpSocket>
 #include <QStackedWidget>
 #include <QLabel>
@@ -40,6 +42,25 @@ private slots:
         QFile stylesheet(":/styles/Resources/styles/main.qss");
         QVERIFY(stylesheet.open(QIODevice::ReadOnly));
         qApp->setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
+    }
+    void resettingServerUsesConfiguredEndpointOrLocalDefault() {
+        QSettings settings("DUT_PBL4", "RemoteAccessApp");
+        const auto saved = settings.value("server/apiUrl");
+        const auto env = qgetenv("REMOTE_API_URL");
+        const auto previous = ApiClient::instance().getBaseUrl();
+        const auto restore = qScopeGuard([&] {
+            if (saved.isValid()) settings.setValue("server/apiUrl", saved);
+            else settings.remove("server/apiUrl");
+            if (env.isNull()) qunsetenv("REMOTE_API_URL"); else qputenv("REMOTE_API_URL", env);
+            ApiClient::instance().setBaseUrl(previous);
+        });
+        SettingsController controller(nullptr, nullptr);
+        qputenv("REMOTE_API_URL", "https://api.example.com");
+        controller.handleResetServerConfig();
+        QCOMPARE(ApiClient::instance().getBaseUrl(), QString("https://api.example.com"));
+        qunsetenv("REMOTE_API_URL");
+        controller.handleResetServerConfig();
+        QCOMPARE(ApiClient::instance().getBaseUrl(), QString("http://localhost:9090"));
     }
     void logsShowOnlyRealCurrentRunEvents() {
         LogsPage page;
