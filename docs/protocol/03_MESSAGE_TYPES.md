@@ -295,7 +295,9 @@ chính của CHILD (gốc là góc trên trái của frame):
 | `MOUSE_WHEEL` | `uint32 x`, `uint32 y`, `int32 delta` theo đơn vị Qt angle delta |
 | `KEY_PRESS/RELEASE` | `uint32 Qt::Key` (4 byte); hỗ trợ chữ Latin, số và các phím điều hướng/cơ bản |
 
-CHILD kiểm tra đúng kích thước payload và tọa độ nằm trong màn hình. Linux
+Client hiện tại nối thêm `uint32 frameWidth, uint32 frameHeight` Big Endian vào cuối payload chuột (16/17/20 byte tương ứng). Đây là kích thước ảnh ADMIN đang xem lúc phát thao tác, giúp CHILD ánh xạ đúng khi frame tiếp theo đã đổi kích thước do nén. Mỗi chiều phải thuộc 1..32768. Relay và CHILD vẫn nhận dạng payload cũ 8/9/12 byte để tương thích, nhưng payload cũ không bảo đảm ánh xạ khi độ phân giải thay đổi. Triển khai relay mới trước client mới; relay cũ sẽ từ chối payload mở rộng. Payload phím vẫn đúng 4 byte.
+
+CHILD kiểm tra đúng kích thước payload và tọa độ nằm trong ảnh tham chiếu. Khi nhả nút chuột đang được giữ, việc nhả được ưu tiên ngay cả khi geometry không còn hợp lệ, tránh kẹt nút sau khi dừng phiên. Linux
 thực thi qua X11/XTest khi Qt chạy với `xcb`; Windows dùng `SendInput`.
 Wayland không hỗ trợ inject toàn hệ thống trong phiên bản này.
 Relay cũng kiểm tra kích thước input theo loại ngay từ header và đóng kết nối

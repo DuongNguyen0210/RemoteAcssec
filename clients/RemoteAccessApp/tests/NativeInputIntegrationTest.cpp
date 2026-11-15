@@ -64,11 +64,12 @@ private slots:
                                     marker.y() * frame.height() / geometry.height());
         })(), QColor(Qt::magenta));
         RemoteInputInjector injector;
-        injector.setFrameSize(frame.size());
+        // The sender may already be on a different-sized frame when this click arrives.
+        injector.setFrameSize(QSize(1, 1));
         auto click = [&](QWidget *widget) {
             const auto point = widget->mapToGlobal(widget->rect().center()) - geometry.topLeft();
-            const auto payload = RemoteInputPacket::button(point.x() * frame.width() / geometry.width(),
-                                                           point.y() * frame.height() / geometry.height(), 1);
+            const auto payload = RemoteInputPacket::withFrame(RemoteInputPacket::button(
+                point.x() * frame.width() / geometry.width(), point.y() * frame.height() / geometry.height(), 1), frame.size());
             QVERIFY(injector.inject(Protocol::MessageType::MOUSE_BUTTON_DOWN, payload));
             QVERIFY(injector.inject(Protocol::MessageType::MOUSE_BUTTON_UP, payload));
         };
@@ -85,6 +86,14 @@ private slots:
         QVERIFY(injector.inject(Protocol::MessageType::KEY_PRESS, RemoteInputPacket::key(Qt::Key_C)));
         QVERIFY(injector.inject(Protocol::MessageType::KEY_RELEASE, RemoteInputPacket::key(Qt::Key_C)));
         QTRY_COMPARE(edit->text(), QStringLiteral("ac"));
+        const auto point = button->mapToGlobal(button->rect().center()) - geometry.topLeft();
+        const auto down = RemoteInputPacket::withFrame(RemoteInputPacket::button(
+            point.x() * frame.width() / geometry.width(), point.y() * frame.height() / geometry.height(), 1), frame.size());
+        QVERIFY(injector.inject(Protocol::MessageType::MOUSE_BUTTON_DOWN, down));
+        QTRY_VERIFY(button->isDown());
+        injector.setFrameSize(QSize());
+        injector.releaseAll();
+        QTRY_VERIFY(!button->isDown());
     }
 };
 QTEST_MAIN(NativeInputIntegrationTest)

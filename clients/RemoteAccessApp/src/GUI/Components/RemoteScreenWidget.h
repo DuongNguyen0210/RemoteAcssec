@@ -46,6 +46,7 @@ private:
     QSet<quint8> m_pressedButtons;
     quint32 m_lastX = 0;
     quint32 m_lastY = 0;
+    QSize m_lastFrameSize;
 };
 
 #endif // REMOTESCREENWIDGET_H

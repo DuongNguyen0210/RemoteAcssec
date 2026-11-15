@@ -69,6 +69,15 @@ private slots:
         QVERIFY(!RemoteInputInjector::desktopPosition(3840, 0, QSize(3840, 2160), desktop));
         QVERIFY(!RemoteInputInjector::desktopPosition(0, 0, QSize(), desktop));
     }
+    void delayedInputRetainsViewedFrameGeometry() {
+        const auto payload = RemoteInputPacket::withFrame(RemoteInputPacket::position(480, 270), QSize(960, 540));
+        const auto reference = RemoteInputPacket::referenceFrame(payload, 8, QSize(1920, 1080));
+        QCOMPARE(reference, QSize(960, 540));
+        QCOMPARE(RemoteInputInjector::desktopPosition(480, 270, reference, QRect(0, 0, 1920, 1080)),
+                 std::optional<QPoint>(QPoint(960, 540)));
+        QVERIFY(RemoteInputPacket::referenceFrame(payload + 'x', 8, QSize(1920, 1080)).isEmpty());
+        QVERIFY(RemoteInputPacket::referenceFrame(RemoteInputPacket::withFrame(RemoteInputPacket::position(0, 0), QSize(0, 0)), 8, QSize(1920, 1080)).isEmpty());
+    }
     void viewerEncodesMouseAndKeyboardForRemoteSession() {
         RemoteScreenWidget view;
         view.resize(320, 240);
@@ -86,6 +95,7 @@ private slots:
         quint32 x = 0, y = 0;
         QVERIFY(RemoteInputPacket::readPosition(events.at(0).second, x, y));
         QCOMPARE(x, quint32(80)); QCOMPARE(y, quint32(60));
+        QCOMPARE(RemoteInputPacket::referenceFrame(events.at(0).second, 9, QSize()), QSize(160, 120));
         QCOMPARE(events.at(1).first, Protocol::MessageType::MOUSE_BUTTON_UP);
         QTest::keyClick(&view, Qt::Key_A);
         QCOMPARE(events.constLast().first, Protocol::MessageType::KEY_RELEASE);

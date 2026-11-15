@@ -1,6 +1,7 @@
 #pragma once
 #include <QByteArray>
 #include <QtEndian>
+#include <QSize>
 
 namespace RemoteInputPacket {
 inline QByteArray position(quint32 x, quint32 y) {
@@ -17,6 +18,18 @@ inline QByteArray wheel(quint32 x, quint32 y, qint32 delta) {
     QByteArray amount(4, '\0');
     qToBigEndian(static_cast<quint32>(delta), reinterpret_cast<uchar *>(amount.data()));
     return bytes + amount;
+}
+// Optional trailing reference geometry keeps delayed input tied to the viewed frame.
+inline QByteArray withFrame(QByteArray bytes, const QSize &frame) {
+    return bytes + position(quint32(frame.width()), quint32(frame.height()));
+}
+inline QSize referenceFrame(const QByteArray &bytes, qsizetype baseLength, const QSize &fallback) {
+    if (bytes.size() == baseLength) return fallback;
+    if (bytes.size() != baseLength + 8) return {};
+    const auto *p = reinterpret_cast<const uchar *>(bytes.constData() + baseLength);
+    const auto width = qFromBigEndian<quint32>(p), height = qFromBigEndian<quint32>(p + 4);
+    if (!width || !height || width > 32768 || height > 32768) return {};
+    return QSize(int(width), int(height));
 }
 inline QByteArray key(quint32 qtKey) {
     QByteArray bytes(4, '\0');

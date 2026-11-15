@@ -40,7 +40,7 @@ public class ProtocolDecoder extends ByteToMessageDecoder {
         }
         byte messageType = in.getByte(readerIndex + 5);
         int inputLength = RelayForwardingPolicy.expectedInputLength(messageType);
-        if (inputLength > 0 && payloadLength != inputLength) {
+        if (inputLength > 0 && !RelayForwardingPolicy.validInputLength(messageType, payloadLength)) {
             reject(ctx, in, "Invalid input payload length: " + payloadLength);
         }
         if (messageType != ProtocolConstants.MessageType.SCREEN_FRAME.getValue() && payloadLength > 8192) {

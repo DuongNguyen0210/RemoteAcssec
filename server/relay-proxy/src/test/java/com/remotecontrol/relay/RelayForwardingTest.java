@@ -55,6 +55,25 @@ class RelayForwardingTest {
         assertEquals(0, registry.registeredChildCount());
     }
 
+    @Test void acceptsBoundedFrameReferencesAndRejectsMalformedGeometry() {
+        for (var type : new ProtocolConstants.MessageType[]{ProtocolConstants.MessageType.MOUSE_MOVE,
+                ProtocolConstants.MessageType.MOUSE_BUTTON_DOWN, ProtocolConstants.MessageType.MOUSE_WHEEL}) {
+            int base = type == ProtocolConstants.MessageType.MOUSE_MOVE ? 8
+                    : type == ProtocolConstants.MessageType.MOUSE_WHEEL ? 12 : 9;
+            byte[] payload = new byte[base + 8];
+            var geometry = java.nio.ByteBuffer.wrap(payload, base, 8);
+            geometry.putInt(960).putInt(540);
+            var header = new ProtocolHeader(ProtocolConstants.PROTOCOL_MAGIC,
+                    ProtocolConstants.PROTOCOL_VERSION, type.getValue(), (short)0, payload.length, 1, 0);
+            var packet = new Protocol(header, payload);
+            assertTrue(com.remotecontrol.relay.handler.RelayForwardingPolicy.validInput(packet));
+            java.nio.ByteBuffer.wrap(payload, base, 8).putInt(0);
+            assertFalse(com.remotecontrol.relay.handler.RelayForwardingPolicy.validInput(packet));
+            java.nio.ByteBuffer.wrap(payload, base, 8).putInt(32769);
+            assertFalse(com.remotecontrol.relay.handler.RelayForwardingPolicy.validInput(packet));
+        }
+    }
+
     @Test void closesAdminSendingOversizedInputInsteadOfForwardingIt() {
         var registry = new RelayRegistry(session -> {});
         var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));

@@ -69,10 +69,14 @@ bool RemoteInputInjector::inject(Protocol::MessageType type, const QByteArray &p
         return false;
     }
 #endif
-    if (type == T::MOUSE_MOVE) return payload.size() == 8 && movePointer(payload, m_frameSize, m_lastRemotePosition);
+    if (type == T::MOUSE_MOVE)
+        return movePointer(payload, RemoteInputPacket::referenceFrame(payload, 8, m_frameSize), m_lastRemotePosition);
     if (type == T::MOUSE_BUTTON_DOWN || type == T::MOUSE_BUTTON_UP || type == T::MOUSE_WHEEL) {
-        if (payload.size() != (type == T::MOUSE_WHEEL ? 12 : 9)
-                || !movePointer(payload, m_frameSize, m_lastRemotePosition)) return false;
+        const qsizetype base = type == T::MOUSE_WHEEL ? 12 : 9;
+        if (payload.size() != base && payload.size() != base + 8) return false;
+        const bool moved = movePointer(payload, RemoteInputPacket::referenceFrame(payload, base, m_frameSize), m_lastRemotePosition);
+        // A held native button must be released even if capture geometry disappeared.
+        if (!moved && !(type == T::MOUSE_BUTTON_UP && m_buttons.contains(quint8(payload.at(8))))) return false;
     } else if (type == T::KEY_PRESS || type == T::KEY_RELEASE) {
         if (payload.size() != 4) return false;
     } else return false;
@@ -170,7 +174,7 @@ void RemoteInputInjector::releaseAll() {
     const auto keys = m_keys;
     for (quint32 key : keys) inject(Protocol::MessageType::KEY_RELEASE, RemoteInputPacket::key(key));
     const auto buttons = m_buttons;
-    if (!m_frameSize.isEmpty()) for (quint8 id : buttons)
+    for (quint8 id : buttons)
         inject(Protocol::MessageType::MOUSE_BUTTON_UP,
                RemoteInputPacket::button(quint32(m_lastRemotePosition.x()),
                                          quint32(m_lastRemotePosition.y()), id));
