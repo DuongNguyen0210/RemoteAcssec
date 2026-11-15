@@ -27,13 +27,19 @@ public class ChildService {
     private final UserRepository userRepository;
     private final PresenceService presenceService;
 
+    @org.springframework.transaction.annotation.Transactional
     public ApiResponse<ChildDto> register(RegisterRequest request, UserPrincipal currentUser) {
-        String childUsername = request.getChildUsername();
+        String childUsername = request.getChildUsername() == null ? "" : request.getChildUsername().trim();
         String password = request.getPassword();
 
-        Optional<User> user = userRepository.findByUsername(currentUser.getUsername());
+        Optional<User> user = userRepository.findByUsernameForUpdate(currentUser.getUsername());
         if (user.isEmpty()) {
             return ApiResponse.error("USER_NOT_FOUND", "User not found");
+        }
+
+        if (childUsername.isBlank() || user.get().getUsername().length() + childUsername.length() > 50
+                || password == null || password.isBlank() || password.length() > 255) {
+            return ApiResponse.error("INVALID_INPUT", "Invalid account name or password");
         }
 
         List<Child> existingChildren = childRepository.findByOwner(user.get());
@@ -43,7 +49,7 @@ public class ChildService {
 
         String fullChildUsername = currentUser.getUsername() + childUsername;
         Optional<Child> child = childRepository.findByUsername(fullChildUsername);
-        if (child.isPresent()) {
+        if (child.isPresent() || userRepository.existsByUsername(fullChildUsername)) {
             return ApiResponse.error("CHILD_ALREADY_EXISTS", "Child already exists");
         }
 
@@ -80,10 +86,10 @@ public class ChildService {
         return ApiResponse.success("Accepted", childList);
     }
 
-    public Child addChild(String childUsername, String password, User user) {
+    private Child addChild(String childUsername, String password, User user) {
         Child newChild = Child.builder()
                 .username(user.getUsername() + childUsername)
-                .password(password)
+                .password(com.remotecontrol.api.util.ChildPasswords.encode(password))
                 .owner(user)
                 .build();
         return childRepository.save(newChild);
@@ -129,7 +135,8 @@ public class ChildService {
             return ApiResponse.error("INVALID_INPUT", "Invalid account name or password");
         }
         var duplicate = childRepository.findByUsername(username);
-        if (duplicate.isPresent() && !duplicate.get().getId().equals(id)) {
+        if ((duplicate.isPresent() && !duplicate.get().getId().equals(id))
+                || userRepository.existsByUsername(username)) {
             return ApiResponse.error("CHILD_ALREADY_EXISTS", "Account name already exists");
         }
         child.setUsername(username);
