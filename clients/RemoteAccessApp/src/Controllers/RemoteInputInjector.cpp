@@ -82,9 +82,9 @@ bool RemoteInputInjector::inject(Protocol::MessageType type, const QByteArray &p
     if (type == T::MOUSE_BUTTON_DOWN || type == T::MOUSE_BUTTON_UP) {
         const bool down = type == T::MOUSE_BUTTON_DOWN;
         const auto id = quint8(payload.at(8));
-        const DWORD flags[] = {0, down ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP,
-            down ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP,
-            down ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP};
+        const DWORD flags[] = {0, DWORD(down ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP),
+            DWORD(down ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP),
+            DWORD(down ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP)};
         if (id < 1 || id > 3) return false;
         input.type = INPUT_MOUSE; input.mi.dwFlags = flags[id];
     } else if (type == T::MOUSE_WHEEL) {

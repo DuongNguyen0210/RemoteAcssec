@@ -7,6 +7,9 @@
 #include "Controllers/RemoteInputInjector.h"
 #include "Network/Protocol/RemoteInputPacket.h"
 #include "Streaming/ScreenCapture.h"
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#endif
 
 // Run only against a private Xvfb display or a dedicated Windows test VM.
 class NativeInputIntegrationTest : public QObject {
@@ -16,6 +19,10 @@ private slots:
 #ifdef Q_OS_WIN
         QVERIFY2(qEnvironmentVariable("PBL4_ISOLATED_WINDOWS") == "1", "Requires a dedicated Windows test VM");
         QCOMPARE(QGuiApplication::platformName(), QStringLiteral("windows"));
+        DWORD sessionId = 0;
+        QVERIFY(ProcessIdToSessionId(GetCurrentProcessId(), &sessionId));
+        QVERIFY2(sessionId != 0, "Native input acceptance requires an interactive desktop, not session 0");
+        qInfo() << "Windows interactive session" << sessionId;
 #else
         QVERIFY2(qEnvironmentVariable("PBL4_ISOLATED_X11") == "1", "Requires a private Xvfb display");
         QCOMPARE(QGuiApplication::platformName(), QStringLiteral("xcb"));
@@ -30,12 +37,17 @@ private slots:
         auto *layout = new QVBoxLayout(&window);
         auto *button = new QPushButton("Native click", &window);
         auto *edit = new QLineEdit(&window);
+        auto *colorMarker = new QWidget(&window);
+        colorMarker->setFixedSize(32, 32);
+        colorMarker->setAutoFillBackground(true);
+        colorMarker->setPalette(palette);
+        layout->addWidget(colorMarker);
         layout->addWidget(button);
         layout->addWidget(edit);
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         window.activateWindow();
-        const auto frame = ScreenCapture().capture();
+        auto frame = ScreenCapture().capture();
         QVERIFY(!frame.isNull());
         const auto *screen = QGuiApplication::primaryScreen();
         const auto geometry = screen->geometry();
@@ -43,9 +55,14 @@ private slots:
         QVERIFY(scale == 1 || scale == 2);
         QCOMPARE(screen->devicePixelRatio(), qreal(scale));
         QCOMPARE(frame.size(), geometry.size() * scale);
-        const auto marker = window.mapToGlobal(QPoint(2, 2)) - geometry.topLeft();
-        QCOMPARE(frame.pixelColor(marker.x() * frame.width() / geometry.width(),
-                                  marker.y() * frame.height() / geometry.height()), QColor(Qt::magenta));
+        // Sample a real client-area marker, away from native rounded window corners.
+        // Exposure does not guarantee the desktop compositor has presented its paint yet.
+        const auto marker = colorMarker->mapToGlobal(colorMarker->rect().center()) - geometry.topLeft();
+        QTRY_COMPARE(([&] {
+            frame = ScreenCapture().capture();
+            return frame.pixelColor(marker.x() * frame.width() / geometry.width(),
+                                    marker.y() * frame.height() / geometry.height());
+        })(), QColor(Qt::magenta));
         RemoteInputInjector injector;
         injector.setFrameSize(frame.size());
         auto click = [&](QWidget *widget) {
