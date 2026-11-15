@@ -48,7 +48,8 @@ def main():
         if relay["host"] not in ("localhost", "127.0.0.1"):
             raise RuntimeError("The allocated Relay must advertise a loopback address")
         env = dict(os.environ, PBL4_FRAME_SMOKE="1", PBL4_SMOKE_AGENT_ID=child["sessionId"],
-                   PBL4_SMOKE_ADMIN_TOKEN=admin["token"], PBL4_SMOKE_CHILD_TOKEN=child["token"],
+                   PBL4_SMOKE_ADMIN_USERNAME=name, PBL4_SMOKE_ADMIN_PASSWORD=password,
+                   PBL4_SMOKE_CHILD_TOKEN=child["token"], REMOTE_API_URL=f"http://127.0.0.1:{port}",
                    REMOTE_RELAY_HOST="127.0.0.1", REMOTE_RELAY_PORT=str(relay["port"]),
                    QT_QPA_PLATFORM="offscreen")
         with tempfile.TemporaryDirectory(prefix="pbl4-frame-") as directory:

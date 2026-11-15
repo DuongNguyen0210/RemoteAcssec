@@ -1,5 +1,6 @@
 #include <QtTest>
 #include <QBuffer>
+#include <QUrl>
 #include <QtEndian>
 #include "Network/Relay/AdminSessionController.h"
 #include "Network/Protocol/ProtocolSerializer.h"
@@ -13,6 +14,7 @@
 #include "Network/Relay/ChildSessionController.h"
 #include "Streaming/ScreenStreamSender.h"
 #include "Controllers/AppCoordinator.h"
+#include "Controllers/AuthController.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Components/RemoteScreenWidget.h"
 #include "Network/Http/ApiClient.h"
@@ -49,11 +51,15 @@ private slots:
             QSKIP("Requires an isolated Management API and Relay.");
 
         const auto agentId = qEnvironmentVariable("PBL4_SMOKE_AGENT_ID");
-        const auto adminToken = qEnvironmentVariable("PBL4_SMOKE_ADMIN_TOKEN");
+        const auto adminUsername = qEnvironmentVariable("PBL4_SMOKE_ADMIN_USERNAME");
+        const auto adminPassword = qEnvironmentVariable("PBL4_SMOKE_ADMIN_PASSWORD");
         const auto childToken = qEnvironmentVariable("PBL4_SMOKE_CHILD_TOKEN");
+        const QUrl apiUrl(qEnvironmentVariable("REMOTE_API_URL"));
+        QCOMPARE(apiUrl.host(), QStringLiteral("127.0.0.1"));
         QCOMPARE(qEnvironmentVariable("REMOTE_RELAY_HOST"), QStringLiteral("127.0.0.1"));
         QVERIFY(qEnvironmentVariableIntValue("REMOTE_RELAY_PORT") > 0);
-        QVERIFY(!agentId.isEmpty() && !adminToken.isEmpty() && !childToken.isEmpty());
+        QVERIFY(!agentId.isEmpty() && !adminUsername.isEmpty()
+                && !adminPassword.isEmpty() && !childToken.isEmpty());
 
         StaticRelayEndpointProvider provider;
         ChildSessionController child(&provider);
@@ -74,7 +80,27 @@ private slots:
         ApiClient::instance().setToken(childToken);
         child.start();
         QTRY_VERIFY_WITH_TIMEOUT(registered, 8000);
-        ApiClient::instance().setToken(adminToken);
+        ApiClient::instance().setToken({});
+        AuthController auth;
+        QSignalSpy login(&auth, &AuthController::loginSuccess);
+        auth.start();
+        QWidget *loginWindow = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            if (widget->objectName() == QStringLiteral("loginWindow") && widget->isVisible())
+                loginWindow = widget;
+        }
+        QVERIFY(loginWindow);
+        auto *username = loginWindow->findChild<QLineEdit *>("usernameInput");
+        auto *password = loginWindow->findChild<QLineEdit *>("passwordInput");
+        auto *submit = loginWindow->findChild<QPushButton *>("loginButton");
+        QVERIFY(username && password && submit);
+        username->setText(adminUsername);
+        password->setText(adminPassword);
+        QTest::mouseClick(submit, Qt::LeftButton);
+        QTRY_COMPARE_WITH_TIMEOUT(login.count(), 1, 8000);
+        QCOMPARE(login.at(0).at(0).toString(), QStringLiteral("ADMIN"));
+        QCOMPARE(login.at(0).at(1).toString(), adminUsername);
+        QVERIFY(!loginWindow->isVisible());
         admin.requestSession(agentId);
         QTRY_COMPARE_WITH_TIMEOUT(adminStarted.count(), 1, 8000);
         QCOMPARE(childStarted.count(), 1);
