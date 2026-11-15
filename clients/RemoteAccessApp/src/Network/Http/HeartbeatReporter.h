@@ -26,6 +26,7 @@ signals:
 
 private slots:
     void sendHeartbeat();
+    void sendUnshare();
     void onHeartbeatReply(QNetworkReply *reply);
 
 private:
@@ -33,6 +34,7 @@ private:
 
     QString m_deviceName;
     bool m_inFlight = false;
+    bool m_unsharePending = false;
 
 };
 

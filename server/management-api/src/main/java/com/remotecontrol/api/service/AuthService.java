@@ -42,7 +42,7 @@ public class AuthService {
         }
         else if (c.isPresent() && com.remotecontrol.api.util.ChildPasswords.matches(password, c.get().getPassword())) {
             String sessionId = java.util.UUID.randomUUID().toString();
-            presenceService.openSession(c.get().getId(), sessionId);
+            presenceService.openSession(c.get().getId(), sessionId, c.get().getPassword());
             String token = jwtUtil.generateToken(username, "CHILD", String.valueOf(c.get().getId()), sessionId);
             LoginData data = LoginData.builder()
                     .token(token)

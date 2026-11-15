@@ -97,12 +97,18 @@ public class ChildService {
 
         Child child = c.get();
         User parent = child.getOwner();
-        return presenceService.markDeviceOnline(parent, currentUser, currentInfo, request);
+        return presenceService.markDeviceOnline(parent, currentUser, currentInfo, request, child.getPassword());
     }
 
     public void logout(UserPrincipal principal) {
         childRepository.findById(Long.valueOf(principal.getId())).ifPresent(child ->
                 presenceService.closeSession(child.getOwner().getId(), principal.getSessionId()));
+    }
+
+    public void unshare(UserPrincipal principal) {
+        if (principal == null || principal.getId() == null || principal.getSessionId() == null) return;
+        childRepository.findById(Long.valueOf(principal.getId())).ifPresent(child ->
+                presenceService.hideDevice(child.getOwner().getId(), principal.getSessionId()));
     }
 
     @org.springframework.transaction.annotation.Transactional

@@ -87,6 +87,13 @@ public class ChildController {
     }
 
     @RequireRole("CHILD")
+    @PostMapping("/unshare")
+    public ApiResponse<Void> unshare(@RequestAttribute("currentUser") UserPrincipal principal) {
+        childService.unshare(principal);
+        return ApiResponse.success("Sharing disabled");
+    }
+
+    @RequireRole("CHILD")
     @PostMapping("/heartbeat")
     public ResponseEntity<ApiResponse<Void>> heartbeat(
             @RequestAttribute("currentUser") UserPrincipal currentUser,

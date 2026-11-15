@@ -6,7 +6,10 @@ import com.remotecontrol.api.dto.child.DeviceDto;
 import com.remotecontrol.api.dto.child.HeartbeatRequest;
 import com.remotecontrol.api.dto.common.InfoPrincipal;
 import com.remotecontrol.api.dto.common.UserPrincipal;
+import com.remotecontrol.api.entity.Child;
 import com.remotecontrol.api.entity.User;
+import com.remotecontrol.api.repository.ChildRepository;
+import com.remotecontrol.api.util.ChildPasswords;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
@@ -21,23 +24,48 @@ public class PresenceService {
     public static final int TTL_SECONDS = 20;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final ChildRepository childRepository;
 
     private static final DefaultRedisScript<Long> HEARTBEAT = new DefaultRedisScript<>(
             "if redis.call('GET',KEYS[1]) ~= ARGV[1] then return 0 end " +
             "redis.call('SET',KEYS[2],ARGV[2],'EX',ARGV[3]); return 1", Long.class);
 
-    public void openSession(Long childId, String sessionId) {
-        redisTemplate.opsForValue().set(sessionKey(sessionId), childId.toString(), Duration.ofHours(10));
+    private String binding(String childId, String credential) {
+        if (childId == null || credential == null || credential.isBlank()) return null;
+        String fp = ChildPasswords.fingerprint(credential);
+        if (fp.isEmpty()) return null;
+        return childId + ":" + fp;
+    }
+
+    public void openSession(Long childId, String sessionId, String credential) {
+        if (childId == null || sessionId == null) return;
+        String value = binding(childId.toString(), credential);
+        if (value == null) return;
+        redisTemplate.opsForValue().set(sessionKey(sessionId), value, Duration.ofHours(10));
     }
 
     public boolean isSessionActive(String childId, String sessionId) {
-        return sessionId != null && childId != null
-                && childId.equals(redisTemplate.opsForValue().get(sessionKey(sessionId)));
+        if (sessionId == null || childId == null) return false;
+        String stored = redisTemplate.opsForValue().get(sessionKey(sessionId));
+        if (stored == null) return false;
+        String currentCredential = childRepository.findById(Long.valueOf(childId))
+                .map(Child::getPassword).orElse(null);
+        String expected = binding(childId, currentCredential);
+        if (expected == null || !expected.equals(stored)) {
+            redisTemplate.delete(sessionKey(sessionId));
+            return false;
+        }
+        return true;
     }
 
     public boolean markDeviceOnline(User owner, UserPrincipal principal, InfoPrincipal info,
-                                    HeartbeatRequest request) {
+                                    HeartbeatRequest request, String currentCredential) {
         if (request == null || principal.getSessionId() == null) return false;
+        String credential = currentCredential != null ? currentCredential :
+                childRepository.findById(Long.valueOf(principal.getId()))
+                        .map(Child::getPassword).orElse(null);
+        String expectedBinding = binding(principal.getId(), credential);
+        if (expectedBinding == null) return false;
         String name = request.getHostname();
         if (name == null || name.isBlank()) name = request.getName();
         if (name == null || name.isBlank()) name = "Unknown device";
@@ -55,7 +83,7 @@ public class PresenceService {
                             sessionKey(principal.getSessionId()),
                             deviceKey(owner.getId(), principal.getSessionId())
                     ),
-                    principal.getId(),
+                    expectedBinding,
                     objectMapper.writeValueAsString(snapshot),
                     String.valueOf(TTL_SECONDS)
             ));
@@ -63,6 +91,11 @@ public class PresenceService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Cannot serialize device presence", e);
         }
+    }
+
+    public boolean markDeviceOnline(User owner, UserPrincipal principal, InfoPrincipal info,
+                                    HeartbeatRequest request) {
+        return markDeviceOnline(owner, principal, info, request, null);
     }
 
     public List<DeviceDto> getDevices(Long ownerId) {
@@ -91,6 +124,12 @@ public class PresenceService {
 
     public void closeSession(Long ownerId, String sessionId) {
         redisTemplate.delete(List.of(sessionKey(sessionId), deviceKey(ownerId, sessionId)));
+    }
+
+    public void hideDevice(Long ownerId, String sessionId) {
+        if (ownerId != null && sessionId != null) {
+            redisTemplate.delete(deviceKey(ownerId, sessionId));
+        }
     }
 
     private DeviceDto decode(String json) {

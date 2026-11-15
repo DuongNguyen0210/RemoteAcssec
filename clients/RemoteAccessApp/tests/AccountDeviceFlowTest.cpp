@@ -1,5 +1,6 @@
 #include <QtTest>
 #include <QTcpServer>
+#include <QScopeGuard>
 #include <QTcpSocket>
 #include <QStackedWidget>
 #include <QLabel>
@@ -26,6 +27,7 @@
 #include "GUI/Components/DeviceCardWidget.h"
 #include "Network/Protocol/RelayAuthPayload.h"
 #include "Network/Http/HeartbeatReporter.h"
+#include "Network/Http/ApiClient.h"
 #include "Network/Relay/ChildSessionController.h"
 
 class AccountDeviceFlowTest : public QObject {
@@ -192,10 +194,59 @@ private slots:
         dialog.reject();
         QVERIFY(password->text().isEmpty());
     }
+    void stopAndResumeSerializePresenceAfterInflightHeartbeat() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        auto &api = ApiClient::instance();
+        const auto previousUrl = api.getBaseUrl();
+        const auto restore = qScopeGuard([&] { api.setBaseUrl(previousUrl); });
+        api.setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
+        QStringList routes;
+        QList<QPointer<QTcpSocket>> peers;
+        connect(&server, &QTcpServer::newConnection, this, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                    const auto bytes = socket->property("buffer").toByteArray() + socket->readAll();
+                    socket->setProperty("buffer", bytes);
+                    if (!bytes.contains("\r\n\r\n") || socket->property("handled").toBool()) return;
+                    socket->setProperty("handled", true);
+                    routes.append(QString::fromUtf8(bytes.split(' ').value(1)));
+                    peers.append(socket);
+                });
+            }
+        });
+        auto respond = [&](int index) {
+            QVERIFY(peers.at(index));
+            peers.at(index)->write("HTTP/1.1 200 OK\r\nContent-Length: 16\r\nConnection: close\r\n\r\n{\"success\":true}");
+            peers.at(index)->disconnectFromHost();
+        };
+        HeartbeatReporter reporter;
+        reporter.start();
+        QTRY_COMPARE(routes.size(), 1);
+        QCOMPARE(routes.at(0), QString("/api/v1/child/heartbeat"));
+        reporter.stop();
+        reporter.start();
+        QTest::qWait(50);
+        QCOMPARE(routes.size(), 1);
+        respond(0);
+        QTRY_COMPARE(routes.size(), 2);
+        QCOMPARE(routes.at(1), QString("/api/v1/child/unshare"));
+        respond(1);
+        QTRY_COMPARE(routes.size(), 3);
+        QCOMPARE(routes.at(2), QString("/api/v1/child/heartbeat"));
+        reporter.stop();
+        respond(2);
+        QTRY_COMPARE(routes.size(), 4);
+        QCOMPARE(routes.at(3), QString("/api/v1/child/unshare"));
+        respond(3);
+        QVERIFY(!reporter.isRunning());
+    }
     void adminStartsWithAccountsAndReceivesDeviceUpdates() {
         QTcpServer server;
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));
-        qputenv("REMOTE_API_URL", QString("http://127.0.0.1:%1").arg(server.serverPort()).toUtf8());
+        const auto previousUrl = ApiClient::instance().getBaseUrl();
+        const auto restoreUrl = qScopeGuard([&] { ApiClient::instance().setBaseUrl(previousUrl); });
+        ApiClient::instance().setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
         int accountsRequests = 0, deviceRequests = 0, sseRequests = 0, updateRequests = 0, createRequests = 0, deleteRequests = 0;
         QPointer<QTcpSocket> ssePeer;
         bool hasAccount = true;

@@ -12,6 +12,7 @@
 #include "GUI/Components/RemoteScreenWidget.h"
 #include "GUI/Components/SidebarWidget.h"
 #include "Network/Relay/ChildSessionController.h"
+#include "Network/Http/ApiClient.h"
 #include "Network/Relay/AdminSessionController.h"
 
 template<class T> T *topWindow(const QString &name = {}) {
@@ -43,6 +44,13 @@ private slots:
             QVERIFY(qEnvironmentVariable("PBL4_ISOLATED_X11") == "1");
             QTRY_VERIFY_WITH_TIMEOUT(topWindow<QWidget>("childStatusWindow"), 20000);
             auto *statusWindow = topWindow<QWidget>("childStatusWindow");
+            statusWindow->setProperty("unshareCompleted", 0);
+            connect(ApiClient::instance().getManager(), &QNetworkAccessManager::finished,
+                    statusWindow, [statusWindow](QNetworkReply *reply) {
+                if (reply->url().path() == "/api/v1/child/unshare"
+                        && reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200)
+                    statusWindow->setProperty("unshareCompleted", statusWindow->property("unshareCompleted").toInt() + 1);
+            });
             auto *sharing = statusWindow->findChild<QPushButton *>("stopSharingButton"); QVERIFY(sharing);
             auto *session = coordinator.findChild<ChildSessionController *>(); QVERIFY(session);
             QCOMPARE(sharing->text(), QStringLiteral("Bật chia sẻ"));
@@ -92,6 +100,7 @@ private slots:
                 QVERIFY(!session->relayReady());
                 QCOMPARE(sharing->text(), QStringLiteral("Bật chia sẻ"));
                 QCOMPARE(started.count(), round);
+                QTRY_COMPARE_WITH_TIMEOUT(statusWindow->property("unshareCompleted").toInt(), failover ? 1 : round, 10000);
                 qInfo() << "CHILD_LOCAL_STOP_CONFIRMED" << "round=" << round;
                 if (round == 1) QTest::qWait(500);
             }

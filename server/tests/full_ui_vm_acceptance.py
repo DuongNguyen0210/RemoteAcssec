@@ -10,6 +10,7 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 import uuid
 import re
 
@@ -31,12 +32,12 @@ if urllib.parse.urlparse(args.api_url).hostname not in ("localhost", "127.0.0.1"
 if args.failover_project and not re.fullmatch(r"pbl4-[a-z0-9-]+", args.failover_project):
     raise SystemExit("Failover project must be a disposable pbl4-* project")
 
-def request(path, data, token=None):
+def request(path, data, token=None, method=None):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
     req = urllib.request.Request(args.api_url + "/api/v1/" + path,
-                                 data=json.dumps(data).encode() if data is not None else None, headers=headers)
+                                 data=json.dumps(data).encode() if data is not None else None, headers=headers, method=method)
     with urllib.request.urlopen(req, timeout=10) as response:
         return json.load(response)
 
@@ -131,6 +132,26 @@ try:
         text = (logs / filename).read_text()
         if any(marker not in text for marker in markers):
             raise RuntimeError("Missing UI acceptance confirmation in " + filename)
+    if request("devices", None, token)["data"]:
+        raise RuntimeError("Stopped CHILD remains present after confirmed unshare")
+    print("PRESENCE_UNSHARE_CONFIRMED", flush=True)
+    old_session = request("auth/login", {"username": owner + "child", "password": password})["data"]
+    request("child/heartbeat", {"hostname": "Credential reset check", "os": "Test"}, old_session["token"])
+    account = next(c for c in request("child", None, token)["data"] if c["username"] == owner + "child")
+    new_password = secrets.token_hex(16)
+    request(f"child/{account['id']}", {"childUsername": "child", "newPassword": new_password}, token, method="PUT")
+    for _ in range(4):
+        try:
+            request("child/heartbeat", {"hostname": "Revoked session"}, old_session["token"])
+        except urllib.error.HTTPError as error:
+            if error.code != 401:
+                raise RuntimeError("Revoked CHILD session returned an unexpected status") from error
+        else:
+            raise RuntimeError("Password reset did not revoke an existing CHILD session")
+    fresh_session = request("auth/login", {"username": owner + "child", "password": new_password})["data"]
+    request("child/heartbeat", {"hostname": "Fresh session", "os": "Test"}, fresh_session["token"])
+    request("child/logout", {}, fresh_session["token"])
+    print("PASSWORD_RESET_SESSION_REVOCATION_CONFIRMED", flush=True)
     if args.failover_project:
         print("PASS: real UI relay loss, reassignment to another node, native input in a new session and CHILD stop")
     else:
