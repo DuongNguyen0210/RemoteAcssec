@@ -3,8 +3,10 @@
 #include "AuthController.h"
 #include "DevicesController.h"
 #include "AccountController.h"
+#include "SettingsController.h"
 #include "GUI/Windows/MainWindow.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
+#include "GUI/Pages/SettingsPage.h"
 #include "Network/Http/HeartbeatReporter.h"
 #include "Streaming/ScreenStreamSender.h"
 #include "Network/Relay/ChildSessionController.h"
@@ -14,6 +16,7 @@
 #include "Domain/Store/AccountStore.h"
 #include "Network/Http/AccountService.h"
 #include "Network/Http/DeviceService.h"
+#include "Network/Http/UserService.h"
 
 #include <QDebug>
 #include <QGuiApplication>
@@ -28,6 +31,7 @@ AppCoordinator::AppCoordinator(QObject *parent)
     , m_accountStore(nullptr)
     , m_devicesController(nullptr)
     , m_accountController(nullptr)
+    , m_settingsController(nullptr)
 {
 }
 
@@ -40,6 +44,7 @@ AppCoordinator::~AppCoordinator()
     if (m_screenStreamSender) m_screenStreamSender->deleteLater();
     if (m_devicesController) m_devicesController->deleteLater();
     if (m_accountController) m_accountController->deleteLater();
+    if (m_settingsController) m_settingsController->deleteLater();
     if (m_deviceStore) m_deviceStore->deleteLater();
     if (m_accountStore) m_accountStore->deleteLater();
 }
@@ -62,7 +67,10 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
         m_devicesController = new DevicesController(m_deviceStore, deviceService, this);
         m_accountController = new AccountController(m_accountStore, new AccountService(this), this);
 
-        m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView());
+        auto *settingsPage = new SettingsPage();
+        m_settingsController = new SettingsController(settingsPage, new UserService(this), this);
+
+        m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView(), settingsPage);
 
         connect(m_devicesController, &DevicesController::remoteSessionStarted,
                 this, &AppCoordinator::handleRemoteSessionStarted);
@@ -76,10 +84,7 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                 this, &AppCoordinator::handlePageSelected);
 
         m_mainWindow->show();
-
-        // Initial fetch + start SSE stream for real-time push updates
         m_devicesController->refresh();
-        deviceService->startSseStream();
 
         m_accountController->fetchAccounts();
     }
@@ -118,6 +123,7 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
 void AppCoordinator::handlePageSelected(int pageIndex)
 {
     if (pageIndex == 0 && m_devicesController) m_devicesController->refresh();
+    if (pageIndex == 2 && m_settingsController) m_settingsController->loadSettings();
     if (pageIndex == 4 && m_accountController) m_accountController->fetchAccounts();
 }
 

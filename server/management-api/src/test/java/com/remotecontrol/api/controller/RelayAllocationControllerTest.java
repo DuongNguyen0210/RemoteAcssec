@@ -21,8 +21,10 @@ class RelayAllocationControllerTest {
         var children = mock(ChildRepository.class);
         var dispatch = mock(RelayDispatchService.class);
         var auth = new RelayAuthorizationController(children, presence, dispatch);
+        var sseNotifier = mock(SseNotifier.class);
+        var objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
         var mvc = MockMvcBuilders.standaloneSetup(new RelayAllocationController(dispatch, children),
-                new DeviceController(mock(DeviceService.class), auth, dispatch))
+                new DeviceController(mock(DeviceService.class), auth, dispatch, sseNotifier, objectMapper))
                 .addInterceptors(new JwtInterceptor(jwt, presence))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         String id = UUID.randomUUID().toString();

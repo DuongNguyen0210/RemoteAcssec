@@ -30,7 +30,9 @@ class DeviceAuthorizationTest {
                 DeviceDto.builder().sessionId("a").childId(12L).build(),
                 DeviceDto.builder().sessionId("b").childId(99L).build()));
         var deviceService = new DeviceService(presence, children, users);
-        var mvc = MockMvcBuilders.standaloneSetup(new DeviceController(deviceService, new RelayAuthorizationController(children, presence, mock(com.remotecontrol.api.service.RelayDispatchService.class)), mock(com.remotecontrol.api.service.RelayDispatchService.class)))
+        var sseNotifier = mock(com.remotecontrol.api.service.SseNotifier.class);
+        var objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var mvc = MockMvcBuilders.standaloneSetup(new DeviceController(deviceService, new RelayAuthorizationController(children, presence, mock(com.remotecontrol.api.service.RelayDispatchService.class)), mock(com.remotecontrol.api.service.RelayDispatchService.class), sseNotifier, objectMapper))
                 .setControllerAdvice(new GlobalExceptionHandler()).addInterceptors(new JwtInterceptor(jwt, presence)).build();
         mvc.perform(get("/api/v1/devices")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/devices").header("Authorization", "Bearer invalid"))

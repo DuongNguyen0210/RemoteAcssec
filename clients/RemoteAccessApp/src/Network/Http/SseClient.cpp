@@ -5,6 +5,8 @@
 #include <QNetworkReply>
 #include <QUrl>
 #include <QDebug>
+#include <QRandomGenerator>
+#include <algorithm>
 
 SseClient::SseClient(const QString &endpoint, QObject *parent)
     : QObject(parent)
@@ -34,6 +36,7 @@ void SseClient::start()
 {
     if (m_running) return;
     m_running = true;
+    m_reconnectDelay = DEFAULT_RECONNECT_DELAY_MS;
     m_hasEmittedConnected = false;
     openConnection();
 }
@@ -46,6 +49,7 @@ void SseClient::stop()
         m_reconnectTimer->stop();
     }
     abortReply();
+    m_buffer.clear();
 }
 
 void SseClient::openConnection()
@@ -56,9 +60,7 @@ void SseClient::openConnection()
     m_buffer.clear();
 
     QString token = ApiClient::instance().getToken();
-    QString baseUrl = qEnvironmentVariable("REMOTE_API_URL",
-                                           "http://cornball-ibuprofen-polygraph.ngrok-free.dev");
-    QUrl url(baseUrl + m_endpoint);
+    QUrl url(ApiClient::instance().getBaseUrl() + m_endpoint);
 
     QNetworkRequest request(url);
     request.setRawHeader("Accept", "text/event-stream");
@@ -67,8 +69,8 @@ void SseClient::openConnection()
     if (!token.isEmpty()) {
         request.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
     }
-    // Infinite timeout for SSE stream
-    request.setTransferTimeout(0);
+    // Reconnect if the server stops sending snapshots/keepalives.
+    request.setTransferTimeout(45000);
 
     auto *manager = ApiClient::instance().getManager();
     if (!manager) {
@@ -84,6 +86,8 @@ void SseClient::openConnection()
         return;
     }
 
+    m_reply->setReadBufferSize(MAX_BUFFER_BYTES);
+    m_hasEmittedConnected = false;
     connect(m_reply.data(), &QNetworkReply::readyRead, this, &SseClient::onReadyRead);
     connect(m_reply.data(), &QNetworkReply::finished,  this, &SseClient::onFinished);
 
@@ -98,7 +102,8 @@ void SseClient::onReadyRead()
     int httpStatus = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (httpStatus != 0 && httpStatus != 200) {
         qWarning() << "[SseClient] Server returned status" << httpStatus << "for" << m_endpoint;
-        stop();
+        // Leave HTTP error handling to finished(), including empty error bodies.
+        reply->readAll();
         return;
     }
 
@@ -108,7 +113,15 @@ void SseClient::onReadyRead()
         if (!reply || m_reply != reply) return;
     }
 
-    m_buffer.append(reply->readAll());
+    m_buffer.append(reply->read(MAX_BUFFER_BYTES + 1 - m_buffer.size()));
+    if (m_buffer.size() > MAX_BUFFER_BYTES) {
+        abortReply();
+        m_buffer.clear();
+        m_hasEmittedConnected = false;
+        emit disconnected();
+        scheduleReconnect();
+        return;
+    }
     parseBuffer();
 }
 
@@ -116,10 +129,12 @@ void SseClient::onFinished()
 {
     if (!m_reply) return;
 
+    const int status = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     QNetworkReply::NetworkError err = m_reply->error();
     m_reply->deleteLater();
     m_reply = nullptr;
 
+    if (status == 401 || status == 403) m_running = false;
     m_hasEmittedConnected = false;
     emit disconnected();
 
@@ -137,7 +152,7 @@ void SseClient::onFinished()
 void SseClient::parseBuffer()
 {
     // SSE spec: events end with "\n\n" (or "\r\n\r\n")
-    while (true) {
+    while (m_running) {
         int delimiterPos = -1;
         int delimiterLen = 0;
 
@@ -156,6 +171,7 @@ void SseClient::parseBuffer()
             break; // Incomplete block, wait for more data
         }
 
+        m_reconnectDelay = DEFAULT_RECONNECT_DELAY_MS;
         QByteArray eventBlock = m_buffer.left(delimiterPos);
         m_buffer.remove(0, delimiterPos + delimiterLen);
 
@@ -191,7 +207,8 @@ void SseClient::parseBuffer()
 void SseClient::scheduleReconnect()
 {
     if (m_running && m_reconnectTimer && !m_reconnectTimer->isActive()) {
-        m_reconnectTimer->start();
+        m_reconnectTimer->start(m_reconnectDelay + QRandomGenerator::global()->bounded(1000));
+        m_reconnectDelay = std::min(m_reconnectDelay * 2, 30000);
     }
 }
 

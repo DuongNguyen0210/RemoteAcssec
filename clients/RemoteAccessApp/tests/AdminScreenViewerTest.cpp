@@ -232,18 +232,20 @@ private slots:
         QTest::qWait(50);
         QCOMPARE(images.count(),2);
     }
-    void newerFrameQueuedDuringDecodeSupersedesOlder() {
+    void decoderMakesProgressAndKeepsOnlyLatestPendingFrame() {
         AdminSessionController c; c.m_activeSessionId=42;
         QSignalSpy images(&c,&AdminSessionController::frameReady);
-        auto red=jpeg(Qt::red), blue=jpeg(Qt::blue);
+        auto red=jpeg(Qt::red), blue=jpeg(Qt::blue), green=jpeg(Qt::green);
         feed(c,42,1,0,1,red.size(),red);
         QVERIFY(c.m_decoding);
+        // Arrival outpaces decode: finish the current image, then decode only the latest.
         feed(c,42,2,0,1,blue.size(),blue);
-        QTRY_COMPARE(images.count(),1);
-        auto image=qvariant_cast<QImage>(images.at(0).at(1));
-        QVERIFY(image.pixelColor(5,5).blue() > 180);
-        QTest::qWait(50);
-        QCOMPARE(images.count(),1);
+        feed(c,42,3,0,1,green.size(),green);
+        QTRY_COMPARE(images.count(),2);
+        auto first=qvariant_cast<QImage>(images.at(0).at(1));
+        auto last=qvariant_cast<QImage>(images.at(1).at(1));
+        QVERIFY(first.pixelColor(5,5).red() > 180);
+        QVERIFY(last.pixelColor(5,5).green() > 180);
     }
     void connectResultToImage() {
         AdminSessionController c; c.m_requestPending=true; c.m_pendingAgentSessionId=QStringLiteral("agent");
