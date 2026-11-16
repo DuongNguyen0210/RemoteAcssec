@@ -46,7 +46,7 @@ private:
     QString m_ownerUsername;
     QList<AccountInfo> m_importQueue;
     QString m_importCurrentName;
-    int m_pendingImportCount = 0;
+    bool m_importing = false;
     int m_successImportCount = 0;
     int m_failedImportCount = 0;
     QStringList m_importErrors;

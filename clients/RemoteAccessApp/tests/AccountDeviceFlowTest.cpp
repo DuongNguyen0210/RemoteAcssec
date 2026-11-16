@@ -178,6 +178,59 @@ private slots:
         QTRY_COMPARE(lists, 1);
         QVERIFY(search->text().isEmpty());
     }
+    void csvPartialFailureCanBeFollowedByManualCreate() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        auto &api = ApiClient::instance();
+        const auto previous = api.getBaseUrl();
+        const auto restore = qScopeGuard([&] { api.setBaseUrl(previous); });
+        api.setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
+        int creates = 0, lists = 0;
+        connect(&server, &QTcpServer::newConnection, this, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                    const auto bytes = socket->property("buffer").toByteArray() + socket->readAll();
+                    socket->setProperty("buffer", bytes);
+                    if (!bytes.contains("\r\n\r\n") || socket->property("handled").toBool()) return;
+                    socket->setProperty("handled", true);
+                    const bool list = bytes.startsWith("GET ");
+                    if (list) ++lists;
+                    else ++creates;
+                    const bool fail = !list && creates == 2;
+                    const QByteArray body = list ? R"({"success":true,"data":[]})"
+                            : fail ? R"({"success":false,"message":"Import rejected"})" : R"({"success":true})";
+                    socket->write(QByteArray(fail ? "HTTP/1.1 409 Conflict" : "HTTP/1.1 200 OK")
+                            + "\r\nContent-Length: " + QByteArray::number(body.size())
+                            + "\r\nConnection: close\r\n\r\n" + body);
+                    socket->disconnectFromHost();
+                });
+            }
+        });
+        QTemporaryFile csv;
+        QVERIFY(csv.open());
+        csv.write("username,password\na,example-password\nb,example-password\n"); csv.flush();
+        AccountStore store;
+        AccountService service;
+        AccountController controller(&store, &service);
+        QVERIFY(QMetaObject::invokeMethod(&controller, "onAddAccountRequested", Qt::DirectConnection));
+        QPointer<CreateAccountDialog> dialog = controller.getView()->findChild<CreateAccountDialog *>();
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(&controller, "handleRegisterRequested", Qt::DirectConnection,
+                Q_ARG(QString, QString()), Q_ARG(QString, QString()), Q_ARG(QString, csv.fileName())));
+        QTRY_COMPARE(lists, 1);
+        QCOMPARE(creates, 2);
+        QVERIFY(dialog && dialog->isVisible());
+        bool summaryShown = false;
+        for (auto *label : dialog->findChildren<QLabel *>())
+            if (label->text().contains("Đã thêm 1 tài khoản. Thất bại 1")) summaryShown = true;
+        QVERIFY(summaryShown);
+        QVERIFY(QMetaObject::invokeMethod(&controller, "handleRegisterRequested", Qt::DirectConnection,
+                Q_ARG(QString, QStringLiteral("manual")), Q_ARG(QString, QStringLiteral("password")), Q_ARG(QString, QString())));
+        QTRY_COMPARE(lists, 2);
+        QCOMPARE(creates, 3);
+        QTRY_VERIFY(!dialog || !dialog->isVisible());
+    }
+
     void csvDialogPreservesSubmitLabelAndClearsErrorsOnPickOrClear() {
         CreateAccountDialog dialog;
         auto *save = dialog.findChild<QPushButton *>("createAccountSubmit");

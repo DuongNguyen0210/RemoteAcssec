@@ -104,7 +104,7 @@ void AccountController::handleRegisterRequested(const QString &childUsername, co
     // 1. Trường hợp tạo lẻ 1 tài khoản thủ công:
     if (filepath.isEmpty())
     {
-        m_pendingImportCount = 0;
+        m_importing = false;
         m_accountService->createSubAccount(childUsername, password);
         return;
     }
@@ -121,7 +121,7 @@ void AccountController::handleRegisterRequested(const QString &childUsername, co
         return;
     }
 
-    m_pendingImportCount = listAccounts.size();
+    m_importing = true;
     m_successImportCount = 0;
     m_failedImportCount = 0;
     m_importErrors.clear();
@@ -133,56 +133,44 @@ void AccountController::handleRegisterRequested(const QString &childUsername, co
 
 void AccountController::handleAccountCreated(bool success, const QString &message)
 {
-    // Nếu đang trong quá trình import danh sách tài khoản
-    if (m_pendingImportCount > 0) {
-        m_pendingImportCount--;
-        if (success) {
-            m_successImportCount++;
-        } else {
-            m_failedImportCount++;
-            if (!message.isEmpty() && !m_importErrors.contains(m_importCurrentName + ": " + message)) {
-                m_importErrors.append(m_importCurrentName + ": " + message);
-            }
+    if (!m_importing) {
+        if (m_createAccountDialog) {
+            if (success) m_createAccountDialog->accept();
+            else m_createAccountDialog->showError(message);
         }
-
-        // Khi toàn bộ danh sách đã được xử lý xong:
-        if (m_pendingImportCount == 0) {
-            if (m_successImportCount > 0 && m_store) {
-                if (m_view) m_view->clearSearch();
-                fetchAccounts();
-            }
-
-            if (m_createAccountDialog) {
-                if (m_failedImportCount == 0) {
-                    m_createAccountDialog->accept();
-                } else {
-                    QString statusMsg = QString("Đã thêm %1 tài khoản. Thất bại %2: %3")
-                                            .arg(m_successImportCount)
-                                            .arg(m_failedImportCount)
-                                            .arg(m_importErrors.join(", "));
-                    m_createAccountDialog->clearImportSelection();
-                    m_createAccountDialog->showError(statusMsg);
-                }
-            }
-        } else {
-            createNextImportedAccount();
+        if (success && m_store) {
+            if (m_view) m_view->clearSearch();
+            fetchAccounts();
         }
         return;
     }
 
-    // Trường hợp tạo 1 tài khoản đơn lẻ bình thường:
-    if (m_createAccountDialog) {
-        if (success) {
-            m_createAccountDialog->accept();
-        } else {
-            m_createAccountDialog->showError(message);
-        }
+    if (success) {
+        ++m_successImportCount;
+    } else {
+        ++m_failedImportCount;
+        const auto error = m_importCurrentName + ": " + message;
+        if (!message.isEmpty() && !m_importErrors.contains(error)) m_importErrors.append(error);
+    }
+    if (!m_importQueue.isEmpty()) {
+        createNextImportedAccount();
+        return;
     }
 
-    if (success && m_store) {
+    m_importing = false;
+    if (m_successImportCount > 0 && m_store) {
         if (m_view) m_view->clearSearch();
         fetchAccounts();
     }
+    if (!m_createAccountDialog) return;
+    if (m_failedImportCount == 0) {
+        m_createAccountDialog->accept();
+        return;
+    }
+    const auto summary = QString("Đã thêm %1 tài khoản. Thất bại %2: %3")
+            .arg(m_successImportCount).arg(m_failedImportCount).arg(m_importErrors.join(", "));
+    m_createAccountDialog->clearImportSelection();
+    m_createAccountDialog->showError(summary);
 }
 
 void AccountController::onDeleteAccountRequested(const QString &username)
