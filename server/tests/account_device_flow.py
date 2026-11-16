@@ -64,7 +64,10 @@ account = request('GET', 'child', admin)['data']
 assert len(account) == 1
 assert not {'password', 'online', 'os', 'ipAddress'} & account[0].keys()
 assert request('GET', 'devices', admin)['data'] == []
-a, b = login(owner + 'child'), login(owner + 'child')
+a = login(owner + 'child')
+request('POST', 'auth/login', data={'username': owner + 'child', 'password': 'test-password'}, expected=409)
+request('POST', 'child/register', admin, {'childUsername': 'second', 'password': 'test-password'})
+b = login(owner + 'second')
 assert a['sessionId'] != b['sessionId']
 assert request('GET', 'devices', admin)['data'] == []
 for session, hostname in [(a, 'Laptop'), (b, 'PC')]:
@@ -98,6 +101,7 @@ request('POST', 'child/logout', a['token'], {})
 request('POST', 'child/heartbeat', a['token'], {'hostname': 'Late', 'os': 'Linux'}, expected=401)
 assert len(request('GET', 'devices', admin)['data']) == 1
 request('DELETE', 'child/' + owner + 'child', admin)
+request('DELETE', 'child/' + owner + 'second', admin)
 assert request('GET', 'devices', admin)['data'] == []
 request('POST', 'child/heartbeat', b['token'], {'hostname': 'PC', 'os': 'Linux'}, expected=401)
-print('PASS: account-only login, two heartbeating machines, owner isolation, targeted relay, logout, account deletion')
+print('PASS: account-only login, duplicate login rejected, two separate accounts online, owner isolation, targeted relay, logout, account deletion')

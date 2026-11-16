@@ -93,3 +93,9 @@ Both real host/VM UI runs passed after the fixes: the ordinary run covers two di
 The disposable stack's containers, PostgreSQL/Redis volumes and network were removed, and its generated environment secrets deleted. Both dedicated acceptance VMs are powered off. All three lab VMs and development databases remain outside this cleanup. VM images, SDK and test evidence remain in the private cache for reproducibility.
 
 Upgrade behavior: deploy the new relay before the new desktop so it accepts mouse frame-reference metadata. Existing CHILD sessions must sign in again after the Management API credential-binding update. No additional database schema change is required for these last fixes. Physical-host/WAN performance, Wayland control and live migration of an active relay session are not claimed.
+
+## Single-login follow-up — 2026-11-16
+
+ADMIN and CHILD now share an atomic per-account Redis login lease. The chosen policy rejects the second login while preserving the first. Independent desktop auth heartbeats keep an unshared CHILD signed in; normal shutdown releases its owned lease, and crash recovery is bounded to about 90 seconds. Old tokens cannot renew or remove replacement sessions. No PostgreSQL migration or existing account deletion is required. See [policy, limits and reproducible checks](../security/SINGLE_LOGIN.md).
+
+Verified with two actual API processes sharing disposable PostgreSQL/Redis, 16-way login races for both roles, real 60+30-second expiry, real Qt login/Enter/renew/logout for both roles, all eight desktop CTest groups, API and relay Maven tests, Redis integration tests, account CRUD/password-reset/quota acceptance, and API-backed Java relay targeting. Full two-desktop VM streaming/failover was not rerun for this follow-up; its harness was adapted to release setup login and share the authenticated UI observer session through a private temporary test-only file. Existing user VMs/services were not changed.

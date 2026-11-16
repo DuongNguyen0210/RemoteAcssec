@@ -1,6 +1,9 @@
 #include "AppCoordinator.h"
 
 #include "AuthController.h"
+#include "Network/Http/LoginSessionMonitor.h"
+#include "Network/Http/ApiClient.h"
+#include "GUI/Dialogs/ConfirmDialog.h"
 #include "DevicesController.h"
 #include "AccountController.h"
 #include "SettingsController.h"
@@ -43,6 +46,7 @@ AppCoordinator::AppCoordinator(QObject *parent)
 
 AppCoordinator::~AppCoordinator()
 {
+    shutdownSession();
     if (m_remoteDesktopWindow) m_remoteDesktopWindow->deleteLater();
     if (m_childWindow) m_childWindow->deleteLater();
     if (m_authController) m_authController->deleteLater();
@@ -56,6 +60,14 @@ AppCoordinator::~AppCoordinator()
     if (m_accountStore) m_accountStore->deleteLater();
 }
 
+void AppCoordinator::shutdownSession()
+{
+    for (auto *child : findChildren<ChildSessionController *>()) child->stop();
+    if (m_devicesController) m_devicesController->disconnectCurrentSession();
+    if (m_heartbeatReporter) m_heartbeatReporter->stop();
+    if (m_loginMonitor) m_loginMonitor->logout();
+}
+
 void AppCoordinator::start()
 {
     m_authController = new AuthController(this);
@@ -65,6 +77,19 @@ void AppCoordinator::start()
 
 void AppCoordinator::handleLoginSuccess(const QString &role, const QString &username)
 {
+    if (!ApiClient::instance().getToken().isEmpty() && !m_loginMonitor) {
+        m_loginMonitor = new LoginSessionMonitor(this);
+        connect(qApp, &QCoreApplication::aboutToQuit, this, &AppCoordinator::shutdownSession);
+        connect(m_loginMonitor, &LoginSessionMonitor::sessionLost, this, [this](const QString &message) {
+            if (m_devicesController) m_devicesController->disconnectCurrentSession();
+            for (auto *child : findChildren<ChildSessionController *>()) child->stop();
+            if (m_heartbeatReporter) m_heartbeatReporter->stop();
+            ConfirmDialog::showWarning(m_childWindow ? m_childWindow.data() : static_cast<QWidget *>(m_mainWindow.data()),
+                                       QStringLiteral("Phiên đăng nhập đã kết thúc"), message);
+            qApp->quit();
+        });
+        m_loginMonitor->start();
+    }
     if (role == "ADMIN")
     {
         m_deviceStore = new DeviceStore(this);

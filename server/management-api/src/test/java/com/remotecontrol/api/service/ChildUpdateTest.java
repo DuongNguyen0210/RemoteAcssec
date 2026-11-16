@@ -68,7 +68,7 @@ class ChildUpdateTest {
         when(children.findByUsername("adminnew")).thenReturn(Optional.of(child));
         var presence = mock(PresenceService.class);
         var auth = new AuthService(mock(UserRepository.class), children,
-                new com.remotecontrol.api.util.JwtUtil("test-only-jwt-secret-of-at-least-32-bytes"), presence);
+                new com.remotecontrol.api.util.JwtUtil("test-only-jwt-secret-of-at-least-32-bytes"), presence, com.remotecontrol.api.support.SessionTestSupport.validLease());
         assertTrue(auth.login(new com.remotecontrol.api.dto.auth.LoginRequest("adminnew", "new-password")).getSuccess());
         assertFalse(auth.login(new com.remotecontrol.api.dto.auth.LoginRequest("adminnew", "old-password")).getSuccess());
         verify(presence).openSession(eq(2L), anyString(), eq(child.getPassword()));
@@ -85,7 +85,7 @@ class ChildUpdateTest {
         var ops = mock(org.springframework.data.redis.core.ValueOperations.class);
         when(redis.opsForValue()).thenReturn(ops);
         when(children.findById(2L)).thenReturn(Optional.of(child));
-        var presence = new PresenceService(redis, new ObjectMapper(), children);
+        var presence = new PresenceService(redis, new ObjectMapper(), children, com.remotecontrol.api.support.SessionTestSupport.validLease());
 
         String oldPass = child.getPassword();
         presence.openSession(2L, "active-session", oldPass);
@@ -114,7 +114,7 @@ class ChildUpdateTest {
         var ops = mock(org.springframework.data.redis.core.ValueOperations.class);
         when(redis.opsForValue()).thenReturn(ops);
         when(children.findById(2L)).thenReturn(Optional.of(child));
-        var presence = new PresenceService(redis, new ObjectMapper(), children);
+        var presence = new PresenceService(redis, new ObjectMapper(), children, com.remotecontrol.api.support.SessionTestSupport.validLease());
 
         String oldPass = child.getPassword();
         // Reset password first

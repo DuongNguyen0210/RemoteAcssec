@@ -10,6 +10,7 @@ class AuthController;
 class MainWindow;
 class RemoteDesktopWindow;
 class HeartbeatReporter;
+class LoginSessionMonitor;
 class ScreenStreamSender;
 class DeviceStore;
 class AccountStore;
@@ -37,11 +38,13 @@ private slots:
     void handlePageSelected(int pageIndex);
 
 private:
+    void shutdownSession();
     QPointer<AuthController> m_authController;
     QPointer<MainWindow> m_mainWindow;
     QPointer<RemoteDesktopWindow> m_remoteDesktopWindow;
     QPointer<QWidget> m_childWindow;
     quint64 m_remoteSessionId = 0;
+    LoginSessionMonitor *m_loginMonitor = nullptr;
     HeartbeatReporter *m_heartbeatReporter;
     ScreenStreamSender *m_screenStreamSender;
 

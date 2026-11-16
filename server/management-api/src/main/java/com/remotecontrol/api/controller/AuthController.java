@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final com.remotecontrol.api.service.SseNotifier sseNotifier;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginData>> login(@Valid @RequestBody LoginRequest loginRequest) {
@@ -23,7 +24,22 @@ public class AuthController {
         if (response.getSuccess()) {
             return ResponseEntity.ok(response);
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        return ResponseEntity.status("ACCOUNT_IN_USE".equals(response.getErrorCode())
+                ? HttpStatus.CONFLICT : HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    @PostMapping("/heartbeat")
+    public ResponseEntity<ApiResponse<Void>> heartbeat(
+            @RequestAttribute("currentUser") com.remotecontrol.api.dto.common.UserPrincipal user) {
+        return authService.renew(user) ? ResponseEntity.ok(ApiResponse.success("Session renewed"))
+                : ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("SESSION_EXPIRED", "Please sign in again"));
+    }
+
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(@RequestAttribute("currentUser") com.remotecontrol.api.dto.common.UserPrincipal user) {
+        authService.logout(user);
+        if ("ADMIN".equals(user.getRole())) sseNotifier.closeOwner(Long.valueOf(user.getId()));
+        return ApiResponse.success("Logged out");
     }
 
     @PostMapping("/register")

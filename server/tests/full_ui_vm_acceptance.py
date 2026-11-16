@@ -48,6 +48,8 @@ password = secrets.token_hex(16)
 request("auth/register", {"username": owner, "password": password})
 token = request("auth/login", {"username": owner, "password": password})["data"]["token"]
 request("child/register", {"childUsername": "child", "password": password}, token)
+# Release setup login before the real ADMIN UI claims this same account.
+request("auth/logout", {}, token)
 ssh = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
        "-o", f"UserKnownHostsFile={args.known_hosts}", "-i", args.ssh_key,
        "-p", str(args.ssh_port), f"{args.guest_user}@127.0.0.1"]
@@ -77,7 +79,8 @@ try:
                        REMOTE_API_URL=args.api_url, REMOTE_RELAY_MODE="dynamic",
                        REMOTE_RELAY_TLS="off", REMOTE_RELAY_CA_CERT="",
                        PBL4_UI_FAILOVER="1" if args.failover_project else "0",
-                       PBL4_UI_RECOVERY_MARKER=str(recovery_marker))
+                       PBL4_UI_RECOVERY_MARKER=str(recovery_marker),
+                       PBL4_UI_TOKEN_FILE=str(Path(config) / "ui-session"))
             with (logs / "admin.log").open("w") as admin_output:
                 admin = subprocess.Popen([args.admin_binary, "-nocrashhandler"], env=env,
                                          stdout=admin_output, stderr=subprocess.STDOUT)
@@ -91,6 +94,7 @@ try:
                         admin_text = (logs / "admin.log").read_text()
                         child_text = (logs / "child.log").read_text()
                         if args.failover_project and failed_node is None and "ADMIN_UI_INPUT_CONFIRMED" in admin_text:
+                            token = (Path(config) / "ui-session").read_text()
                             devices = request("devices", None, token)["data"]
                             sid = next(d["sessionId"] for d in devices if d["username"] == owner + "child")
                             assigned = request(f"devices/{sid}/relay", None, token)["data"]
@@ -132,6 +136,8 @@ try:
         text = (logs / filename).read_text()
         if any(marker not in text for marker in markers):
             raise RuntimeError("Missing UI acceptance confirmation in " + filename)
+    # The UI released its login on normal shutdown; use a new cleanup session.
+    token = request("auth/login", {"username": owner, "password": password})["data"]["token"]
     if request("devices", None, token)["data"]:
         raise RuntimeError("Stopped CHILD remains present after confirmed unshare")
     print("PRESENCE_UNSHARE_CONFIRMED", flush=True)
@@ -148,9 +154,12 @@ try:
                 raise RuntimeError("Revoked CHILD session returned an unexpected status") from error
         else:
             raise RuntimeError("Password reset did not revoke an existing CHILD session")
+    # Allow revoked relay authorization leases to drain before replacement.
+    time.sleep(31)
     fresh_session = request("auth/login", {"username": owner + "child", "password": new_password})["data"]
     request("child/heartbeat", {"hostname": "Fresh session", "os": "Test"}, fresh_session["token"])
     request("child/logout", {}, fresh_session["token"])
+    request("auth/logout", {}, token)
     print("PASSWORD_RESET_SESSION_REVOCATION_CONFIRMED", flush=True)
     if args.failover_project:
         print("PASS: real UI relay loss, reassignment to another node, native input in a new session and CHILD stop")

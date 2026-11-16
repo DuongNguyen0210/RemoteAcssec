@@ -22,16 +22,21 @@ class PresenceRedisIT {
         var child = com.remotecontrol.api.entity.Child.builder().id(12L).username("ownerchild")
                 .password(com.remotecontrol.api.util.ChildPasswords.encode("test-password")).build();
         when(childRepo.findById(12L)).thenReturn(java.util.Optional.of(child));
-        var service = new PresenceService(redis, new ObjectMapper(), childRepo);
+        var leases = new LoginLeaseService(redis);
+        var service = new PresenceService(redis, new ObjectMapper(), childRepo, leases);
         long ownerId = Math.abs(UUID.randomUUID().getMostSignificantBits());
         var owner = User.builder().id(ownerId).username("owner").build();
         var a = UserPrincipal.builder().id("12").username("ownerchild").sessionId(UUID.randomUUID().toString()).build();
-        var b = UserPrincipal.builder().id("12").username("ownerchild").sessionId(UUID.randomUUID().toString()).build();
+        var b = UserPrincipal.builder().id("13").username("ownerchild").sessionId(UUID.randomUUID().toString()).build();
         var laptop = HeartbeatRequest.builder().hostname("Laptop").os("Linux").build();
+        when(childRepo.findById(13L)).thenReturn(java.util.Optional.of(
+                com.remotecontrol.api.entity.Child.builder().id(13L).password(child.getPassword()).build()));
         var pc = HeartbeatRequest.builder().hostname("PC").os("Windows").build();
         try {
+            assertTrue(leases.claim("CHILD", "12", a.getSessionId(), child.getPassword()));
+            assertTrue(leases.claim("CHILD", "13", b.getSessionId(), child.getPassword()));
             service.openSession(12L, a.getSessionId(), child.getPassword());
-            service.openSession(12L, b.getSessionId(), child.getPassword());
+            service.openSession(13L, b.getSessionId(), child.getPassword());
             assertTrue(service.getDevices(ownerId).isEmpty(), "Login alone must not create a device");
             assertTrue(service.markDeviceOnline(owner, a, null, laptop));
             assertTrue(service.markDeviceOnline(owner, b, null, pc));
@@ -59,7 +64,7 @@ class PresenceRedisIT {
             var event = org.mockito.ArgumentCaptor.forClass(SseEmitter.SseEventBuilder.class);
             verify(emitter).send(event.capture());
             assertTrue(event.getValue().build().stream().anyMatch(part -> "[]".equals(part.getData())));
-            assertTrue(service.isSessionActive("12", b.getSessionId()), "Presence expiry is not logout");
+            assertTrue(service.isSessionActive("13", b.getSessionId()), "Presence expiry is not logout");
             assertTrue(service.markDeviceOnline(owner, b, null, pc));
             assertEquals(1, service.getDevices(ownerId).size());
         } finally {
@@ -79,7 +84,8 @@ class PresenceRedisIT {
                 .password(com.remotecontrol.api.util.ChildPasswords.encode("old-password")).build();
         when(childRepo.findById(12L)).thenReturn(java.util.Optional.of(child));
 
-        var service = new PresenceService(redis, new ObjectMapper(), childRepo);
+        var leases = new LoginLeaseService(redis);
+        var service = new PresenceService(redis, new ObjectMapper(), childRepo, leases);
         long ownerId = Math.abs(UUID.randomUUID().getMostSignificantBits());
         var owner = User.builder().id(ownerId).username("owner").build();
         var session = UserPrincipal.builder().id("12").username("ownerchild").sessionId(UUID.randomUUID().toString()).build();
@@ -87,6 +93,7 @@ class PresenceRedisIT {
 
         try {
             // Login binds session to old password fingerprint
+            assertTrue(leases.claim("CHILD", "12", session.getSessionId(), child.getPassword()));
             service.openSession(12L, session.getSessionId(), child.getPassword());
             assertTrue(service.isSessionActive("12", session.getSessionId()));
             assertTrue(service.markDeviceOnline(owner, session, null, laptop));
@@ -119,6 +126,8 @@ class PresenceRedisIT {
 
             // Verification 5: New login with new password establishes working session
             var newSession = UserPrincipal.builder().id("12").username("ownerchild").sessionId(UUID.randomUUID().toString()).build();
+            leases.releaseSession("CHILD", "12", session.getSessionId());
+            assertTrue(leases.claim("CHILD", "12", newSession.getSessionId(), child.getPassword()));
             service.openSession(12L, newSession.getSessionId(), child.getPassword());
             assertTrue(service.isSessionActive("12", newSession.getSessionId()));
             assertTrue(service.markDeviceOnline(owner, newSession, null, laptop));
@@ -139,13 +148,15 @@ class PresenceRedisIT {
                 .password(com.remotecontrol.api.util.ChildPasswords.encode("test-password")).build();
         when(childRepo.findById(12L)).thenReturn(java.util.Optional.of(child));
 
-        var service = new PresenceService(redis, new ObjectMapper(), childRepo);
+        var leases = new LoginLeaseService(redis);
+        var service = new PresenceService(redis, new ObjectMapper(), childRepo, leases);
         long ownerId = Math.abs(UUID.randomUUID().getMostSignificantBits());
         var owner = User.builder().id(ownerId).username("owner").build();
         var session = UserPrincipal.builder().id("12").username("ownerchild").sessionId(UUID.randomUUID().toString()).build();
         var laptop = HeartbeatRequest.builder().hostname("Laptop").os("Linux").build();
 
         try {
+            assertTrue(leases.claim("CHILD", "12", session.getSessionId(), child.getPassword()));
             service.openSession(12L, session.getSessionId(), child.getPassword());
             assertTrue(service.isSessionActive("12", session.getSessionId()));
             assertTrue(service.markDeviceOnline(owner, session, null, laptop));

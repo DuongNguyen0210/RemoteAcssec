@@ -47,6 +47,7 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
     } else {
         static const QHash<QString, QString> messages = {
             {"AUTH_FAILED", "Sai tên đăng nhập hoặc mật khẩu."},
+            {"ACCOUNT_IN_USE", "Tài khoản đang đăng nhập ở nơi khác. Hãy đóng ứng dụng ở máy đó rồi thử lại."},
             {"CHILD_ALREADY_EXISTS", "Tên tài khoản đã tồn tại."},
             {"USER_ALREADY_EXISTS", "Tên đăng nhập đã tồn tại."},
             {"CHILD_NOT_FOUND", "Tài khoản không còn tồn tại."},

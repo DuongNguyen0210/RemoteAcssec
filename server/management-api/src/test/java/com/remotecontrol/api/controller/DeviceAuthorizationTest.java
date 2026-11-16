@@ -33,18 +33,18 @@ class DeviceAuthorizationTest {
         var sseNotifier = mock(com.remotecontrol.api.service.SseNotifier.class);
         var objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
         var mvc = MockMvcBuilders.standaloneSetup(new DeviceController(deviceService, new RelayAuthorizationController(children, presence, mock(com.remotecontrol.api.service.RelayDispatchService.class)), mock(com.remotecontrol.api.service.RelayDispatchService.class), sseNotifier, objectMapper))
-                .setControllerAdvice(new GlobalExceptionHandler()).addInterceptors(new JwtInterceptor(jwt, presence)).build();
+                .setControllerAdvice(new GlobalExceptionHandler()).addInterceptors(new JwtInterceptor(jwt, com.remotecontrol.api.support.SessionTestSupport.auth(presence))).build();
         mvc.perform(get("/api/v1/devices")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/devices").header("Authorization", "Bearer invalid"))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/v1/devices").header("Authorization", "Bearer " + jwt.generateToken("owner", "ADMIN", "1")))
+        mvc.perform(get("/api/v1/devices").header("Authorization", "Bearer " + jwt.generateToken("owner", "ADMIN", "1", "admin-session")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].sessionId").value("a"));
         when(presence.isSessionActive("12", "child-session")).thenReturn(true);
         mvc.perform(get("/api/v1/devices").header("Authorization", "Bearer " + jwt.generateToken("child", "CHILD", "12", "child-session")))
                 .andExpect(status().isForbidden());
         when(presence.getDevices(1L)).thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("down"));
-        mvc.perform(get("/api/v1/devices").header("Authorization", "Bearer " + jwt.generateToken("owner", "ADMIN", "1")))
+        mvc.perform(get("/api/v1/devices").header("Authorization", "Bearer " + jwt.generateToken("owner", "ADMIN", "1", "admin-session")))
                 .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.success").value(false));
     }
 
@@ -58,12 +58,14 @@ class DeviceAuthorizationTest {
         when(children.findById(12L)).thenReturn(Optional.of(Child.builder().id(12L).owner(owner).build()));
         when(presence.isSessionActive("12", sid)).thenReturn(true);
         var mvc = MockMvcBuilders.standaloneSetup(new RelayAuthorizationController(children, presence, mock(com.remotecontrol.api.service.RelayDispatchService.class)))
-                .setControllerAdvice(new GlobalExceptionHandler()).addInterceptors(new JwtInterceptor(jwt, presence)).build();
-        mvc.perform(get("/api/v1/relay/targets/" + sid).header("Authorization", "Bearer " + jwt.generateToken("owner", "ADMIN", "1")))
+                .setControllerAdvice(new GlobalExceptionHandler()).addInterceptors(new JwtInterceptor(jwt, com.remotecontrol.api.support.SessionTestSupport.auth(presence))).build();
+        mvc.perform(get("/api/v1/relay/targets/" + sid).header("Authorization", "Bearer " + jwt.generateToken("owner", "ADMIN", "1", "admin-session")))
                 .andExpect(status().isOk()).andExpect(content().string(sid));
-        mvc.perform(get("/api/v1/relay/targets/" + sid).header("Authorization", "Bearer " + jwt.generateToken("other", "ADMIN", "2")))
+        mvc.perform(get("/api/v1/relay/targets/" + sid).header("Authorization", "Bearer " + jwt.generateToken("other", "ADMIN", "2", "admin-session")))
                 .andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/relay/agent").header("Authorization", "Bearer " + jwt.generateToken("child", "CHILD", "12")))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/relay/targets/" + sid).header("Authorization", "Bearer " + jwt.generateToken("owner", "ADMIN", "1")))
                 .andExpect(status().isUnauthorized());
     }
 }

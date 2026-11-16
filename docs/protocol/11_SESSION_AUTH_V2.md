@@ -24,6 +24,6 @@ Payload: `uint16 tokenLength` + JWT Admin + `uint16 targetLength` + targetAgentS
 
 Các length là Big Endian. Payload bị cắt, thừa byte, UTF-8 lỗi hoặc token/target sai đều bị từ chối. HTTP authorization bất đồng bộ, timeout 5 giây, không chặn Netty event loop. Mỗi channel chỉ xử lý một yêu cầu authorization ban đầu tại một thời điểm.
 
-REGISTER_HOST không tạo presence: chỉ heartbeat HTTP tạo dòng Devices. Hai máy cùng tài khoản có hai UUID login khác nhau. Relay kiểm tra lại quyền mỗi 10 giây, đóng channel nếu quyền không còn hợp lệ; mất kết nối một bên đóng bên còn lại để reset phiên.
+REGISTER_HOST không tạo presence: chỉ heartbeat HTTP tạo dòng Devices. Mỗi tài khoản ADMIN/CHILD chỉ có một UUID login hoạt động; máy B đăng nhập tiếp bị từ chối với ACCOUNT_IN_USE và giữ phiên máy A. Desktop gửi auth/heartbeat riêng với heartbeat chia sẻ; xem docs/security/SINGLE_LOGIN.md. Relay kiểm tra lại quyền mỗi 10 giây, đóng channel nếu quyền không còn hợp lệ; mất kết nối một bên đóng bên còn lại để reset phiên.
 
 Xem [sơ đồ Account/Device](../architecture/ACCOUNT_DEVICE_FLOW.md) về TTL, API và cách nâng cấp.

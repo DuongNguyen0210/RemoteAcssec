@@ -108,6 +108,16 @@ private slots:
             qInfo() << "CHILD_REPEAT_CONFIRMED";
         } else {
             QTRY_VERIFY_WITH_TIMEOUT(topWindow<MainWindow>(), 20000);
+            // Test-only observer shares the UI session instead of logging in twice.
+            const auto tokenFile = qEnvironmentVariable("PBL4_UI_TOKEN_FILE");
+            if (!tokenFile.isEmpty()) {
+                QFile file(tokenFile);
+                QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::NewOnly));
+                QVERIFY(file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner));
+                const auto token = ApiClient::instance().getToken().toUtf8();
+                QCOMPARE(file.write(token), qint64(token.size()));
+                file.close();
+            }
             auto *main = topWindow<MainWindow>();
             main->findChild<SidebarWidget *>()->selectPage(0);
             QTRY_VERIFY_WITH_TIMEOUT(main->findChild<QPushButton *>("connectButton"), 20000);

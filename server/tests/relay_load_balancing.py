@@ -67,9 +67,11 @@ def main():
     password = "test-password"
     request("POST", "auth/register", data={"username": owner, "password": password}, expected=201)
     admin = request("POST", "auth/login", data={"username": owner, "password": password})["data"]["token"]
-    request("POST", "child/register", admin, {"childUsername": "child", "password": password})
-    children = [request("POST", "auth/login", data={"username": owner + "child", "password": password})["data"]
-                for _ in range(2)]
+    children = []
+    for index in range(2):
+        suffix = "child" + str(index)
+        request("POST", "child/register", admin, {"childUsername": suffix, "password": password})
+        children.append(request("POST", "auth/login", data={"username": owner + suffix, "password": password})["data"])
     endpoints = []
     for index, child in enumerate(children):
         request("POST", "child/heartbeat", child["token"], {"hostname": "test-" + str(index), "os": "Linux"})

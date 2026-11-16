@@ -36,6 +36,8 @@ try:
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
         time.sleep(2)
+        request("POST", "auth/heartbeat", child["token"], {})
+        request("POST", "auth/heartbeat", admin, {})
         request("POST", "child/heartbeat", child["token"], {"hostname": "failover-test", "os": "Linux"})
         try:
             current = request("POST", "relay/allocations", child["token"], {})["data"]["instanceId"]

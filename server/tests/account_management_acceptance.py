@@ -3,6 +3,7 @@ import concurrent.futures
 import json
 import os
 import secrets
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,6 +50,9 @@ request('child/heartbeat', {'hostname': 'Account UX acceptance', 'os': 'Test'}, 
 replacement = secrets.token_hex(16)
 request(f"child/{child['id']}", {'childUsername': 'renamed', 'newPassword': replacement}, token, method='PUT')
 request('child/heartbeat', {'hostname': 'Revoked login'}, login['token'], expected=401)
+# Revoked streams receive a bounded 30-second drain before a new login.
+request('auth/login', {'username': owner + 'renamed', 'password': replacement}, expected=409)
+time.sleep(31)
 fresh = request('auth/login', {'username': owner + 'renamed', 'password': replacement})['data']
 assert fresh['role'] == 'CHILD'
 request('child/logout', {}, fresh['token'])
@@ -72,4 +76,6 @@ assert len(accounts) == 5
 for account in accounts:
     request('child/' + account['username'], token=token, method='DELETE')
 assert request('child', token=token)['data'] == []
+request('auth/logout', {}, token)
+request('auth/logout', {}, peer)
 print('PASS: create, trimmed login, duplicate/length validation, rename, preserved password, reset/revocation, owner isolation, delete, concurrent account limit')

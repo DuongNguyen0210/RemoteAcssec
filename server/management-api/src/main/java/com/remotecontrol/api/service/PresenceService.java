@@ -25,9 +25,12 @@ public class PresenceService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final ChildRepository childRepository;
+    private final LoginLeaseService loginLeases;
 
     private static final DefaultRedisScript<Long> HEARTBEAT = new DefaultRedisScript<>(
             "if redis.call('GET',KEYS[1]) ~= ARGV[1] then return 0 end " +
+            "local login=redis.call('GET',KEYS[3]); if not login or string.sub(login,1,string.len(ARGV[4])) ~= ARGV[4] then return 0 end " +
+            "if redis.call('PTTL',KEYS[3]) <= tonumber(ARGV[5]) then return 0 end " +
             "redis.call('SET',KEYS[2],ARGV[2],'EX',ARGV[3]); return 1", Long.class);
 
     private String binding(String childId, String credential) {
@@ -55,7 +58,7 @@ public class PresenceService {
             redisTemplate.delete(sessionKey(sessionId));
             return false;
         }
-        return true;
+        return loginLeases.active("CHILD", childId, sessionId, currentCredential);
     }
 
     public boolean markDeviceOnline(User owner, UserPrincipal principal, InfoPrincipal info,
@@ -81,11 +84,13 @@ public class PresenceService {
                     HEARTBEAT,
                     List.of(
                             sessionKey(principal.getSessionId()),
-                            deviceKey(owner.getId(), principal.getSessionId())
+                            deviceKey(owner.getId(), principal.getSessionId()),
+                            "auth:login:CHILD:" + principal.getId()
                     ),
                     expectedBinding,
                     objectMapper.writeValueAsString(snapshot),
-                    String.valueOf(TTL_SECONDS)
+                    String.valueOf(TTL_SECONDS), principal.getSessionId() + ":",
+                    Integer.toString(LoginLeaseService.DRAIN_SECONDS * 1000)
             ));
             return updated;
         } catch (JsonProcessingException e) {
@@ -109,8 +114,10 @@ public class PresenceService {
         List<DeviceDto> devices = new ArrayList<>();
         if (snapshots != null) {
             for (String snapshot : snapshots) {
-                if (snapshot != null)
-                    devices.add(decode(snapshot));
+                if (snapshot != null) {
+                    var device = decode(snapshot);
+                    if (loginLeases.owns("CHILD", device.getChildId().toString(), device.getSessionId())) devices.add(device);
+                }
             }
         }
         devices.sort(Comparator.comparing(DeviceDto::getSessionId));
@@ -119,10 +126,15 @@ public class PresenceService {
 
     public DeviceDto getDevice(Long ownerId, String sessionId) {
         String snapshot = redisTemplate.opsForValue().get(deviceKey(ownerId, sessionId));
-        return snapshot == null ? null : decode(snapshot);
+        if (snapshot == null) return null;
+        var device = decode(snapshot);
+        return loginLeases.owns("CHILD", device.getChildId().toString(), sessionId) ? device : null;
     }
 
     public void closeSession(Long ownerId, String sessionId) {
+        String stored = redisTemplate.opsForValue().get(sessionKey(sessionId));
+        if (stored != null && stored.contains(":"))
+            loginLeases.releaseSession("CHILD", stored.substring(0, stored.indexOf(':')), sessionId);
         redisTemplate.delete(List.of(sessionKey(sessionId), deviceKey(ownerId, sessionId)));
     }
 

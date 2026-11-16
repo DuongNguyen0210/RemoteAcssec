@@ -29,13 +29,13 @@ class ChildUpdateControllerTest {
         var mvc = MockMvcBuilders.standaloneSetup(new ChildController(
                 new ChildService(children, mock(UserRepository.class), presence)))
                 .setControllerAdvice(new GlobalExceptionHandler())
-                .addInterceptors(new JwtInterceptor(jwt, presence)).build();
+                .addInterceptors(new JwtInterceptor(jwt, com.remotecontrol.api.support.SessionTestSupport.auth(presence))).build();
         String route = "/api/v1/child/12";
         String body = "{\"childUsername\":\"renamed\"}";
-        String admin = "Bearer " + jwt.generateToken("owner", "ADMIN", "1");
+        String admin = "Bearer " + jwt.generateToken("owner", "ADMIN", "1", "admin-session");
         mvc.perform(put(route).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(put(route).header("Authorization", "Bearer " + jwt.generateToken("other", "ADMIN", "2"))
+        mvc.perform(put(route).header("Authorization", "Bearer " + jwt.generateToken("other", "ADMIN", "2", "admin-session"))
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
         when(presence.isSessionActive("12", "sid")).thenReturn(true);
         mvc.perform(put(route).header("Authorization", "Bearer " + jwt.generateToken("ownerchild", "CHILD", "12", "sid"))
@@ -57,7 +57,7 @@ class ChildUpdateControllerTest {
         var mvc = MockMvcBuilders.standaloneSetup(new ChildController(
                 new ChildService(children, mock(UserRepository.class), presence)))
                 .setControllerAdvice(new GlobalExceptionHandler())
-                .addInterceptors(new JwtInterceptor(jwt, presence)).build();
+                .addInterceptors(new JwtInterceptor(jwt, com.remotecontrol.api.support.SessionTestSupport.auth(presence))).build();
 
         String unshareRoute = "/api/v1/child/unshare";
 
@@ -66,7 +66,7 @@ class ChildUpdateControllerTest {
                 .andExpect(status().isUnauthorized());
 
         // ADMIN role -> 403 Forbidden (requires CHILD role)
-        String adminToken = "Bearer " + jwt.generateToken("owner", "ADMIN", "1");
+        String adminToken = "Bearer " + jwt.generateToken("owner", "ADMIN", "1", "admin-session");
         mvc.perform(post(unshareRoute).header("Authorization", adminToken))
                 .andExpect(status().isForbidden());
 
