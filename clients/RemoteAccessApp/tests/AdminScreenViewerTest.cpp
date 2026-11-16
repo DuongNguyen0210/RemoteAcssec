@@ -75,6 +75,36 @@ class AdminScreenViewerTest : public QObject {
                 && reply->error() == QNetworkReply::NoError;
     }
 private slots:
+    void viewerFullScreenPreservesSessionAndFrame() {
+        RemoteDesktopWindow viewer(42, QStringLiteral("CHILD"));
+        auto *toggle = viewer.findChild<QPushButton *>("remoteFullScreenButton");
+        auto *screen = viewer.findChild<RemoteScreenWidget *>();
+        QVERIFY(toggle && screen);
+        QSignalSpy disconnects(&viewer, &RemoteDesktopWindow::disconnectRequested);
+        QImage frame(32, 24, QImage::Format_RGB32);
+        frame.fill(Qt::red);
+        viewer.updateFrame(frame);
+        viewer.show();
+
+        toggle->click();
+        QTRY_VERIFY(viewer.isFullScreen());
+        QCOMPARE(toggle->text(), QStringLiteral("Thoát toàn màn hình"));
+        toggle->click();
+        QTRY_VERIFY(!viewer.isFullScreen());
+        QVERIFY(!viewer.isMaximized());
+        QCOMPARE(toggle->text(), QStringLiteral("Toàn màn hình"));
+
+        viewer.showMaximized();
+        toggle->click();
+        QTRY_VERIFY(viewer.isFullScreen());
+        toggle->click();
+        QTRY_VERIFY(viewer.isMaximized() && !viewer.isFullScreen());
+        QCOMPARE(screen->frameResolution(), frame.size());
+        QCOMPARE(disconnects.count(), 0);
+        viewer.close();
+        QCOMPARE(disconnects.count(), 1);
+    }
+
     void viewerReportsDelayedFramesAndRecovers() {
         RemoteDesktopWindow viewer(42, QStringLiteral("CHILD"));
         auto *status = viewer.findChild<QLabel *>("remoteFrameStatus");
@@ -208,7 +238,7 @@ private slots:
         QSignalSpy requested(&userWindow, &RemoteDesktopWindow::disconnectRequested);
         connect(&userWindow, &RemoteDesktopWindow::disconnectRequested,
                 &userWindow, &RemoteDesktopWindow::closeForSessionEnd);
-        auto *button = userWindow.findChild<QPushButton *>(); QVERIFY(button);
+        auto *button = userWindow.findChild<QPushButton *>("remoteDisconnectButton"); QVERIFY(button);
         QTest::mouseClick(button, Qt::LeftButton);
         QCOMPARE(requested.count(), 1);
         userWindow.closeForSessionEnd();

@@ -26,6 +26,7 @@ signals:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private slots:
     void onFpsUpdated(int fps);
@@ -37,6 +38,7 @@ private:
 
     void setupUi();
     void updateFrameStatus();
+    void toggleFullScreen();
 
     quint64 m_sessionId;
     QString m_targetName;
@@ -44,10 +46,12 @@ private:
     RemoteScreenWidget *m_screenWidget = nullptr;
     QLabel *m_lblTitle = nullptr;
     QLabel *m_lblStats = nullptr;
+    QPushButton *m_btnFullScreen = nullptr;
     QPushButton *m_btnDisconnect = nullptr;
 
     QTimer *m_frameTimer = nullptr;
     FrameState m_frameState = FrameState::Waiting;
+    bool m_wasMaximized = false;
     bool m_inCloseEvent = false;
     bool m_disconnectEmitted = false;
     int m_lastFps = 0;

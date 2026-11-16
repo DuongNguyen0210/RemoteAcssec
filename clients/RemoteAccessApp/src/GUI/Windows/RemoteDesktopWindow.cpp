@@ -6,6 +6,7 @@
 #include <QCloseEvent>
 #include <QIcon>
 #include <QTimer>
+#include <QShortcut>
 
 RemoteDesktopWindow::RemoteDesktopWindow(quint64 sessionId, const QString &targetName, QWidget *parent)
     : QMainWindow(parent)
@@ -66,7 +67,22 @@ void RemoteDesktopWindow::setupUi()
     m_lblStats->setObjectName("remoteFrameStatus");
     m_lblStats->setStyleSheet(QStringLiteral("color: #9aa2a9; font-size: 13px;"));
 
+    m_btnFullScreen = new QPushButton(QStringLiteral("Toàn màn hình"), headerWidget);
+    m_btnFullScreen->setObjectName("remoteFullScreenButton");
+    m_btnFullScreen->setToolTip(QStringLiteral("F11: chuyển chế độ xem. Esc: thoát toàn màn hình."));
+    m_btnFullScreen->setFixedHeight(36);
+    connect(m_btnFullScreen, &QPushButton::clicked, this, &RemoteDesktopWindow::toggleFullScreen);
+
+    auto *fullScreenShortcut = new QShortcut(QKeySequence(Qt::Key_F11), this);
+    connect(fullScreenShortcut, &QShortcut::activated, this, &RemoteDesktopWindow::toggleFullScreen);
+    auto *exitShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(exitShortcut, &QShortcut::activated, this, [this] {
+        if (isFullScreen())
+            toggleFullScreen();
+    });
+
     m_btnDisconnect = new QPushButton(headerWidget);
+    m_btnDisconnect->setObjectName("remoteDisconnectButton");
     m_btnDisconnect->setProperty("role", "dangerActionButton");
     m_btnDisconnect->setText(QStringLiteral("Ngắt kết nối"));
     m_btnDisconnect->setFixedHeight(36);
@@ -76,6 +92,7 @@ void RemoteDesktopWindow::setupUi()
     headerLayout->addWidget(m_lblTitle);
     headerLayout->addWidget(m_lblStats);
     headerLayout->addStretch();
+    headerLayout->addWidget(m_btnFullScreen);
     headerLayout->addWidget(m_btnDisconnect);
 
     rootLayout->addWidget(headerWidget);
@@ -160,6 +177,29 @@ void RemoteDesktopWindow::onResolutionChanged(const QSize &res)
 void RemoteDesktopWindow::onDisconnectClicked()
 {
     close();
+}
+
+void RemoteDesktopWindow::toggleFullScreen()
+{
+    if (!isFullScreen()) {
+        m_wasMaximized = isMaximized();
+        showFullScreen();
+        return;
+    }
+
+    if (m_wasMaximized)
+        showMaximized();
+    else
+        showNormal();
+}
+
+void RemoteDesktopWindow::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    if (event->type() == QEvent::WindowStateChange && m_btnFullScreen) {
+        m_btnFullScreen->setText(isFullScreen() ? QStringLiteral("Thoát toàn màn hình")
+                                                : QStringLiteral("Toàn màn hình"));
+    }
 }
 
 void RemoteDesktopWindow::closeEvent(QCloseEvent *event)
