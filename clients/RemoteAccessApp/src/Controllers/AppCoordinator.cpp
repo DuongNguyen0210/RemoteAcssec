@@ -8,6 +8,7 @@
 #include "AccountController.h"
 #include "SettingsController.h"
 #include "GUI/Windows/MainWindow.h"
+#include "GUI/Windows/ChildStatusWindow.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Pages/SettingsPage.h"
 #include "Network/Http/HeartbeatReporter.h"
@@ -22,12 +23,10 @@
 #include "Network/Http/DeviceService.h"
 #include "Network/Http/UserService.h"
 
+#include <memory>
 #include <QDebug>
 #include <QGuiApplication>
 #include <QApplication>
-#include <QLabel>
-#include <QPushButton>
-#include <QVBoxLayout>
 #include <QWidget>
 
 AppCoordinator::AppCoordinator(QObject *parent)
@@ -49,15 +48,7 @@ AppCoordinator::~AppCoordinator()
     shutdownSession();
     if (m_remoteDesktopWindow) m_remoteDesktopWindow->deleteLater();
     if (m_childWindow) m_childWindow->deleteLater();
-    if (m_authController) m_authController->deleteLater();
     if (m_mainWindow) m_mainWindow->deleteLater();
-    if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
-    if (m_screenStreamSender) m_screenStreamSender->deleteLater();
-    if (m_devicesController) m_devicesController->deleteLater();
-    if (m_accountController) m_accountController->deleteLater();
-    if (m_settingsController) m_settingsController->deleteLater();
-    if (m_deviceStore) m_deviceStore->deleteLater();
-    if (m_accountStore) m_accountStore->deleteLater();
 }
 
 void AppCoordinator::shutdownSession()
@@ -90,135 +81,105 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
         });
         m_loginMonitor->start();
     }
-    if (role == "ADMIN")
-    {
-        m_deviceStore = new DeviceStore(this);
-        m_accountStore = new AccountStore(this);
-
-        auto *deviceService = new DeviceService(this);
-        m_devicesController = new DevicesController(m_deviceStore, deviceService, this);
-        m_accountController = new AccountController(m_accountStore, new AccountService(this), this);
-        m_accountController->setOwnerUsername(username);
-
-        auto *settingsPage = new SettingsPage();
-        m_settingsController = new SettingsController(settingsPage, new UserService(this), this);
-        m_settingsController->setKnownUsername(username);
-
-        m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView(), settingsPage);
-
-        connect(m_devicesController, &DevicesController::remoteSessionStarted,
-                this, &AppCoordinator::handleRemoteSessionStarted);
-        connect(m_devicesController, &DevicesController::remoteFrameReady,
-                this, &AppCoordinator::handleFrameReady);
-        connect(m_devicesController, &DevicesController::sessionEnded,
-                this, &AppCoordinator::handleSessionEnded);
-        connect(m_mainWindow, &MainWindow::disconnectRequested,
-                m_devicesController, &DevicesController::disconnectCurrentSession);
-        connect(m_mainWindow, &MainWindow::pageSelected,
-                this, &AppCoordinator::handlePageSelected);
-
-        m_mainWindow->show();
-        m_devicesController->refresh();
-
-        m_accountController->fetchAccounts();
-    }
-    else
-    {
-        QGuiApplication::setQuitOnLastWindowClosed(false);
-
-        if (!m_heartbeatReporter)
-        {
-            m_heartbeatReporter = new HeartbeatReporter(this);
-        }
-
-        if (!m_screenStreamSender)
-        {
-            RelayEndpointProvider *provider = qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
-                    ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider(this))
-                    : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider(this));
-            auto *session = new ChildSessionController(provider, this);
-            auto *injector = new RemoteInputInjector;
-            connect(session, &ChildSessionController::inputReceived, session,
-                    [injector](const Protocol::ProtocolHeader &header, const QByteArray &payload) {
-                        injector->inject(header.type, payload);
-                    });
-            connect(session, &ChildSessionController::sessionEnded, session,
-                    [injector](const QString &) { injector->releaseAll(); });
-            connect(session, &QObject::destroyed, this, [injector] { delete injector; });
-            m_screenStreamSender = new ScreenStreamSender(session, this);
-            connect(m_screenStreamSender, &ScreenStreamSender::frameCaptured, this,
-                    [injector](const QSize &size) { injector->setFrameSize(size); });
-            session->setParent(m_screenStreamSender);
-            provider->setParent(session);
-            connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost,
-                    session, &ChildSessionController::stop);
-            connect(session, &ChildSessionController::sessionFailed, this,
-                    [](const QString &reason) { qWarning() << "Child Relay:" << reason; });
-
-            auto *window = new QWidget;
-            window->setObjectName(QStringLiteral("childStatusWindow"));
-            window->setWindowTitle(QStringLiteral("RemoteAccess — máy được điều khiển"));
-            window->setAttribute(Qt::WA_DeleteOnClose);
-            window->setAttribute(Qt::WA_StyledBackground);
-            window->setMinimumWidth(420);
-            auto *layout = new QVBoxLayout(window);
-            layout->setContentsMargins(24, 24, 24, 24);
-            layout->setSpacing(16);
-            auto *title = new QLabel(QStringLiteral("Chia sẻ máy tính"), window);
-            title->setProperty("role", "sectionTitle");
-            auto *status = new QLabel(QStringLiteral("Chia sẻ đang tắt. Bật chia sẻ để cho phép kết nối không giám sát."), window);
-            status->setObjectName(QStringLiteral("childSessionStatus"));
-            status->setProperty("role", "pageSubtitle");
-            status->setWordWrap(true);
-            auto *stopButton = new QPushButton(QStringLiteral("Bật chia sẻ"), window);
-            stopButton->setObjectName(QStringLiteral("stopSharingButton"));
-            stopButton->setProperty("role", "primaryActionButton");
-            stopButton->setMinimumHeight(40);
-            layout->addWidget(title);
-            layout->addWidget(status);
-            layout->addWidget(stopButton);
-            connect(session, &ChildSessionController::relayRegistered, window, [status] {
-                status->setText(QStringLiteral("Sẵn sàng nhận phiên điều khiển không giám sát."));
-            });
-            connect(session, &ChildSessionController::sessionStarted, window, [status](quint64) {
-                status->setText(QStringLiteral("Đang có phiên điều khiển từ xa. Bạn có thể dừng chia sẻ bất cứ lúc nào."));
-            });
-            connect(session, &ChildSessionController::sessionEnded, window, [status, session](const QString &) {
-                status->setText(session->relayReady()
-                        ? QStringLiteral("Phiên đã kết thúc. Máy đang sẵn sàng nhận phiên mới.")
-                        : QStringLiteral("Phiên đã kết thúc. Đang kết nối lại Relay."));
-            });
-            connect(session, &ChildSessionController::sessionFailed, window, [status](const QString &) {
-                status->setText(QStringLiteral("Mất kết nối Relay. Đang thử kết nối lại."));
-            });
-            connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost, window, [status, stopButton] {
-                status->setText(QStringLiteral("Phiên đăng nhập đã hết hạn. Đóng cửa sổ để thoát."));
-                stopButton->setEnabled(false);
-            });
-            connect(stopButton, &QPushButton::clicked, window, [this, session, status, stopButton] {
-                if (m_heartbeatReporter->isRunning()) {
-                    session->stop();
-                    m_heartbeatReporter->stop();
-                    status->setText(QStringLiteral("Đã dừng chia sẻ. Bạn có thể bật lại hoặc đóng cửa sổ."));
-                    stopButton->setText(QStringLiteral("Bật chia sẻ"));
-                } else {
-                    m_heartbeatReporter->start();
-                    session->start();
-                    status->setText(QStringLiteral("Đang kết nối Relay để sẵn sàng nhận phiên điều khiển."));
-                    stopButton->setText(QStringLiteral("Dừng chia sẻ"));
-                }
-            });
-            connect(window, &QObject::destroyed, session, &ChildSessionController::stop);
-            connect(window, &QObject::destroyed, m_heartbeatReporter, &HeartbeatReporter::stop);
-            connect(window, &QObject::destroyed, qApp, &QApplication::quit);
-            m_childWindow = window;
-            window->show();
-        }
-    }
+    if (role == "ADMIN") createAdminWorkspace(username);
+    else createChildWorkspace();
 
     if (m_authController) {
         m_authController->deleteLater();
     }
+}
+
+void AppCoordinator::createAdminWorkspace(const QString &username)
+{
+    m_deviceStore = new DeviceStore(this);
+    m_accountStore = new AccountStore(this);
+
+    auto *deviceService = new DeviceService(this);
+    m_devicesController = new DevicesController(m_deviceStore, deviceService, this);
+    m_accountController = new AccountController(m_accountStore, new AccountService(this), this);
+    m_accountController->setOwnerUsername(username);
+
+    auto *settingsPage = new SettingsPage();
+    m_settingsController = new SettingsController(settingsPage, new UserService(this), this);
+    m_settingsController->setKnownUsername(username);
+
+    m_mainWindow = new MainWindow(m_devicesController->getView(), m_accountController->getView(), settingsPage);
+
+    connect(m_devicesController, &DevicesController::remoteSessionStarted,
+            this, &AppCoordinator::handleRemoteSessionStarted);
+    connect(m_devicesController, &DevicesController::remoteFrameReady,
+            this, &AppCoordinator::handleFrameReady);
+    connect(m_devicesController, &DevicesController::sessionEnded,
+            this, &AppCoordinator::handleSessionEnded);
+    connect(m_mainWindow, &MainWindow::disconnectRequested,
+            m_devicesController, &DevicesController::disconnectCurrentSession);
+    connect(m_mainWindow, &MainWindow::pageSelected,
+            this, &AppCoordinator::handlePageSelected);
+
+    m_mainWindow->show();
+    m_devicesController->refresh();
+
+    m_accountController->fetchAccounts();
+}
+
+void AppCoordinator::createChildWorkspace()
+{
+    QGuiApplication::setQuitOnLastWindowClosed(false);
+
+    if (!m_heartbeatReporter)
+    {
+        m_heartbeatReporter = new HeartbeatReporter(this);
+    }
+
+    if (m_screenStreamSender) return;
+
+    RelayEndpointProvider *provider = qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
+            ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider(this))
+            : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider(this));
+    auto *session = new ChildSessionController(provider, this);
+    auto injector = std::make_shared<RemoteInputInjector>();
+    connect(session, &ChildSessionController::inputReceived, session,
+            [injector](const Protocol::ProtocolHeader &header, const QByteArray &payload) {
+                injector->inject(header.type, payload);
+            });
+    connect(session, &ChildSessionController::sessionEnded, session,
+            [injector](const QString &) { injector->releaseAll(); });
+    m_screenStreamSender = new ScreenStreamSender(session, this);
+    connect(m_screenStreamSender, &ScreenStreamSender::frameCaptured, this,
+            [injector](const QSize &size) { injector->setFrameSize(size); });
+    session->setParent(m_screenStreamSender);
+    provider->setParent(session);
+    connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost,
+            session, &ChildSessionController::stop);
+    connect(session, &ChildSessionController::sessionFailed, this,
+            [](const QString &reason) { qWarning() << "Child Relay:" << reason; });
+
+    auto *window = new ChildStatusWindow;
+    connect(session, &ChildSessionController::relayRegistered, window, &ChildStatusWindow::showRelayReady);
+    connect(session, &ChildSessionController::sessionStarted, window, &ChildStatusWindow::showSessionStarted);
+    connect(session, &ChildSessionController::sessionEnded, window, [window, session](const QString &) {
+        window->showSessionEnded(session->relayReady());
+    });
+    connect(session, &ChildSessionController::sessionFailed, window, &ChildStatusWindow::showRelayFailure);
+    connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost,
+            window, &ChildStatusWindow::showAuthenticationLost);
+    connect(window, &ChildStatusWindow::sharingToggleRequested, window, [this, session, window] {
+        const bool enable = !m_heartbeatReporter->isRunning();
+        if (enable) {
+            m_heartbeatReporter->start();
+            session->start();
+        } else {
+            session->stop();
+            m_heartbeatReporter->stop();
+        }
+        window->showSharingEnabled(enable);
+    });
+    connect(window, &QObject::destroyed, session, &ChildSessionController::stop);
+    connect(window, &QObject::destroyed, m_heartbeatReporter, &HeartbeatReporter::stop);
+    connect(window, &QObject::destroyed, qApp, &QApplication::quit);
+    m_childWindow = window;
+    window->show();
+
 }
 
 void AppCoordinator::handlePageSelected(int pageIndex)

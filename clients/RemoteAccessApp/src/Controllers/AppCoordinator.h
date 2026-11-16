@@ -39,6 +39,8 @@ private slots:
 
 private:
     void shutdownSession();
+    void createAdminWorkspace(const QString &username);
+    void createChildWorkspace();
     QPointer<AuthController> m_authController;
     QPointer<MainWindow> m_mainWindow;
     QPointer<RemoteDesktopWindow> m_remoteDesktopWindow;
