@@ -25,6 +25,8 @@ public:
     void fetchRelayEndpoint(const QString &agentSessionId, RelayEndpointProvider::Callback callback);
 
 signals:
+    void liveUpdatesAvailable(bool available);
+
     /**
      * Emitted both by fetchDevices() and by the SSE stream.
      * Connect to DeviceStore::replaceDevices (via DevicesController).
