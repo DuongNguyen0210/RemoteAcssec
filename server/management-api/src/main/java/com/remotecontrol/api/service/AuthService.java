@@ -8,11 +8,14 @@ import com.remotecontrol.api.entity.User;
 import com.remotecontrol.api.repository.ChildRepository;
 import com.remotecontrol.api.repository.UserRepository;
 import com.remotecontrol.api.util.JwtUtil;
+import com.remotecontrol.api.util.ChildPasswords;
+import com.remotecontrol.api.dto.common.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -28,45 +31,34 @@ public class AuthService {
         String username = request.getUsername();
         String password = request.getPassword();
 
-        Optional<User> u = userRepository.findByUsername(username);
-        Optional<Child> c = childRepository.findByUsername(username);
-
-        if (u.isPresent() && Objects.equals(u.get().getPassword(), password)) {
-            String sessionId = java.util.UUID.randomUUID().toString();
-            if (!loginLeases.claim("ADMIN", u.get().getId().toString(), sessionId, u.get().getPassword()))
-                return ApiResponse.error("ACCOUNT_IN_USE", "Account is already signed in");
-            String token = jwtUtil.generateToken(username, "ADMIN", String.valueOf(u.get().getId()), sessionId);
-            LoginData data = LoginData.builder()
-                    .token(token)
-                    .role("ADMIN")
-                    .sessionId(sessionId)
-                    .username(username)
-                    .userId(String.valueOf(u.get().getId()))
-                    .build();
-            return ApiResponse.success("Account Login Successful", data);
+        Optional<User> admin = userRepository.findByUsername(username);
+        Optional<Child> child = childRepository.findByUsername(username);
+        if (admin.isPresent() && Objects.equals(admin.get().getPassword(), password)) {
+            return openLogin(username, "ADMIN", admin.get().getId(), admin.get().getPassword());
         }
-        else if (c.isPresent() && com.remotecontrol.api.util.ChildPasswords.matches(password, c.get().getPassword())) {
-            String sessionId = java.util.UUID.randomUUID().toString();
-            if (!loginLeases.claim("CHILD", c.get().getId().toString(), sessionId, c.get().getPassword()))
-                return ApiResponse.error("ACCOUNT_IN_USE", "Account is already signed in");
+        if (child.isPresent() && ChildPasswords.matches(password, child.get().getPassword())) {
+            return openLogin(username, "CHILD", child.get().getId(), child.get().getPassword());
+        }
+        return ApiResponse.error("AUTH_FAILED", "Wrong Username or Password");
+    }
+
+    private ApiResponse<LoginData> openLogin(String username, String role, Long accountId, String credential) {
+        String id = accountId.toString();
+        String sessionId = UUID.randomUUID().toString();
+        if (!loginLeases.claim(role, id, sessionId, credential))
+            return ApiResponse.error("ACCOUNT_IN_USE", "Account is already signed in");
+        if ("CHILD".equals(role)) {
             try {
-                presenceService.openSession(c.get().getId(), sessionId, c.get().getPassword());
+                presenceService.openSession(accountId, sessionId, credential);
             } catch (RuntimeException error) {
-                loginLeases.release("CHILD", c.get().getId().toString(), sessionId, c.get().getPassword());
+                loginLeases.release(role, id, sessionId, credential);
                 throw error;
             }
-            String token = jwtUtil.generateToken(username, "CHILD", String.valueOf(c.get().getId()), sessionId);
-            LoginData data = LoginData.builder()
-                    .token(token)
-                    .role("CHILD")
-                    .sessionId(sessionId)
-                    .username(username)
-                    .userId(String.valueOf(c.get().getId()))
-                    .build();
-            return ApiResponse.success("Account Login Successful", data);
         }
-
-        return ApiResponse.error("AUTH_FAILED", "Wrong Username or Password");
+        String token = jwtUtil.generateToken(username, role, id, sessionId);
+        LoginData data = LoginData.builder()
+                .token(token).role(role).sessionId(sessionId).username(username).userId(id).build();
+        return ApiResponse.success("Account Login Successful", data);
     }
 
     private String credential(String role, String id) {
@@ -76,17 +68,19 @@ public class AuthService {
     }
 
     public boolean isSessionActive(String role, String id, String sessionId) {
-        boolean active = sessionId != null && loginLeases.active(role, id, sessionId, credential(role, id))
-                && (!"CHILD".equals(role) || presenceService.isSessionActive(id, sessionId));
+        // CHILD presence validation already checks both credential binding and login lease.
+        boolean active = sessionId != null && ("CHILD".equals(role)
+                ? presenceService.isSessionActive(id, sessionId)
+                : loginLeases.active(role, id, sessionId, credential(role, id)));
         if (!active) loginLeases.drain(role, id, sessionId);
         return active;
     }
 
-    public boolean renew(com.remotecontrol.api.dto.common.UserPrincipal user) {
+    public boolean renew(UserPrincipal user) {
         return loginLeases.renew(user.getRole(), user.getId(), user.getSessionId(), credential(user.getRole(), user.getId()));
     }
 
-    public void logout(com.remotecontrol.api.dto.common.UserPrincipal user) {
+    public void logout(UserPrincipal user) {
         loginLeases.release(user.getRole(), user.getId(), user.getSessionId(), credential(user.getRole(), user.getId()));
         if ("CHILD".equals(user.getRole())) childRepository.findById(Long.valueOf(user.getId())).ifPresent(child ->
                 presenceService.closeSession(child.getOwner().getId(), user.getSessionId()));
