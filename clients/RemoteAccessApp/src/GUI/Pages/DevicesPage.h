@@ -6,6 +6,8 @@
 #include "Domain/Model/DeviceInfo.h"
 
 class FlowLayout;
+class EmptyStateWidget;
+class QScrollArea;
 class QWidget;
 
 class DevicesPage : public QWidget
@@ -29,6 +31,8 @@ private:
     void setupUi();
     void renderDevices();
 
+    EmptyStateWidget *m_emptyState = nullptr;
+    QScrollArea *m_scrollArea = nullptr;
     FlowLayout *m_flowLayout;
     QWidget *m_scrollContent;
     class QLabel *m_refreshStatus;

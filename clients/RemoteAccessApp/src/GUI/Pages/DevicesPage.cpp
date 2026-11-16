@@ -56,6 +56,7 @@ void DevicesPage::setupUi()
     mainLayout->addWidget(m_sessionStatus);
 
     QScrollArea *scrollArea = new QScrollArea(this);
+    m_scrollArea = scrollArea;
     scrollArea->setProperty("role", "scrollArea");
     scrollArea->setWidgetResizable(true);
 
@@ -67,6 +68,14 @@ void DevicesPage::setupUi()
 
     scrollArea->setWidget(m_scrollContent);
     mainLayout->addWidget(scrollArea, 1);
+    m_emptyState = new EmptyStateWidget("Chưa có thiết bị nào",
+        "Hiện tại chưa có máy con nào kết nối đến hệ thống.", "Làm mới", this);
+    connect(m_emptyState, &EmptyStateWidget::actionClicked, this, [this] {
+        if (m_allDevices.isEmpty()) emit refreshRequested();
+        else emit clearSearchRequested();
+    });
+    mainLayout->addWidget(m_emptyState, 1);
+    m_emptyState->hide();
 }
 
 void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
@@ -97,15 +106,11 @@ void DevicesPage::renderDevices()
     }
 
     if (m_allDevices.isEmpty()) {
-        EmptyStateWidget *emptyState = new EmptyStateWidget(
-            "Chưa có thiết bị nào",
-            "Hiện tại chưa có máy con nào kết nối đến hệ thống.",
-            "Làm mới",
-            m_scrollContent
-        );
-        connect(emptyState, &EmptyStateWidget::actionClicked,
-                this, &DevicesPage::refreshRequested);
-        m_flowLayout->addWidget(emptyState);
+        m_emptyState->setTitle("Chưa có thiết bị nào");
+        m_emptyState->setDescription("Hiện tại chưa có máy con nào kết nối đến hệ thống.");
+        m_emptyState->setActionText("Làm mới");
+        m_scrollArea->hide();
+        m_emptyState->show();
         return;
     }
 
@@ -123,12 +128,12 @@ void DevicesPage::renderDevices()
         ++matches;
     }
     if (matches == 0) {
-        auto *emptyState = new EmptyStateWidget("Không tìm thấy thiết bị",
-            "Thử từ khóa khác hoặc xóa ô tìm kiếm.", "Xóa tìm kiếm", m_scrollContent);
-        connect(emptyState, &EmptyStateWidget::actionClicked,
-                this, &DevicesPage::clearSearchRequested);
-        m_flowLayout->addWidget(emptyState);
+        m_emptyState->setTitle("Không tìm thấy thiết bị");
+        m_emptyState->setDescription("Thử từ khóa khác hoặc xóa ô tìm kiếm.");
+        m_emptyState->setActionText("Xóa tìm kiếm");
     }
+    m_emptyState->setVisible(matches == 0);
+    m_scrollArea->setVisible(matches != 0);
 
     qDebug() << "[DevicesPage] Rendered" << matches << "of" << m_allDevices.size() << "devices.";
 }

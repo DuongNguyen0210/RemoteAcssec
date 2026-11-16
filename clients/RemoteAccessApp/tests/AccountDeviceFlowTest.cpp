@@ -33,6 +33,7 @@
 #include "GUI/Windows/MainWindow.h"
 #include "GUI/Pages/AccountPage.h"
 #include "GUI/Pages/DevicesPage.h"
+#include "GUI/Components/SidebarWidget.h"
 #include "GUI/Pages/LogsPage.h"
 #include "GUI/Components/DeviceCardWidget.h"
 #include "Network/Protocol/RelayAuthPayload.h"
@@ -50,6 +51,26 @@ private slots:
         QFile stylesheet(":/styles/Resources/styles/main.qss");
         QVERIFY(stylesheet.open(QIODevice::ReadOnly));
         qApp->setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
+    }
+    void emptyDevicesAreCenteredAndSidebarHasNoNewConnectionButton() {
+        SidebarWidget sidebar;
+        QVERIFY(!sidebar.findChild<QPushButton *>("newConnButton"));
+        DevicesPage page;
+        page.resize(900, 650);
+        page.updateDeviceList({});
+        page.show();
+        QCoreApplication::processEvents();
+        auto *title = page.findChild<QLabel *>("emptyStateTitle");
+        QVERIFY(title && title->isVisible());
+        const auto center = title->mapTo(&page, title->rect().center());
+        QVERIFY(qAbs(center.x() - page.rect().center().x()) <= 2);
+        auto *state = title->parentWidget();
+        QVERIFY(qAbs(center.y() - state->mapTo(&page, state->rect().center()).y()) < 65);
+        QSignalSpy refresh(&page, &DevicesPage::refreshRequested);
+        page.findChild<QPushButton *>("emptyStateActionBtn")->click();
+        QCOMPARE(refresh.count(), 1);
+        const auto dir = qEnvironmentVariable("TEST_SCREENSHOT_DIR");
+        if (!dir.isEmpty()) page.grab().save(dir + "/devices-centered.png");
     }
     void settingsExposeOnlyUsefulAccountControls() {
         SettingsPage page;
