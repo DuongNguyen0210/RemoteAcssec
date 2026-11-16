@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <QTimer>
 #include <QBuffer>
 #include <QUrl>
 #include <QScopeGuard>
@@ -74,6 +75,32 @@ class AdminScreenViewerTest : public QObject {
                 && reply->error() == QNetworkReply::NoError;
     }
 private slots:
+    void viewerReportsDelayedFramesAndRecovers() {
+        RemoteDesktopWindow viewer(42, QStringLiteral("CHILD"));
+        auto *status = viewer.findChild<QLabel *>("remoteFrameStatus");
+        auto *watchdog = viewer.findChild<QTimer *>("frameWatchdog");
+        auto *screen = viewer.findChild<RemoteScreenWidget *>();
+        QVERIFY(status && watchdog && screen);
+        QVERIFY(status->text().contains(QStringLiteral("Đang chờ hình ảnh")));
+        QCOMPARE(watchdog->interval(), 5000);
+        watchdog->setInterval(80);
+        QTRY_VERIFY(status->text().contains(QStringLiteral("Chưa nhận được hình ảnh")));
+
+        QImage frame(32, 24, QImage::Format_RGB32);
+        frame.fill(Qt::white);
+        viewer.updateFrame(frame);
+        QVERIFY(status->text().contains(QStringLiteral("Đang truyền trực tiếp")));
+        QTRY_VERIFY(status->text().contains(QStringLiteral("Hình ảnh chưa cập nhật")));
+        QCOMPARE(screen->frameResolution(), frame.size());
+        viewer.updateFrame({});
+        QVERIFY(status->text().contains(QStringLiteral("Hình ảnh chưa cập nhật")));
+
+        viewer.updateFrame(frame);
+        QVERIFY(status->text().contains(QStringLiteral("Đang truyền trực tiếp")));
+        viewer.closeForSessionEnd();
+        QVERIFY(!watchdog->isActive());
+    }
+
     void loopbackRelayDeliversSyntheticFrame() {
         if (!qEnvironmentVariableIsSet("PBL4_FRAME_SMOKE"))
             QSKIP("Requires an isolated Management API and Relay.");

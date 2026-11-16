@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QCloseEvent>
 #include <QIcon>
+#include <QTimer>
 
 RemoteDesktopWindow::RemoteDesktopWindow(quint64 sessionId, const QString &targetName, QWidget *parent)
     : QMainWindow(parent)
@@ -12,6 +13,18 @@ RemoteDesktopWindow::RemoteDesktopWindow(quint64 sessionId, const QString &targe
     , m_targetName(targetName)
 {
     setupUi();
+    updateFrameStatus();
+
+    m_frameTimer = new QTimer(this);
+    m_frameTimer->setObjectName("frameWatchdog");
+    m_frameTimer->setSingleShot(true);
+    m_frameTimer->setInterval(5000);
+    connect(m_frameTimer, &QTimer::timeout, this, [this] {
+        m_frameState = FrameState::Delayed;
+        m_lastFps = 0;
+        updateFrameStatus();
+    });
+    m_frameTimer->start();
 }
 
 void RemoteDesktopWindow::setupUi()
@@ -50,8 +63,8 @@ void RemoteDesktopWindow::setupUi()
     m_lblTitle->setText(QStringLiteral("🖥️ %1").arg(m_targetName.isEmpty() ? QStringLiteral("Remote Device") : m_targetName));
 
     m_lblStats = new QLabel(headerWidget);
+    m_lblStats->setObjectName("remoteFrameStatus");
     m_lblStats->setStyleSheet(QStringLiteral("color: #9aa2a9; font-size: 13px;"));
-    m_lblStats->setText(QStringLiteral("Phiên: #%1 | Đang kết nối...").arg(m_sessionId));
 
     m_btnDisconnect = new QPushButton(headerWidget);
     m_btnDisconnect->setProperty("role", "dangerActionButton");
@@ -77,9 +90,15 @@ void RemoteDesktopWindow::setupUi()
 
 void RemoteDesktopWindow::updateFrame(const QImage &image)
 {
-    if (m_screenWidget) {
-        m_screenWidget->updateFrame(image);
-    }
+    if (image.isNull() || m_disconnectEmitted)
+        return;
+
+    const bool wasLive = m_frameState == FrameState::Live;
+    m_frameState = FrameState::Live;
+    m_frameTimer->start();
+    m_screenWidget->updateFrame(image);
+    if (!wasLive)
+        updateFrameStatus();
 }
 
 void RemoteDesktopWindow::setSessionInfo(quint64 sessionId, const QString &targetName)
@@ -89,7 +108,24 @@ void RemoteDesktopWindow::setSessionInfo(quint64 sessionId, const QString &targe
     if (m_lblTitle) {
         m_lblTitle->setText(QStringLiteral("🖥️ %1").arg(m_targetName));
     }
-    updateStatus(QStringLiteral("Đang hoạt động"));
+    updateFrameStatus();
+}
+
+void RemoteDesktopWindow::updateFrameStatus()
+{
+    switch (m_frameState) {
+    case FrameState::Waiting:
+        updateStatus(QStringLiteral("Đang chờ hình ảnh"));
+        break;
+    case FrameState::Live:
+        updateStatus(QStringLiteral("Đang truyền trực tiếp"));
+        break;
+    case FrameState::Delayed:
+        updateStatus(m_lastResolution.isEmpty()
+            ? QStringLiteral("Chưa nhận được hình ảnh")
+            : QStringLiteral("Hình ảnh chưa cập nhật"));
+        break;
+    }
 }
 
 void RemoteDesktopWindow::updateStatus(const QString &statusText)
@@ -112,13 +148,13 @@ void RemoteDesktopWindow::updateStatus(const QString &statusText)
 void RemoteDesktopWindow::onFpsUpdated(int fps)
 {
     m_lastFps = fps;
-    updateStatus(QStringLiteral("Đang truyền trực tiếp"));
+    updateFrameStatus();
 }
 
 void RemoteDesktopWindow::onResolutionChanged(const QSize &res)
 {
     m_lastResolution = res;
-    updateStatus(QStringLiteral("Đang truyền trực tiếp"));
+    updateFrameStatus();
 }
 
 void RemoteDesktopWindow::onDisconnectClicked()
@@ -128,6 +164,7 @@ void RemoteDesktopWindow::onDisconnectClicked()
 
 void RemoteDesktopWindow::closeEvent(QCloseEvent *event)
 {
+    m_frameTimer->stop();
     m_inCloseEvent = true;
     if (!m_disconnectEmitted) {
         m_disconnectEmitted = true;
