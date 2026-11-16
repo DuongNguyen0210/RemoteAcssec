@@ -9,12 +9,14 @@
 #include <QVector>
 #include <QImage>
 #include <QElapsedTimer>
+#include "Network/Relay/RelayEndpoint.h"
 
 #include "Network/Protocol/RdtpStreamParser.h"
 #include "Network/Protocol/ScreenFrameReassembler.h"
 #include <QAbstractSocket>
 
 class RelayClient;
+class RelayEndpointProvider;
 
 class AdminSessionController : public QObject
 {
@@ -51,6 +53,9 @@ private:
     static bool isFatalTransportError(QAbstractSocket::SocketError socketError);
 
     RelayClient *m_relayClient;
+    RelayEndpointProvider *m_endpointProvider;
+    RelayEndpoint m_relayEndpoint;
+    quint64 m_requestGeneration = 0;
     Protocol::RdtpStreamParser m_streamParser;
     Protocol::ScreenFrameReassembler m_frameReassembler;
     quint64 m_generation = 0;
@@ -61,7 +66,6 @@ private:
     QString m_pendingAgentSessionId;
     quint64 m_activeSessionId;
     bool m_connected;
-    bool m_connecting;
     bool m_requestPending;
 };
 
