@@ -7,7 +7,6 @@
 
 #include "ScreenCapture.h"
 
-class RelayClient;
 class ChildSessionController;
 
 class ScreenStreamSender : public QObject
@@ -30,7 +29,7 @@ private slots:
 
 private:
     QTimer      *m_timer;
-    RelayClient *m_relayClient;
+    ChildSessionController *m_session;
     uint32_t     m_frameId;
     uint64_t     m_currentSessionId;
     ScreenCapture m_capture;

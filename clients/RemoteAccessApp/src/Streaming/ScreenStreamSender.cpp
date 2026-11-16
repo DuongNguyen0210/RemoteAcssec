@@ -3,7 +3,6 @@
 
 #include "ScreenCapture.h"
 #include "ScreenEncoder.h"
-#include "Network/Relay/RelayClient.h"
 #include "Network/Protocol/ScreenFramePacketizer.h"
 
 #include <QDebug>
@@ -11,7 +10,7 @@
 ScreenStreamSender::ScreenStreamSender(ChildSessionController *session, QObject *parent)
     : QObject(parent)
     , m_timer(new QTimer(this))
-    , m_relayClient(session->relayClient())
+    , m_session(session)
     , m_frameId(1)
     , m_currentSessionId(0)
 {
@@ -34,7 +33,7 @@ void ScreenStreamSender::onTick()
     if (m_currentSessionId == 0)
         return;
 
-    const qint64 pending = m_relayClient->pendingBytes();
+    const qint64 pending = m_session->pendingBytes();
     if (pending >= MAX_PENDING_BYTES) {
         return;
     }
@@ -63,9 +62,9 @@ void ScreenStreamSender::onTick()
     emit frameCaptured(encoded.size);
 
     for (const QByteArray &pkt : packets) {
-        const qint64 written = m_relayClient->sendRawPacket(pkt);
+        const qint64 written = m_session->sendScreenPacket(pkt);
         if (written < 0) {
-            qWarning() << "[ScreenStreamSender] sendRawPacket failed (not connected?)."
+            qWarning() << "[ScreenStreamSender] Session rejected the screen packet."
                        << "Aborting frame" << m_frameId;
             return;
         }
