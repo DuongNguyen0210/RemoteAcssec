@@ -59,16 +59,23 @@ void LoginWindow::setupUi()
     mainLayout->addWidget(loginBox);
 
     connect(loginButton, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
+    connect(usernameInput, &QLineEdit::returnPressed, this, &LoginWindow::onLoginClicked);
+    connect(passwordInput, &QLineEdit::returnPressed, this, &LoginWindow::onLoginClicked);
 }
 
 void LoginWindow::showError(const QString &errorMessage)
 {
+    loginButton->setEnabled(true);
+    loginButton->setText("Đăng nhập");
     errorLabel->setText(errorMessage);
     errorLabel->show();
 }
 
 void LoginWindow::onLoginClicked()
 {
+    if (!loginButton->isEnabled()) return;
+    loginButton->setEnabled(false);
+    loginButton->setText("Đang đăng nhập…");
     errorLabel->hide();
 
     QString username = usernameInput->text();

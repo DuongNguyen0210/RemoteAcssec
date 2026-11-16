@@ -1,4 +1,5 @@
 #include <QtTest>
+#include "GUI/Windows/LoginWindow.h"
 #include <QTcpServer>
 #include <QScopeGuard>
 #include <QSettings>
@@ -71,6 +72,27 @@ private slots:
         QCOMPARE(refresh.count(), 1);
         const auto dir = qEnvironmentVariable("TEST_SCREENSHOT_DIR");
         if (!dir.isEmpty()) page.grab().save(dir + "/devices-centered.png");
+    }
+    void enterSubmitsLoginFromBothFieldsWithoutDuplicateRequests() {
+        LoginWindow window;
+        auto *username = window.findChild<QLineEdit *>("usernameInput");
+        auto *password = window.findChild<QLineEdit *>("passwordInput");
+        auto *button = window.findChild<QPushButton *>("loginButton");
+        QVERIFY(username && password && button);
+        username->setText("admin");
+        password->setText("example-password");
+        QSignalSpy requests(&window, &LoginWindow::loginRequested);
+        QTest::keyClick(username, Qt::Key_Return);
+        QCOMPARE(requests.count(), 1);
+        QCOMPARE(requests.first().at(0).toString(), QString("admin"));
+        QCOMPARE(requests.first().at(1).toString(), QString("example-password"));
+        QTest::keyClick(password, Qt::Key_Return);
+        button->click();
+        QCOMPARE(requests.count(), 1);
+        window.showError("Sai mật khẩu");
+        QVERIFY(button->isEnabled());
+        QTest::keyClick(password, Qt::Key_Enter);
+        QCOMPARE(requests.count(), 2);
     }
     void settingsExposeOnlyUsefulAccountControls() {
         SettingsPage page;
