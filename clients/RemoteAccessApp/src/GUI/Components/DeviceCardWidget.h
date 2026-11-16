@@ -5,6 +5,8 @@
 #include <QString>
 #include "Domain/Model/DeviceInfo.h"
 
+class QPushButton;
+
 class DeviceCardWidget : public QWidget
 {
     Q_OBJECT
@@ -15,11 +17,14 @@ public:
                               const QString &status, const QString &account,
                               QWidget *parent = nullptr);
 
+    void setPendingConnection(const QString &targetSessionId);
+
 signals:
     void connectRequested(const QString &agentSessionId);
 
 private:
     QString m_agentSessionId;
+    QPushButton *m_connectButton;
 };
 
 #endif
