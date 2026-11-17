@@ -122,6 +122,10 @@ private slots:
         qputenv("REMOTE_RELAY_PORT", QByteArray::number(port));
         StaticRelayEndpointProvider provider;
         ChildSessionController child(&provider);
+        if (qEnvironmentVariable("REMOTE_RELAY_MODE") == "dynamic") {
+            qunsetenv("REMOTE_RELAY_HOST");
+            qunsetenv("REMOTE_RELAY_PORT");
+        }
         AdminSessionController admin;
         QSignalSpy childStarted(&child, &ChildSessionController::sessionStarted);
         QSignalSpy childEnded(&child, &ChildSessionController::sessionEnded);

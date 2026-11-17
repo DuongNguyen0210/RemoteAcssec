@@ -1,6 +1,10 @@
 #include "AdminSessionController.h"
 
 #include "Network/Relay/RelayClient.h"
+#include "Network/Relay/DynamicRelayEndpointProvider.h"
+#include "Network/Relay/StaticRelayEndpointProvider.h"
+#include <QPointer>
+#include <QSignalBlocker>
 #include "Network/Protocol/ProtocolSerializer.h"
 #include "Network/Protocol/ScreenFramePacketizer.h"
 
@@ -16,19 +20,14 @@
 #include "Network/Protocol/RelayAuthPayload.h"
 
 
-namespace {
-
-const QString RELAY_HOST = QStringLiteral("localhost");
-constexpr quint16 RELAY_PORT = 8080;
-
-}
-
 AdminSessionController::AdminSessionController(QObject *parent)
     : QObject(parent)
     , m_relayClient(new RelayClient(this))
+    , m_endpointProvider(qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
+            ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider(this))
+            : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider(this)))
     , m_activeSessionId(0)
     , m_connected(false)
-    , m_connecting(false)
     , m_requestPending(false)
 {
     auto *pruneTimer = new QTimer(this);
@@ -59,16 +58,34 @@ void AdminSessionController::requestSession(const QString &targetAgentSessionId)
     m_pendingAgentSessionId = targetAgentSessionId;
     m_requestPending = true;
 
-    if (m_connected) {
-        sendConnectRequest();
-        return;
-    }
+    const auto generation = ++m_requestGeneration;
+    QTimer::singleShot(12000, this, [this, generation] {
+        if (m_requestPending && m_requestGeneration == generation)
+            handleFatalRelayTermination(QStringLiteral("Hết thời gian chờ kết nối Relay."));
+    });
 
-    if (!m_connecting) {
-        m_connecting = true;
-        m_relayClient->ConnectToServer(qEnvironmentVariable("REMOTE_RELAY_HOST", RELAY_HOST),
-                static_cast<quint16>(qEnvironmentVariable("REMOTE_RELAY_PORT", QString::number(RELAY_PORT)).toUShort()));
-    }
+    QPointer<AdminSessionController> self(this);
+    m_endpointProvider->lookup(targetAgentSessionId, [self, generation](const RelayEndpoint &endpoint,
+                                                                       const QString &error) {
+        if (!self || !self->m_requestPending || self->m_requestGeneration != generation)
+            return;
+        if (!error.isEmpty() || !endpoint.isValid()) {
+            self->failPendingRequest(error.isEmpty() ? QStringLiteral("Relay của thiết bị không khả dụng.") : error);
+            return;
+        }
+        if (self->m_connected && self->m_relayEndpoint.sameAddress(endpoint)) {
+            self->sendConnectRequest();
+            return;
+        }
+
+        {
+            const QSignalBlocker blocker(self->m_relayClient);
+            self->m_relayClient->DisconnectFromServer();
+        }
+        self->m_connected = false;
+        self->m_relayEndpoint = endpoint;
+        self->m_relayClient->ConnectToServer(endpoint.host, endpoint.port);
+    });
 }
 
 void AdminSessionController::disconnectSession()
@@ -92,7 +109,6 @@ void AdminSessionController::disconnectSession()
 void AdminSessionController::onRelayConnected()
 {
     m_connected = true;
-    m_connecting = false;
     m_streamParser = Protocol::RdtpStreamParser{};
     resetFrames();
 
@@ -266,7 +282,7 @@ void AdminSessionController::handleFatalRelayTermination(const QString &reason)
     m_activeAgentSessionId.clear();
     m_pendingAgentSessionId.clear();
     m_activeSessionId = 0;
-    m_connected = m_connecting = m_requestPending = false;
+    m_connected = m_requestPending = false;
 
     m_relayClient->DisconnectFromServer();
 
