@@ -24,7 +24,7 @@ ChildSharingWindow::ChildSharingWindow(QWidget *parent)
     layout->addWidget(m_toggle, 0, Qt::AlignLeft);
 
     connect(m_toggle, &QPushButton::clicked, this, [this] {
-        if (m_state == State::Paused) {
+        if (m_state == State::Off || m_state == State::Paused) {
             m_state = State::Ready;
             updateControls();
             emit sharingEnabledChanged(true);
@@ -78,20 +78,25 @@ void ChildSharingWindow::closeEvent(QCloseEvent *event)
 void ChildSharingWindow::updateControls()
 {
     switch (m_state) {
+    case State::Off:
+        m_status->setText(QStringLiteral("Chia sẻ đang tắt. Bấm Bật chia sẻ để cho phép ADMIN kết nối."));
+        m_toggle->setText(QStringLiteral("Bật chia sẻ"));
+        break;
     case State::Ready:
         m_status->setText(QStringLiteral("Chưa chia sẻ màn hình."));
+        m_toggle->setText(QStringLiteral("Dừng chia sẻ"));
         break;
     case State::Sharing:
         m_status->setText(QStringLiteral("Màn hình đang được chia sẻ."));
+        m_toggle->setText(QStringLiteral("Dừng chia sẻ"));
         break;
     case State::Paused:
         m_status->setText(QStringLiteral("Đã dừng chia sẻ màn hình."));
+        m_toggle->setText(QStringLiteral("Bật lại chia sẻ"));
         break;
     case State::SignedOut:
         m_status->setText(QStringLiteral("Phiên đăng nhập đã hết hạn. Hãy mở lại ứng dụng để đăng nhập."));
         break;
     }
-    m_toggle->setText(m_state == State::Paused ? QStringLiteral("Bật lại chia sẻ")
-                                              : QStringLiteral("Dừng chia sẻ"));
     m_toggle->setEnabled(m_state != State::SignedOut);
 }

@@ -125,7 +125,6 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                     session->stop();
             });
             m_childSharingWindow->show();
-            session->start();
         }
     }
 

@@ -21,9 +21,9 @@
 #include "GUI/Windows/ChildSharingWindow.h"
 #include "GUI/Components/RemoteScreenWidget.h"
 #include "Network/Http/ApiClient.h"
+#include "Network/Http/HeartbeatReporter.h"
 #include "Network/Protocol/ScreenFramePacketizer.h"
 #include "Network/Relay/RelayClient.h"
-#include "Network/Relay/StaticRelayEndpointProvider.h"
 
 class AdminScreenViewerTest : public QObject {
     Q_OBJECT
@@ -82,6 +82,14 @@ private slots:
         auto *status = window.findChild<QLabel *>("childSharingStatus");
         QVERIFY(toggle && status);
         QSignalSpy availability(&window, &ChildSharingWindow::sharingEnabledChanged);
+
+        QCOMPARE(toggle->text(), QStringLiteral("Bật chia sẻ"));
+        window.sessionStarted();
+        QVERIFY(status->text().startsWith(QStringLiteral("Chia sẻ đang tắt.")));
+        QCOMPARE(availability.count(), 0);
+        toggle->click();
+        QCOMPARE(availability.count(), 1);
+        QCOMPARE(availability.takeFirst().first().toBool(), true);
 
         window.sessionStarted();
         QCOMPARE(status->text(), QStringLiteral("Màn hình đang được chia sẻ."));
@@ -201,8 +209,30 @@ private slots:
         QVERIFY(port > 0 && port <= 65535);
         qputenv("REMOTE_RELAY_HOST", "127.0.0.1");
         qputenv("REMOTE_RELAY_PORT", QByteArray::number(port));
-        StaticRelayEndpointProvider provider;
-        ChildSessionController child(&provider);
+        AppCoordinator childApp;
+        QVERIFY(QMetaObject::invokeMethod(&childApp, "handleLoginSuccess", Qt::DirectConnection,
+                Q_ARG(QString, QStringLiteral("CHILD")), Q_ARG(QString, childUsername)));
+        auto *childSession = childApp.findChild<ChildSessionController *>();
+        auto *heartbeatReporter = childApp.findChild<HeartbeatReporter *>();
+        auto *sender = childApp.findChild<ScreenStreamSender *>();
+        QVERIFY(childSession && heartbeatReporter && sender);
+        auto &child = *childSession;
+        // The test shares an ApiClient between roles and sends deterministic JPEGs.
+        heartbeatReporter->stop();
+        auto *captureTimer = sender->findChild<QTimer *>();
+        QVERIFY(captureTimer);
+        connect(&child, &ChildSessionController::sessionStarted, sender, [captureTimer] {
+            captureTimer->stop();
+        });
+        ChildSharingWindow *childWindow = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            if (auto *candidate = qobject_cast<ChildSharingWindow *>(widget))
+                childWindow = candidate;
+        }
+        QVERIFY(childWindow);
+        auto *childToggle = childWindow->findChild<QPushButton *>("childSharingToggle");
+        QVERIFY(childToggle);
+        QCOMPARE(childToggle->text(), QStringLiteral("Bật chia sẻ"));
         if (qEnvironmentVariable("REMOTE_RELAY_MODE") == "dynamic") {
             qunsetenv("REMOTE_RELAY_HOST");
             qunsetenv("REMOTE_RELAY_PORT");
@@ -223,13 +253,20 @@ private slots:
                     registered = true;
             }
         });
-        ApiClient::instance().setToken(childToken);
-        child.start();
-        QTRY_VERIFY_WITH_TIMEOUT(registered, 8000);
         ApiClient::instance().setToken({});
         loginWithForm(adminUsername, password, QStringLiteral("ADMIN"));
         if (QTest::currentTestFailed())
             return;
+        admin.requestSession(agentId);
+        QTRY_COMPARE_WITH_TIMEOUT(adminFailed.count(), 1, 8000);
+        QCOMPARE(childStarted.count(), 0);
+        QVERIFY(!registered);
+
+        const auto adminToken = ApiClient::instance().getToken();
+        ApiClient::instance().setToken(childToken);
+        childToggle->click();
+        QTRY_VERIFY_WITH_TIMEOUT(registered, 8000);
+        ApiClient::instance().setToken(adminToken);
         admin.requestSession(agentId);
         QTRY_COMPARE_WITH_TIMEOUT(adminStarted.count(), 1, 8000);
         QCOMPARE(childStarted.count(), 1);
@@ -260,20 +297,19 @@ private slots:
         admin.requestSession(agentId);
         QTRY_COMPARE_WITH_TIMEOUT(adminStarted.count(), 2, 8000);
         QVERIFY(child.activeSessionId() != 0);
-        child.stop();
+        childToggle->click();
         QCOMPARE(childEnded.count(), 2);
         QCOMPARE(child.activeSessionId(), quint64(0));
         QTRY_COMPARE_WITH_TIMEOUT(adminEnded.count(), 2, 8000);
 
         admin.requestSession(agentId);
-        QTRY_COMPARE_WITH_TIMEOUT(adminFailed.count(), 1, 8000);
+        QTRY_COMPARE_WITH_TIMEOUT(adminFailed.count(), 2, 8000);
         QCOMPARE(adminStarted.count(), 2);
 
-        const auto adminToken = ApiClient::instance().getToken();
         ApiClient::instance().setToken(childToken);
         registered = false;
         registrationParser = Protocol::RdtpStreamParser{};
-        child.start();
+        childToggle->click();
         QTRY_VERIFY_WITH_TIMEOUT(registered, 8000);
         ApiClient::instance().setToken(adminToken);
         admin.requestSession(agentId);
