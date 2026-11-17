@@ -66,6 +66,8 @@ private:
     void scheduleReconnect();
     void abortReply();
 
+    int m_reconnectDelay = DEFAULT_RECONNECT_DELAY_MS;
+    static constexpr int MAX_BUFFER_BYTES = 1024 * 1024;
     QString        m_endpoint;
     QPointer<QNetworkReply> m_reply;
     QTimer        *m_reconnectTimer = nullptr;
