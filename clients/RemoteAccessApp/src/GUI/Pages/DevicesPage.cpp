@@ -48,6 +48,12 @@ void DevicesPage::setupUi()
     m_refreshStatus->setProperty("role", "metaLabel");
     mainLayout->addWidget(m_refreshStatus);
 
+    m_liveStatus = new QLabel(QStringLiteral("Đang chờ cập nhật trực tiếp…"), this);
+    m_liveStatus->setObjectName("deviceLiveStatus");
+    m_liveStatus->setProperty("role", "metaLabel");
+    m_liveStatus->setWordWrap(true);
+    mainLayout->addWidget(m_liveStatus);
+
     m_connectionStatus = new QLabel(this);
     m_connectionStatus->setObjectName("connectionStatus");
     m_connectionStatus->setTextFormat(Qt::PlainText);
@@ -112,6 +118,13 @@ void DevicesPage::updateDeviceList(const QList<DeviceInfo> &devices)
     }
 
     qDebug() << "[DevicesPage] Rendered" << devices.size() << "devices.";
+}
+
+void DevicesPage::setLiveUpdatesAvailable(bool available)
+{
+    m_liveStatus->setText(available
+        ? QStringLiteral("Đang cập nhật trực tiếp.")
+        : QStringLiteral("Mất cập nhật trực tiếp. Bạn có thể bấm Làm mới để kiểm tra danh sách."));
 }
 
 void DevicesPage::finishConnectionRequest(const QString &error)

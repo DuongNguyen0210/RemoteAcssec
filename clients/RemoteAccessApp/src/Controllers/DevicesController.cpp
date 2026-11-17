@@ -21,6 +21,8 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
     connect(m_view, &DevicesPage::refreshRequested,
             this, &DevicesController::refresh);
 
+    connect(m_deviceService, &DeviceService::liveUpdatesAvailable,
+            m_view, &DevicesPage::setLiveUpdatesAvailable);
     connect(m_deviceService, &DeviceService::devicesResult, this,
             [this](bool success, const QList<DeviceInfo>& devices, const QString& message) {
         if (success) m_store->replaceDevices(devices);

@@ -38,6 +38,9 @@ DeviceService::DeviceService(QObject *parent)
     : QObject(parent)
     , m_sseClient(new SseClient(QStringLiteral("/api/v1/devices/events"), this))
 {
+    connect(m_sseClient, &SseClient::disconnected, this, [this] {
+        emit liveUpdatesAvailable(false);
+    });
     // Listen to generic SSE events and parse only "device-list" payloads
     connect(m_sseClient, &SseClient::eventReceived, this, [this](const QString &event, const QByteArray &data) {
         if (event == QLatin1String("device-list")) {
@@ -51,6 +54,7 @@ DeviceService::DeviceService(QObject *parent)
             qDebug() << "[DeviceService] Received SSE device list update:" << devices.size() << "devices";
             ++m_liveSnapshotRevision;
             emit devicesResult(true, devices, QStringLiteral("SSE update"));
+            emit liveUpdatesAvailable(true);
         }
     });
 }

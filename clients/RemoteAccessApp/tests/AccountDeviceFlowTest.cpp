@@ -452,6 +452,31 @@ private slots:
         })());
         QCOMPARE(updates.count(), 1);
         QVERIFY(devices->getDevices().isEmpty());
+
+        auto *liveStatus = page->findChild<QLabel *>("deviceLiveStatus");
+        QVERIFY(liveStatus);
+        QCOMPARE(liveStatus->text(), QStringLiteral("Đang cập nhật trực tiếp."));
+        online = true;
+        emit page->refreshRequested();
+        QTRY_COMPARE(devices->getDevices().size(), 2);
+        const int streamRequestsBeforeDrop = sseRequests;
+        ssePeer->abort();
+        QTRY_VERIFY(liveStatus->text().startsWith(QStringLiteral("Mất cập nhật trực tiếp")));
+
+        QCOMPARE(devices->getDevices().size(), 2);
+        // A successful manual refresh does not hide a disconnected stream.
+        online = false;
+        emit page->refreshRequested();
+        QTRY_VERIFY(devices->getDevices().isEmpty());
+        QVERIFY(liveStatus->text().startsWith(QStringLiteral("Mất cập nhật trực tiếp")));
+
+        QTRY_COMPARE_WITH_TIMEOUT(sseRequests, streamRequestsBeforeDrop + 1, 8000);
+        QVERIFY(ssePeer);
+        QVERIFY(liveStatus->text().startsWith(QStringLiteral("Mất cập nhật trực tiếp")));
+        ssePeer->write("event: device-list\ndata: [{\"sessionId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"deviceName\":\"Laptop\"}]\n\n");
+        ssePeer->flush();
+        QTRY_COMPARE(devices->getDevices().size(), 1);
+        QCOMPARE(liveStatus->text(), QStringLiteral("Đang cập nhật trực tiếp."));
     }
 
     void relayPayloadCarriesTokenAndAgentSessionSeparately() {
