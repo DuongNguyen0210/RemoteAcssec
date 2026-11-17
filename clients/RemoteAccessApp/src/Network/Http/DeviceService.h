@@ -35,5 +35,6 @@ private:
     void receiveEndpoint(QNetworkReply *reply, RelayEndpointProvider::Callback callback);
 
     bool m_loading = false;
+    quint64 m_liveSnapshotRevision = 0;
     SseClient *m_sseClient = nullptr;
 };

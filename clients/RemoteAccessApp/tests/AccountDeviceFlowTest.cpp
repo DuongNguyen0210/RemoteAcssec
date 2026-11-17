@@ -229,6 +229,9 @@ private slots:
         bool hasAccount = true;
         bool online = true;
         bool failDevices = false;
+        bool holdDeviceReply = false;
+        QPointer<QTcpSocket> heldDeviceSocket;
+        QByteArray heldDeviceReply;
         connect(&server, &QTcpServer::newConnection, this, [&]() {
             while (auto *socket = server.nextPendingConnection()) {
                 connect(socket, &QTcpSocket::readyRead, socket, [&, socket]() {
@@ -278,7 +281,13 @@ private slots:
                     bool failed = failDevices && bytes.startsWith("GET /api/v1/devices ");
                     if (failed) body = R"({"success":false,"message":"Redis unavailable"})";
                     QByteArray status = failed ? "HTTP/1.1 503 Service Unavailable" : "HTTP/1.1 200 OK";
-                    socket->write(status + "\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                    const auto reply = status + "\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body;
+                    if (holdDeviceReply && bytes.startsWith("GET /api/v1/devices ")) {
+                        heldDeviceSocket = socket;
+                        heldDeviceReply = reply;
+                        return;
+                    }
+                    socket->write(reply);
                     socket->disconnectFromHost();
                 });
             }
@@ -415,6 +424,34 @@ private slots:
         QTRY_COMPARE(accountsRequests, 4);
         QTRY_VERIFY(window->findChild<CreateAccountDialog*>() == nullptr);
 
+        // The refresh snapshot is taken while both devices are online.
+        online = true;
+        emit page->refreshRequested();
+        QTRY_COMPARE(devices->getDevices().size(), 2);
+        holdDeviceReply = true;
+        emit page->refreshRequested();
+        QTRY_VERIFY(heldDeviceSocket);
+        QVERIFY(heldDeviceReply.contains("Laptop"));
+
+        ssePeer->write("event: device-list\ndata: []\n\n");
+        ssePeer->flush();
+        QTRY_VERIFY(devices->getDevices().isEmpty());
+
+        // Deliver the old response after the live update and verify that a new
+        // refresh can still complete without briefly restoring offline rows.
+        QSignalSpy updates(devices, &DeviceStore::devicesUpdated);
+        heldDeviceSocket->write(heldDeviceReply);
+        heldDeviceSocket->disconnectFromHost();
+        holdDeviceReply = false;
+        online = false;
+        const int requestsBeforeRetry = deviceRequests;
+        QTRY_VERIFY(([&] {
+            if (deviceRequests == requestsBeforeRetry)
+                emit page->refreshRequested();
+            return updates.count() > 0 && deviceRequests > requestsBeforeRetry;
+        })());
+        QCOMPARE(updates.count(), 1);
+        QVERIFY(devices->getDevices().isEmpty());
     }
 
     void relayPayloadCarriesTokenAndAgentSessionSeparately() {
