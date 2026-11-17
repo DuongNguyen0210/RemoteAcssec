@@ -37,6 +37,41 @@ private slots:
         QVERIFY(stylesheet.open(QIODevice::ReadOnly));
         qApp->setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
     }
+    void pendingConnectionSurvivesDeviceListRefresh() {
+        DevicesPage page;
+        DeviceInfo first, second;
+        first.sessionId = QStringLiteral("first");
+        first.deviceName = QStringLiteral("Máy thứ nhất");
+        second.sessionId = QStringLiteral("second");
+        second.deviceName = QStringLiteral("Máy thứ hai");
+        page.updateDeviceList({first, second});
+        QSignalSpy requests(&page, &DevicesPage::connectRequested);
+        auto buttons = page.findChildren<QPushButton *>("connectButton");
+        QCOMPARE(buttons.size(), 2);
+        buttons.first()->click();
+        buttons.last()->click();
+        QCOMPARE(requests.count(), 1);
+        QCOMPARE(buttons.first()->text(), QStringLiteral("Đang kết nối…"));
+        QVERIFY(!buttons.last()->isEnabled());
+
+        page.updateDeviceList({second, first});
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        buttons = page.findChildren<QPushButton *>("connectButton");
+        QCOMPARE(buttons.size(), 2);
+        QVERIFY(!buttons.first()->isEnabled());
+        QCOMPARE(buttons.last()->text(), QStringLiteral("Đang kết nối…"));
+        page.finishConnectionRequest(QStringLiteral("Relay không khả dụng."));
+        auto *status = page.findChild<QLabel *>("connectionStatus");
+        QVERIFY(status);
+        QCOMPARE(status->text(), QStringLiteral("Relay không khả dụng."));
+        buttons.last()->click();
+        QCOMPARE(requests.count(), 2);
+        QCOMPARE(requests.last().first().toString(), first.sessionId);
+        page.finishConnectionRequest();
+        QVERIFY(status->isHidden());
+        QVERIFY(buttons.first()->isEnabled());
+    }
+
     void logsPageShowsUnavailableStateWithoutDemoRecords() {
         LogsPage page;
         auto *state = page.findChild<QLabel *>("emptyStateTitle");
