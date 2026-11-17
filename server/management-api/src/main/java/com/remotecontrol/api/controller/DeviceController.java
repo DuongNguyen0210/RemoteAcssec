@@ -53,8 +53,8 @@ public class DeviceController {
      * Server-Sent Events endpoint for real-time device presence updates.
      * <p>
      * The client opens a persistent HTTP connection; the server pushes a
-     * {@code device-list} event whenever a child device comes online or goes
-     * offline.  An initial snapshot is sent immediately on connect so the
+     * {@code device-list} event when periodic reconciliation detects a change.
+     * An initial snapshot is sent immediately on connect so the
      * client does not need a separate REST fetch on startup.
      * </p>
      * <p>
@@ -70,21 +70,16 @@ public class DeviceController {
         Long ownerId = Long.valueOf(principal.getId());
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
-        // Register before sending the initial snapshot to avoid a race where
-        // a heartbeat fires between the snapshot fetch and registration.
-        sseNotifier.register(ownerId, emitter);
-
-        // Send current snapshot immediately so the client has up-to-date data
-        // right after connecting (no extra REST call needed).
+        List<DeviceDto> snapshot = deviceService.getDevices(principal);
         try {
-            List<DeviceDto> snapshot = deviceService.getDevices(principal);
             String json = objectMapper.writeValueAsString(snapshot);
             emitter.send(SseEmitter.event()
                     .name(SseNotifier.EVENT_DEVICE_LIST)
                     .data(json));
+            sseNotifier.register(ownerId, emitter, principal, snapshot);
         } catch (IOException e) {
             log.warn("[SSE] Failed to send initial snapshot for ownerId={}: {}", ownerId, e.getMessage());
-            // Non-fatal: the emitter stays registered; next heartbeat will push an update.
+            emitter.completeWithError(e);
         }
 
         log.info("[SSE] New connection for ownerId={} connections={}",
