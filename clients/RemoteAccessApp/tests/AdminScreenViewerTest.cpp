@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <QTimer>
 #include <QBuffer>
 #include <QUrl>
 #include <QScopeGuard>
@@ -74,6 +75,62 @@ class AdminScreenViewerTest : public QObject {
                 && reply->error() == QNetworkReply::NoError;
     }
 private slots:
+    void viewerFullScreenPreservesSessionAndFrame() {
+        RemoteDesktopWindow viewer(42, QStringLiteral("CHILD"));
+        auto *toggle = viewer.findChild<QPushButton *>("remoteFullScreenButton");
+        auto *screen = viewer.findChild<RemoteScreenWidget *>();
+        QVERIFY(toggle && screen);
+        QSignalSpy disconnects(&viewer, &RemoteDesktopWindow::disconnectRequested);
+        QImage frame(32, 24, QImage::Format_RGB32);
+        frame.fill(Qt::red);
+        viewer.updateFrame(frame);
+        viewer.show();
+
+        toggle->click();
+        QTRY_VERIFY(viewer.isFullScreen());
+        QCOMPARE(toggle->text(), QStringLiteral("Thoát toàn màn hình"));
+        toggle->click();
+        QTRY_VERIFY(!viewer.isFullScreen());
+        QVERIFY(!viewer.isMaximized());
+        QCOMPARE(toggle->text(), QStringLiteral("Toàn màn hình"));
+
+        viewer.showMaximized();
+        toggle->click();
+        QTRY_VERIFY(viewer.isFullScreen());
+        toggle->click();
+        QTRY_VERIFY(viewer.isMaximized() && !viewer.isFullScreen());
+        QCOMPARE(screen->frameResolution(), frame.size());
+        QCOMPARE(disconnects.count(), 0);
+        viewer.close();
+        QCOMPARE(disconnects.count(), 1);
+    }
+
+    void viewerReportsDelayedFramesAndRecovers() {
+        RemoteDesktopWindow viewer(42, QStringLiteral("CHILD"));
+        auto *status = viewer.findChild<QLabel *>("remoteFrameStatus");
+        auto *watchdog = viewer.findChild<QTimer *>("frameWatchdog");
+        auto *screen = viewer.findChild<RemoteScreenWidget *>();
+        QVERIFY(status && watchdog && screen);
+        QVERIFY(status->text().contains(QStringLiteral("Đang chờ hình ảnh")));
+        QCOMPARE(watchdog->interval(), 5000);
+        watchdog->setInterval(80);
+        QTRY_VERIFY(status->text().contains(QStringLiteral("Chưa nhận được hình ảnh")));
+
+        QImage frame(32, 24, QImage::Format_RGB32);
+        frame.fill(Qt::white);
+        viewer.updateFrame(frame);
+        QVERIFY(status->text().contains(QStringLiteral("Đang truyền trực tiếp")));
+        QTRY_VERIFY(status->text().contains(QStringLiteral("Hình ảnh chưa cập nhật")));
+        QCOMPARE(screen->frameResolution(), frame.size());
+        viewer.updateFrame({});
+        QVERIFY(status->text().contains(QStringLiteral("Hình ảnh chưa cập nhật")));
+
+        viewer.updateFrame(frame);
+        QVERIFY(status->text().contains(QStringLiteral("Đang truyền trực tiếp")));
+        viewer.closeForSessionEnd();
+        QVERIFY(!watchdog->isActive());
+    }
+
     void loopbackRelayDeliversSyntheticFrame() {
         if (!qEnvironmentVariableIsSet("PBL4_FRAME_SMOKE"))
             QSKIP("Requires an isolated Management API and Relay.");
@@ -122,6 +179,10 @@ private slots:
         qputenv("REMOTE_RELAY_PORT", QByteArray::number(port));
         StaticRelayEndpointProvider provider;
         ChildSessionController child(&provider);
+        if (qEnvironmentVariable("REMOTE_RELAY_MODE") == "dynamic") {
+            qunsetenv("REMOTE_RELAY_HOST");
+            qunsetenv("REMOTE_RELAY_PORT");
+        }
         AdminSessionController admin;
         QSignalSpy childStarted(&child, &ChildSessionController::sessionStarted);
         QSignalSpy childEnded(&child, &ChildSessionController::sessionEnded);
@@ -177,7 +238,7 @@ private slots:
         QSignalSpy requested(&userWindow, &RemoteDesktopWindow::disconnectRequested);
         connect(&userWindow, &RemoteDesktopWindow::disconnectRequested,
                 &userWindow, &RemoteDesktopWindow::closeForSessionEnd);
-        auto *button = userWindow.findChild<QPushButton *>(); QVERIFY(button);
+        auto *button = userWindow.findChild<QPushButton *>("remoteDisconnectButton"); QVERIFY(button);
         QTest::mouseClick(button, Qt::LeftButton);
         QCOMPARE(requested.count(), 1);
         userWindow.closeForSessionEnd();

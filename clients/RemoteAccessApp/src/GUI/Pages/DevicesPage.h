@@ -16,6 +16,8 @@ public:
 
     void updateDeviceList(const QList<DeviceInfo> &devices);
     void showError(const QString &message);
+    void setLiveUpdatesAvailable(bool available);
+    void finishConnectionRequest(const QString &error = {});
     void showSuccess(const QString &message);
 
 signals:
@@ -28,6 +30,9 @@ private:
     FlowLayout *m_flowLayout;
     QWidget *m_scrollContent;
     class QLabel *m_refreshStatus;
+    QLabel *m_liveStatus;
+    QLabel *m_connectionStatus;
+    QString m_pendingSessionId;
 };
 
 #endif

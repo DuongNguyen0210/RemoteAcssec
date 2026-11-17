@@ -21,6 +21,8 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
     connect(m_view, &DevicesPage::refreshRequested,
             this, &DevicesController::refresh);
 
+    connect(m_deviceService, &DeviceService::liveUpdatesAvailable,
+            m_view, &DevicesPage::setLiveUpdatesAvailable);
     connect(m_deviceService, &DeviceService::devicesResult, this,
             [this](bool success, const QList<DeviceInfo>& devices, const QString& message) {
         if (success) m_store->replaceDevices(devices);
@@ -49,7 +51,7 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
                 emit remoteSessionEnded();
                 if (m_view && !m_requestedDisconnect)
                 {
-                    m_view->showError(QStringLiteral("Phiên điều khiển đã kết thúc: %1").arg(reason));
+                    m_view->finishConnectionRequest(QStringLiteral("Phiên điều khiển đã kết thúc: %1").arg(reason));
                 }
             });
 
@@ -106,12 +108,13 @@ void DevicesController::onConnectRequested(const QString &agentSessionId)
 
 void DevicesController::handleSessionEstablished(quint64 remoteSessionId, const QString &agentSessionId)
 {
+    if (m_view) m_view->finishConnectionRequest();
     emit remoteSessionStarted(remoteSessionId, agentSessionId);
 }
 
 void DevicesController::handleSessionFailed(const QString &reason)
 {
     if (m_view) {
-        m_view->showError(QStringLiteral("Không thể kết nối đến máy con: %1").arg(reason));
+        m_view->finishConnectionRequest(QStringLiteral("Không thể kết nối đến máy con: %1").arg(reason));
     }
 }

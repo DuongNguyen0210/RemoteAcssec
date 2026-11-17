@@ -116,14 +116,22 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
 
     layout->addLayout(infoLayout);
 
-    QPushButton *btnConnect = new QPushButton("Kết nối", this);
-    btnConnect->setObjectName("connectButton");
-    btnConnect->setCursor(Qt::PointingHandCursor);
-    btnConnect->setFixedHeight(40);
-    connect(btnConnect, &QPushButton::clicked, this, [this]() {
+    m_connectButton = new QPushButton("Kết nối", this);
+    m_connectButton->setObjectName("connectButton");
+    m_connectButton->setCursor(Qt::PointingHandCursor);
+    m_connectButton->setFixedHeight(40);
+    connect(m_connectButton, &QPushButton::clicked, this, [this]() {
         emit connectRequested(m_agentSessionId);
     });
 
     layout->addStretch();
-    layout->addWidget(btnConnect);
+    layout->addWidget(m_connectButton);
+}
+
+void DeviceCardWidget::setPendingConnection(const QString &targetSessionId)
+{
+    const bool pending = !targetSessionId.isEmpty();
+    m_connectButton->setEnabled(!pending);
+    m_connectButton->setText(pending && m_agentSessionId == targetSessionId
+        ? QStringLiteral("Đang kết nối…") : QStringLiteral("Kết nối"));
 }

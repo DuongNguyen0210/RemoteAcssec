@@ -37,6 +37,41 @@ private slots:
         QVERIFY(stylesheet.open(QIODevice::ReadOnly));
         qApp->setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
     }
+    void pendingConnectionSurvivesDeviceListRefresh() {
+        DevicesPage page;
+        DeviceInfo first, second;
+        first.sessionId = QStringLiteral("first");
+        first.deviceName = QStringLiteral("Máy thứ nhất");
+        second.sessionId = QStringLiteral("second");
+        second.deviceName = QStringLiteral("Máy thứ hai");
+        page.updateDeviceList({first, second});
+        QSignalSpy requests(&page, &DevicesPage::connectRequested);
+        auto buttons = page.findChildren<QPushButton *>("connectButton");
+        QCOMPARE(buttons.size(), 2);
+        buttons.first()->click();
+        buttons.last()->click();
+        QCOMPARE(requests.count(), 1);
+        QCOMPARE(buttons.first()->text(), QStringLiteral("Đang kết nối…"));
+        QVERIFY(!buttons.last()->isEnabled());
+
+        page.updateDeviceList({second, first});
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        buttons = page.findChildren<QPushButton *>("connectButton");
+        QCOMPARE(buttons.size(), 2);
+        QVERIFY(!buttons.first()->isEnabled());
+        QCOMPARE(buttons.last()->text(), QStringLiteral("Đang kết nối…"));
+        page.finishConnectionRequest(QStringLiteral("Relay không khả dụng."));
+        auto *status = page.findChild<QLabel *>("connectionStatus");
+        QVERIFY(status);
+        QCOMPARE(status->text(), QStringLiteral("Relay không khả dụng."));
+        buttons.last()->click();
+        QCOMPARE(requests.count(), 2);
+        QCOMPARE(requests.last().first().toString(), first.sessionId);
+        page.finishConnectionRequest();
+        QVERIFY(status->isHidden());
+        QVERIFY(buttons.first()->isEnabled());
+    }
+
     void logsPageShowsUnavailableStateWithoutDemoRecords() {
         LogsPage page;
         auto *state = page.findChild<QLabel *>("emptyStateTitle");
@@ -194,6 +229,9 @@ private slots:
         bool hasAccount = true;
         bool online = true;
         bool failDevices = false;
+        bool holdDeviceReply = false;
+        QPointer<QTcpSocket> heldDeviceSocket;
+        QByteArray heldDeviceReply;
         connect(&server, &QTcpServer::newConnection, this, [&]() {
             while (auto *socket = server.nextPendingConnection()) {
                 connect(socket, &QTcpSocket::readyRead, socket, [&, socket]() {
@@ -243,7 +281,13 @@ private slots:
                     bool failed = failDevices && bytes.startsWith("GET /api/v1/devices ");
                     if (failed) body = R"({"success":false,"message":"Redis unavailable"})";
                     QByteArray status = failed ? "HTTP/1.1 503 Service Unavailable" : "HTTP/1.1 200 OK";
-                    socket->write(status + "\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                    const auto reply = status + "\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body;
+                    if (holdDeviceReply && bytes.startsWith("GET /api/v1/devices ")) {
+                        heldDeviceSocket = socket;
+                        heldDeviceReply = reply;
+                        return;
+                    }
+                    socket->write(reply);
                     socket->disconnectFromHost();
                 });
             }
@@ -380,6 +424,59 @@ private slots:
         QTRY_COMPARE(accountsRequests, 4);
         QTRY_VERIFY(window->findChild<CreateAccountDialog*>() == nullptr);
 
+        // The refresh snapshot is taken while both devices are online.
+        online = true;
+        emit page->refreshRequested();
+        QTRY_COMPARE(devices->getDevices().size(), 2);
+        holdDeviceReply = true;
+        emit page->refreshRequested();
+        QTRY_VERIFY(heldDeviceSocket);
+        QVERIFY(heldDeviceReply.contains("Laptop"));
+
+        ssePeer->write("event: device-list\ndata: []\n\n");
+        ssePeer->flush();
+        QTRY_VERIFY(devices->getDevices().isEmpty());
+
+        // Deliver the old response after the live update and verify that a new
+        // refresh can still complete without briefly restoring offline rows.
+        QSignalSpy updates(devices, &DeviceStore::devicesUpdated);
+        heldDeviceSocket->write(heldDeviceReply);
+        heldDeviceSocket->disconnectFromHost();
+        holdDeviceReply = false;
+        online = false;
+        const int requestsBeforeRetry = deviceRequests;
+        QTRY_VERIFY(([&] {
+            if (deviceRequests == requestsBeforeRetry)
+                emit page->refreshRequested();
+            return updates.count() > 0 && deviceRequests > requestsBeforeRetry;
+        })());
+        QCOMPARE(updates.count(), 1);
+        QVERIFY(devices->getDevices().isEmpty());
+
+        auto *liveStatus = page->findChild<QLabel *>("deviceLiveStatus");
+        QVERIFY(liveStatus);
+        QCOMPARE(liveStatus->text(), QStringLiteral("Đang cập nhật trực tiếp."));
+        online = true;
+        emit page->refreshRequested();
+        QTRY_COMPARE(devices->getDevices().size(), 2);
+        const int streamRequestsBeforeDrop = sseRequests;
+        ssePeer->abort();
+        QTRY_VERIFY(liveStatus->text().startsWith(QStringLiteral("Mất cập nhật trực tiếp")));
+
+        QCOMPARE(devices->getDevices().size(), 2);
+        // A successful manual refresh does not hide a disconnected stream.
+        online = false;
+        emit page->refreshRequested();
+        QTRY_VERIFY(devices->getDevices().isEmpty());
+        QVERIFY(liveStatus->text().startsWith(QStringLiteral("Mất cập nhật trực tiếp")));
+
+        QTRY_COMPARE_WITH_TIMEOUT(sseRequests, streamRequestsBeforeDrop + 1, 8000);
+        QVERIFY(ssePeer);
+        QVERIFY(liveStatus->text().startsWith(QStringLiteral("Mất cập nhật trực tiếp")));
+        ssePeer->write("event: device-list\ndata: [{\"sessionId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"deviceName\":\"Laptop\"}]\n\n");
+        ssePeer->flush();
+        QTRY_COMPARE(devices->getDevices().size(), 1);
+        QCOMPARE(liveStatus->text(), QStringLiteral("Đang cập nhật trực tiếp."));
     }
 
     void relayPayloadCarriesTokenAndAgentSessionSeparately() {
