@@ -1,5 +1,7 @@
 #include <QtTest>
 #include <QBuffer>
+#include <QUrl>
+#include <QScopeGuard>
 #include <QtEndian>
 #include "Network/Relay/AdminSessionController.h"
 #include "Network/Protocol/ProtocolSerializer.h"
@@ -13,8 +15,13 @@
 #include "Network/Relay/ChildSessionController.h"
 #include "Streaming/ScreenStreamSender.h"
 #include "Controllers/AppCoordinator.h"
+#include "Controllers/AuthController.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Components/RemoteScreenWidget.h"
+#include "Network/Http/ApiClient.h"
+#include "Network/Protocol/ScreenFramePacketizer.h"
+#include "Network/Relay/RelayClient.h"
+#include "Network/Relay/StaticRelayEndpointProvider.h"
 
 class AdminScreenViewerTest : public QObject {
     Q_OBJECT
@@ -39,7 +46,131 @@ class AdminScreenViewerTest : public QObject {
     void feed(AdminSessionController &c, quint64 session, quint32 id, quint32 index, quint32 count, quint32 size, const QByteArray &part) {
         c.onRelayBytesReceived(packet(session, id, index, count, size, part));
     }
+    void loginWithForm(const QString &accountName, const QString &accountPassword, const QString &role) {
+        AuthController auth;
+        QSignalSpy login(&auth, &AuthController::loginSuccess);
+        auth.start();
+        QWidget *loginWindow = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            if (widget->objectName() == QStringLiteral("loginWindow") && widget->isVisible())
+                loginWindow = widget;
+        }
+        QVERIFY(loginWindow);
+        auto *username = loginWindow->findChild<QLineEdit *>("usernameInput");
+        auto *password = loginWindow->findChild<QLineEdit *>("passwordInput");
+        auto *submit = loginWindow->findChild<QPushButton *>("loginButton");
+        QVERIFY(username && password && submit);
+        username->setText(accountName);
+        password->setText(accountPassword);
+        QTest::mouseClick(submit, Qt::LeftButton);
+        QTRY_COMPARE_WITH_TIMEOUT(login.count(), 1, 8000);
+        QCOMPARE(login.at(0).at(0).toString(), role);
+        QCOMPARE(login.at(0).at(1).toString(), accountName);
+        QVERIFY(!loginWindow->isVisible());
+    }
+    bool waitForReply(QNetworkReply *reply) {
+        QSignalSpy finished(reply, &QNetworkReply::finished);
+        return (reply->isFinished() || finished.wait(8000))
+                && reply->error() == QNetworkReply::NoError;
+    }
 private slots:
+    void loopbackRelayDeliversSyntheticFrame() {
+        if (!qEnvironmentVariableIsSet("PBL4_FRAME_SMOKE"))
+            QSKIP("Requires an isolated Management API and Relay.");
+
+        const auto adminUsername = qEnvironmentVariable("PBL4_SMOKE_ADMIN_USERNAME");
+        const auto childUsername = qEnvironmentVariable("PBL4_SMOKE_CHILD_USERNAME");
+        const auto password = qEnvironmentVariable("PBL4_SMOKE_PASSWORD");
+        const QUrl apiUrl(qEnvironmentVariable("REMOTE_API_URL"));
+        QCOMPARE(apiUrl.host(), QStringLiteral("127.0.0.1"));
+        QVERIFY(!adminUsername.isEmpty() && !childUsername.isEmpty() && !password.isEmpty());
+
+        auto &api = ApiClient::instance();
+        loginWithForm(childUsername, password, QStringLiteral("CHILD"));
+        if (QTest::currentTestFailed())
+            return;
+        const auto childToken = api.getToken();
+        QVERIFY(!childToken.isEmpty());
+        const auto logout = qScopeGuard([&] {
+            api.setToken(childToken);
+            auto *reply = api.post("/api/v1/child/logout", {});
+            waitForReply(reply);
+            reply->deleteLater();
+            api.setToken({});
+        });
+        auto *heartbeat = api.post("/api/v1/child/heartbeat",
+                                   {{"hostname", "Synthetic fixture"}, {"os", "Windows"}});
+        const bool heartbeatSent = waitForReply(heartbeat);
+        heartbeat->deleteLater();
+        QVERIFY(heartbeatSent);
+        auto *identity = api.get("/api/v1/relay/agent");
+        const bool identified = waitForReply(identity);
+        const auto agentId = QString::fromUtf8(identity->readAll()).trimmed();
+        identity->deleteLater();
+        QVERIFY(identified && !agentId.isEmpty());
+
+        auto *allocation = api.post("/api/v1/relay/allocations", {});
+        const bool allocated = waitForReply(allocation);
+        const auto relay = ApiClient::parseReply(allocation).data.toObject();
+        allocation->deleteLater();
+        QVERIFY(allocated);
+        const auto host = relay.value("host").toString();
+        QVERIFY(host == QStringLiteral("localhost") || host == QStringLiteral("127.0.0.1"));
+        const int port = relay.value("port").toInt();
+        QVERIFY(port > 0 && port <= 65535);
+        qputenv("REMOTE_RELAY_HOST", "127.0.0.1");
+        qputenv("REMOTE_RELAY_PORT", QByteArray::number(port));
+        StaticRelayEndpointProvider provider;
+        ChildSessionController child(&provider);
+        AdminSessionController admin;
+        QSignalSpy childStarted(&child, &ChildSessionController::sessionStarted);
+        QSignalSpy childEnded(&child, &ChildSessionController::sessionEnded);
+        QSignalSpy adminStarted(&admin, &AdminSessionController::sessionEstablished);
+        QSignalSpy frames(&admin, &AdminSessionController::frameReady);
+        Protocol::RdtpStreamParser registrationParser;
+        bool registered = false;
+        connect(child.relayClient(), &RelayClient::bytesReceived, &child, [&](const QByteArray &bytes) {
+            for (const auto &message : registrationParser.feed(bytes).messages) {
+                if (message.header.type == Protocol::MessageType::REGISTER_ACK
+                        && message.payload == QByteArray(1, '\1'))
+                    registered = true;
+            }
+        });
+        ApiClient::instance().setToken(childToken);
+        child.start();
+        QTRY_VERIFY_WITH_TIMEOUT(registered, 8000);
+        ApiClient::instance().setToken({});
+        loginWithForm(adminUsername, password, QStringLiteral("ADMIN"));
+        if (QTest::currentTestFailed())
+            return;
+        admin.requestSession(agentId);
+        QTRY_COMPARE_WITH_TIMEOUT(adminStarted.count(), 1, 8000);
+        QCOMPARE(childStarted.count(), 1);
+        const quint64 id = child.activeSessionId();
+        QVERIFY(id != 0);
+        QCOMPARE(adminStarted.at(0).at(0).toULongLong(), id);
+
+        RemoteDesktopWindow viewer(id, QStringLiteral("Synthetic CHILD"));
+        auto *screen = viewer.findChild<RemoteScreenWidget *>();
+        QVERIFY(screen);
+        connect(&admin, &AdminSessionController::frameReady, &viewer,
+                [&viewer, id](quint64 session, const QImage &image) {
+            if (session == id)
+                viewer.updateFrame(image);
+        });
+        const auto packets = ScreenFramePacketizer::packetize(jpeg(), 1, id);
+        QVERIFY(!packets.isEmpty());
+        for (const auto &bytes : packets)
+            QCOMPARE(child.sendScreenPacket(bytes), qint64(bytes.size()));
+        QTRY_COMPARE(frames.count(), 1);
+        QCOMPARE(screen->frameResolution(), QSize(32, 24));
+        const auto image = qvariant_cast<QImage>(frames.at(0).at(1));
+        QVERIFY(image.pixelColor(5, 5).red() > 180);
+        admin.disconnectSession();
+        QTRY_COMPARE(childEnded.count(), 1);
+        QCOMPARE(child.activeSessionId(), quint64(0));
+        child.stop();
+    }
     void remoteDesktopCloseIsIdempotentAndProgrammaticCloseIsSilent() {
         RemoteDesktopWindow userWindow(42, QStringLiteral("child"));
         userWindow.show();
