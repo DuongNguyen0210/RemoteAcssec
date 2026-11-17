@@ -127,10 +127,10 @@ void AppCoordinator::handlePageSelected(int pageIndex)
     if (pageIndex == 4 && m_accountController) m_accountController->fetchAccounts();
 }
 
-void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString &agentSessionId)
+void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString &targetName)
 {
     if (m_mainWindow) m_mainWindow->showRemoteSession();
-    qDebug() << "[AppCoordinator] Remote session started for" << agentSessionId
+    qDebug() << "[AppCoordinator] Remote session started"
              << "sessionId=" << sessionId;
 
     if (m_remoteDesktopWindow) {
@@ -138,17 +138,6 @@ void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString
         m_remoteDesktopWindow->deleteLater();
     }
     m_remoteSessionId = sessionId;
-    QString targetName;
-    if (m_deviceStore) {
-        for (const auto &device : m_deviceStore->getDevices()) {
-            if (device.sessionId != agentSessionId)
-                continue;
-            targetName = device.deviceName.trimmed();
-            if (targetName.isEmpty())
-                targetName = device.username.trimmed();
-            break;
-        }
-    }
     m_remoteDesktopWindow = new RemoteDesktopWindow(sessionId, targetName);
     connect(m_remoteDesktopWindow, &RemoteDesktopWindow::disconnectRequested, this, [this, sessionId] {
         if (m_remoteSessionId == sessionId) handleDisconnectRequested();

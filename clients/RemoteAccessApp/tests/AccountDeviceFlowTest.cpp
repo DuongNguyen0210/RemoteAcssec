@@ -26,6 +26,8 @@
 #include "GUI/Pages/LogsPage.h"
 #include "GUI/Components/DeviceCardWidget.h"
 #include "Network/Protocol/RelayAuthPayload.h"
+#include "Network/Protocol/ProtocolSerializer.h"
+#include "Network/Relay/AdminSessionController.h"
 
 class AccountDeviceFlowTest : public QObject {
     Q_OBJECT
@@ -349,11 +351,6 @@ private slots:
         stack->setCurrentWidget(page);
         auto cards = page->findChildren<DeviceCardWidget*>();
         QCOMPARE(cards.size(), 2);
-        QObject::disconnect(page, SIGNAL(connectRequested(QString)), nullptr, nullptr);
-        QSignalSpy selected(page, &DevicesPage::connectRequested);
-        QVERIFY(QMetaObject::invokeMethod(cards.first(), "connectRequested", Qt::DirectConnection,
-                Q_ARG(QString, devices->getDevices().first().sessionId)));
-        QCOMPARE(selected.first().first().toString(), devices->getDevices().first().sessionId);
         QVERIFY(page->findChildren<QPushButton*>("removeDeviceButton").isEmpty());
         if (!screenshotDir.isEmpty()) window->grab().save(screenshotDir + "/devices.png");
         // A failed refresh keeps both cached devices visible and reports stale data.
@@ -480,25 +477,52 @@ private slots:
         QCOMPARE(liveStatus->text(), QStringLiteral("Đang cập nhật trực tiếp."));
 
         auto target = devices->getDevices().first();
-        target.deviceName = QStringLiteral("<b>Laptop</b>");
-        devices->replaceDevices({target});
-        QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleRemoteSessionStarted", Qt::DirectConnection,
-                Q_ARG(quint64, 42), Q_ARG(QString, target.sessionId)));
-        RemoteDesktopWindow *viewer = nullptr;
-        for (auto *widget : QApplication::topLevelWidgets()) {
-            auto *candidate = qobject_cast<RemoteDesktopWindow *>(widget);
-            if (candidate && candidate->isVisible())
-                viewer = candidate;
+        target.deviceName = QStringLiteral("LAPTOP-M85BHB55");
+        auto *session = coordinator.findChild<AdminSessionController *>();
+        QVERIFY(session);
+        QSignalSpy selected(page, &DevicesPage::connectRequested);
+
+        for (quint64 id : {42, 43}) {
+            devices->replaceDevices({target});
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            auto *button = page->findChild<QPushButton *>("connectButton");
+            QVERIFY(button && button->isEnabled());
+            button->click();
+            QVERIFY(!selected.isEmpty());
+            QCOMPARE(selected.last().first().toString(), target.sessionId);
+
+            // Let a list refresh remove the card while the Relay accepts the request.
+            devices->replaceDevices({});
+            Protocol::ProtocolHeader accepted(Protocol::MessageType::CONNECT_RESULT);
+            accepted.sessionId = id;
+            accepted.payloadLength = 1;
+            const auto packet = Protocol::ProtocolSerializer::serializeHeader(accepted) + QByteArray(1, '\1');
+            QVERIFY(QMetaObject::invokeMethod(session, "onRelayBytesReceived", Qt::DirectConnection,
+                    Q_ARG(QByteArray, packet)));
+
+            RemoteDesktopWindow *viewer = nullptr;
+            for (auto *widget : QApplication::topLevelWidgets()) {
+                auto *candidate = qobject_cast<RemoteDesktopWindow *>(widget);
+                if (candidate && candidate->isVisible())
+                    viewer = candidate;
+            }
+            QVERIFY(viewer);
+            QVERIFY(viewer->windowTitle().contains(target.deviceName));
+            QVERIFY(!viewer->windowTitle().contains(target.sessionId));
+            auto *name = viewer->findChild<QLabel *>("remoteDeviceName");
+            auto *fullscreen = viewer->findChild<QPushButton *>("remoteFullScreenButton");
+            QVERIFY(name && fullscreen);
+            QCOMPARE(name->textFormat(), Qt::PlainText);
+            QVERIFY(name->text().contains(target.deviceName));
+            fullscreen->click();
+            QVERIFY(viewer->isFullScreen());
+            QVERIFY(name->text().contains(target.deviceName));
+            fullscreen->click();
+            QVERIFY(!viewer->isFullScreen());
+            session->disconnectSession();
+            QVERIFY(!viewer->isVisible());
         }
-        QVERIFY(viewer);
-        QVERIFY(viewer->windowTitle().contains(target.deviceName));
-        QVERIFY(!viewer->windowTitle().contains(target.sessionId));
-        auto *name = viewer->findChild<QLabel *>("remoteDeviceName");
-        QVERIFY(name);
-        QCOMPARE(name->textFormat(), Qt::PlainText);
-        QVERIFY(name->text().contains(target.deviceName));
-        QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleSessionEnded", Qt::DirectConnection,
-                Q_ARG(quint64, 42), Q_ARG(QString, target.sessionId), Q_ARG(QString, QString())));
+        QCOMPARE(selected.count(), 2);
     }
 
     void relayPayloadCarriesTokenAndAgentSessionSeparately() {
