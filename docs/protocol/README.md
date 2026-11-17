@@ -3,7 +3,7 @@
 # RDTP Protocol Documentation
 
 > Tai lieu ky thuat cho RemoteAccessApp - RDTP (Remote Desktop Transfer Protocol)
-> Phạm vi: nền tảng RDTP, đăng ký CHILD, khám phá CHILD, handshake phiên và chuyển tiếp màn hình theo phiên qua Giai đoạn 4
+> Phạm vi: nền tảng RDTP, khám phá thiết bị, xác thực, vòng đời phiên và truyền màn hình.
 
 ---
 
@@ -19,12 +19,13 @@
 | [06_HEADER_SERIALIZATION.md](06_HEADER_SERIALIZATION.md) | ProtocolSerializer: serializeHeader(), QByteArray, Q_ASSERT, test vector |
 | [07_BYTE_ORDER_BIG_ENDIAN.md](07_BYTE_ORDER_BIG_ENDIAN.md) | Big Endian / Network Byte Order: ly thuyet, cac helper appendUIntXXBE |
 | [08_CMAKE_INTEGRATION.md](08_CMAKE_INTEGRATION.md) | CMakeLists.txt: NETWORK_SOURCES, target_include_directories |
-| [09_IMPLEMENTATION_STATUS.md](09_IMPLEMENTATION_STATUS.md) | Trạng thái triển khai qua Giai đoạn 4, bằng chứng runtime và phần chưa triển khai |
+| [09_IMPLEMENTATION_STATUS.md](09_IMPLEMENTATION_STATUS.md) | Trạng thái trên main và lịch sử triển khai |
 | [10_HEADER_DESERIALIZATION.md](10_HEADER_DESERIALIZATION.md) | Giai thich Phase 1A.2C: chuyen 24-byte RDTP wire header thanh ProtocolHeader object. |
+| [11_SESSION_AUTH_V2.md](11_SESSION_AUTH_V2.md) | Hợp đồng RDTP v2 cho đăng ký CHILD và mở phiên ADMIN |
 
 ---
 
-## So do phu thuoc
+## Sơ đồ lịch sử RDTP v1
 
 ```
 02_PROTOCOL_CONSTANTS.md  (constants + MessageType)
@@ -70,7 +71,7 @@ Ly thuyet byte-order xem: [07_BYTE_ORDER_BIG_ENDIAN.md](07_BYTE_ORDER_BIG_ENDIAN
 
 CMake build xem: [08_CMAKE_INTEGRATION.md](08_CMAKE_INTEGRATION.md)
 
-## Luồng khám phá CHILD của ADMIN
+## Luồng khám phá CHILD của ADMIN trong RDTP v1
 
 ```text
 ADMIN đăng nhập và nhận JWT
@@ -98,11 +99,11 @@ Giai đoạn 4 dùng chính ID `ACTIVE` đó trong header của từng `SCREEN_F
 khi `RelayServerHandler` chuyển đối tượng `Protocol` gốc đến ADMIN. Việc ghép
 khung chẩn đoán ở Relay chạy sau và không tham gia quyết định định tuyến.
 
-Luồng đã được kiểm tra runtime với cùng một `sessionId` khác `0` ở CHILD, Relay
-và ADMIN. ADMIN hiện nhận byte TCP/RDTP nhưng chưa ghép chunk, giải mã JPEG, tạo
-`QImage` hoặc hiển thị màn hình. Chi tiết xem
-[09_IMPLEMENTATION_STATUS.md](09_IMPLEMENTATION_STATUS.md).
+## Luồng hiện tại trên main
 
----
-
-*Cập nhật lần cuối: Giai đoạn 4 chuyển tiếp màn hình theo phiên đã hoàn thành và kiểm tra runtime thành công.*
+CHILD đăng ký với Relay bằng JWT. ADMIN chọn thiết bị từ `GET /api/v1/devices`
+và mở phiên theo UUID đăng nhập của thiết bị. Sau khi phiên được chấp nhận,
+CHILD gửi các chunk JPEG qua Relay để ADMIN ghép, giải mã và hiển thị.
+Hai phía xử lý kết thúc phiên qua `DISCONNECT`. Xem
+[trạng thái triển khai](09_IMPLEMENTATION_STATUS.md) và
+[hợp đồng xác thực](11_SESSION_AUTH_V2.md).
