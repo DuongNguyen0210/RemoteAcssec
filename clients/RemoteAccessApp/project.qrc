@@ -1,7 +1,4 @@
 <RCC>
-    <qresource prefix="/translations">
-        <file alias="qt_vi.qm">Resources/translations/qt_vi.qm</file>
-    </qresource>
     <qresource prefix="/styles">
         <file>Resources/styles/main.qss</file>
         <file>Resources/styles/sidebar.qss</file>
