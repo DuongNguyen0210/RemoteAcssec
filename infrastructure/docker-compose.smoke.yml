@@ -1,0 +1,14 @@
+services:
+  nginx:
+    ports: !override
+      - '127.0.0.1:19090:80'
+  relay-proxy-1:
+    environment:
+      RELAY_ADVERTISED_PORT: 19091
+    ports: !override
+      - '127.0.0.1:19091:8080'
+  relay-proxy-2:
+    environment:
+      RELAY_ADVERTISED_PORT: 19092
+    ports: !override
+      - '127.0.0.1:19092:8080'
