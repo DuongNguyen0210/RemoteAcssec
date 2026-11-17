@@ -9,6 +9,7 @@ class QImage;
 class AuthController;
 class MainWindow;
 class RemoteDesktopWindow;
+class ChildSharingWindow;
 class HeartbeatReporter;
 class ScreenStreamSender;
 class DeviceStore;
@@ -39,6 +40,7 @@ private:
     QPointer<AuthController> m_authController;
     QPointer<MainWindow> m_mainWindow;
     QPointer<RemoteDesktopWindow> m_remoteDesktopWindow;
+    QPointer<ChildSharingWindow> m_childSharingWindow;
     quint64 m_remoteSessionId = 0;
     HeartbeatReporter *m_heartbeatReporter;
     ScreenStreamSender *m_screenStreamSender;
