@@ -138,7 +138,18 @@ void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString
         m_remoteDesktopWindow->deleteLater();
     }
     m_remoteSessionId = sessionId;
-    m_remoteDesktopWindow = new RemoteDesktopWindow(sessionId, agentSessionId);
+    QString targetName;
+    if (m_deviceStore) {
+        for (const auto &device : m_deviceStore->getDevices()) {
+            if (device.sessionId != agentSessionId)
+                continue;
+            targetName = device.deviceName.trimmed();
+            if (targetName.isEmpty())
+                targetName = device.username.trimmed();
+            break;
+        }
+    }
+    m_remoteDesktopWindow = new RemoteDesktopWindow(sessionId, targetName);
     connect(m_remoteDesktopWindow, &RemoteDesktopWindow::disconnectRequested, this, [this, sessionId] {
         if (m_remoteSessionId == sessionId) handleDisconnectRequested();
     });

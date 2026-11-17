@@ -20,6 +20,7 @@
 #include "Domain/Store/AccountStore.h"
 #include "Domain/Store/DeviceStore.h"
 #include "GUI/Windows/MainWindow.h"
+#include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Pages/AccountPage.h"
 #include "GUI/Pages/DevicesPage.h"
 #include "GUI/Pages/LogsPage.h"
@@ -477,6 +478,27 @@ private slots:
         ssePeer->flush();
         QTRY_COMPARE(devices->getDevices().size(), 1);
         QCOMPARE(liveStatus->text(), QStringLiteral("Đang cập nhật trực tiếp."));
+
+        auto target = devices->getDevices().first();
+        target.deviceName = QStringLiteral("<b>Laptop</b>");
+        devices->replaceDevices({target});
+        QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleRemoteSessionStarted", Qt::DirectConnection,
+                Q_ARG(quint64, 42), Q_ARG(QString, target.sessionId)));
+        RemoteDesktopWindow *viewer = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *candidate = qobject_cast<RemoteDesktopWindow *>(widget);
+            if (candidate && candidate->isVisible())
+                viewer = candidate;
+        }
+        QVERIFY(viewer);
+        QVERIFY(viewer->windowTitle().contains(target.deviceName));
+        QVERIFY(!viewer->windowTitle().contains(target.sessionId));
+        auto *name = viewer->findChild<QLabel *>("remoteDeviceName");
+        QVERIFY(name);
+        QCOMPARE(name->textFormat(), Qt::PlainText);
+        QVERIFY(name->text().contains(target.deviceName));
+        QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleSessionEnded", Qt::DirectConnection,
+                Q_ARG(quint64, 42), Q_ARG(QString, target.sessionId), Q_ARG(QString, QString())));
     }
 
     void relayPayloadCarriesTokenAndAgentSessionSeparately() {

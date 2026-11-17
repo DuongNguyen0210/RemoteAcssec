@@ -60,8 +60,11 @@ void RemoteDesktopWindow::setupUi()
     headerLayout->setSpacing(16);
 
     m_lblTitle = new QLabel(headerWidget);
+    m_lblTitle->setObjectName("remoteDeviceName");
+    m_lblTitle->setTextFormat(Qt::PlainText);
+    m_lblTitle->setMaximumWidth(320);
     m_lblTitle->setStyleSheet(QStringLiteral("color: #ffffff; font-size: 15px; font-weight: bold;"));
-    m_lblTitle->setText(QStringLiteral("🖥️ %1").arg(m_targetName.isEmpty() ? QStringLiteral("Remote Device") : m_targetName));
+    m_lblTitle->setText(QStringLiteral("🖥️ %1").arg(m_targetName.isEmpty() ? QStringLiteral("Máy con") : m_targetName));
 
     m_lblStats = new QLabel(headerWidget);
     m_lblStats->setObjectName("remoteFrameStatus");
