@@ -1,3 +1,6 @@
+#include "GUI/AppTheme.h"
+#include "GUI/Windows/RemoteDesktopWindow.h"
+#include "GUI/Dialogs/ConfirmDialog.h"
 #include <QtTest>
 #include "GUI/Windows/LoginWindow.h"
 #include <QTcpServer>
@@ -49,9 +52,33 @@ private slots:
         auto *translation = new QTranslator(this);
         QVERIFY(translation->load(":/translations/qt_vi.qm"));
         QVERIFY(qApp->installTranslator(translation));
-        QFile stylesheet(":/styles/Resources/styles/main.qss");
-        QVERIFY(stylesheet.open(QIODevice::ReadOnly));
-        qApp->setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
+        applyAppTheme(*qApp);
+        QVERIFY(!qApp->styleSheet().isEmpty());
+    }
+    void dialogsAndLoginUseTheApplicationTheme() {
+        LoginWindow login;
+        CreateAccountDialog create;
+        AccountInfo info;
+        EditAccountDialog edit(info);
+        RemoteDesktopWindow desktop(42, QStringLiteral("Máy thử nghiệm"));
+        ConfirmDialog confirm;
+        confirm.setTitleText(QStringLiteral("Dừng chia sẻ"));
+        confirm.setMessageText(QStringLiteral("Kết thúc phiên điều khiển hiện tại?"));
+        create.ensurePolished();
+        edit.ensurePolished();
+        QCOMPARE(create.palette().color(QPalette::Window), edit.palette().color(QPalette::Window));
+        auto *submit = login.findChild<QPushButton *>("loginButton");
+        auto *save = create.findChild<QPushButton *>("createAccountSubmit");
+        QVERIFY(submit && save);
+        QCOMPARE(submit->property("role"), save->property("role"));
+        const auto dir = qEnvironmentVariable("TEST_SCREENSHOT_DIR");
+        if (!dir.isEmpty()) {
+            for (QWidget *window : QList<QWidget *>{&login, &desktop, &confirm}) {
+                window->show();
+                QCoreApplication::processEvents();
+                QVERIFY(window->grab().save(dir + "/" + window->objectName() + ".png"));
+            }
+        }
     }
     void emptyDevicesAreCenteredAndSidebarHasNoNewConnectionButton() {
         SidebarWidget sidebar;
@@ -67,6 +94,10 @@ private slots:
         QVERIFY(qAbs(center.x() - page.rect().center().x()) <= 2);
         auto *state = title->parentWidget();
         QVERIFY(qAbs(center.y() - state->mapTo(&page, state->rect().center()).y()) < 65);
+        int visibleRefreshButtons = 0;
+        for (auto *button : page.findChildren<QPushButton *>())
+            if (button->isVisible() && button->text() == "Làm mới") ++visibleRefreshButtons;
+        QCOMPARE(visibleRefreshButtons, 1);
         QSignalSpy refresh(&page, &DevicesPage::refreshRequested);
         page.findChild<QPushButton *>("emptyStateActionBtn")->click();
         QCOMPARE(refresh.count(), 1);
@@ -587,12 +618,6 @@ private slots:
                 });
             }
         });
-        QString styles;
-        for (const auto &name : {"main", "sidebar", "topbar", "devicecard"}) {
-            QFile f(QString(":/styles/Resources/styles/%1.qss").arg(name));
-            if (f.open(QIODevice::ReadOnly)) styles += QString::fromUtf8(f.readAll());
-        }
-        qApp->setStyleSheet(styles);
         AppCoordinator coordinator;
         QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleLoginSuccess", Qt::DirectConnection,
                 Q_ARG(QString, "ADMIN"), Q_ARG(QString, "owner")));
@@ -622,11 +647,10 @@ private slots:
         if (!screenshotDir.isEmpty()) {
             window->grab().save(screenshotDir + "/accounts.png");
             for (int index : {1, 2, 3}) {
-                stack->setCurrentIndex(index);
+                window->findChild<SidebarWidget *>()->selectPage(index);
                 QCoreApplication::processEvents();
                 window->grab().save(screenshotDir + QString("/page-%1.png").arg(index));
             }
-            stack->setCurrentIndex(4);
         }
         QPushButton *devicesButton = nullptr;
         for (auto *button : window->findChildren<QPushButton*>()) {

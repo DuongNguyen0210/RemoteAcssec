@@ -1,11 +1,6 @@
 <RCC>
     <qresource prefix="/styles">
         <file>Resources/styles/main.qss</file>
-        <file>Resources/styles/sidebar.qss</file>
-        <file>Resources/styles/topbar.qss</file>
-        <file>Resources/styles/devicecard.qss</file>
-        <file>Resources/styles/loginwindow.qss</file>
-        <file>Resources/styles/registerwindow.qss</file>
     </qresource>
     <qresource prefix="/icons">
         <file>Resources/icons/account-user.svg</file>

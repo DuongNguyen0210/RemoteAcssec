@@ -1,6 +1,7 @@
 #include "ChildStatusWindow.h"
 #include <QLabel>
 #include <QPushButton>
+#include <QStyle>
 #include <QVBoxLayout>
 
 ChildStatusWindow::ChildStatusWindow(QWidget *parent) : QWidget(parent)
@@ -51,5 +52,8 @@ void ChildStatusWindow::showSharingEnabled(bool enabled) {
     m_status->setText(enabled
             ? QStringLiteral("Đang kết nối Relay để sẵn sàng nhận phiên điều khiển.")
             : QStringLiteral("Đã dừng chia sẻ. Bạn có thể bật lại hoặc đóng cửa sổ."));
+    m_toggle->setProperty("role", enabled ? "dangerActionButton" : "primaryActionButton");
+    m_toggle->style()->unpolish(m_toggle);
+    m_toggle->style()->polish(m_toggle);
     m_toggle->setText(enabled ? QStringLiteral("Dừng chia sẻ") : QStringLiteral("Bật chia sẻ"));
 }

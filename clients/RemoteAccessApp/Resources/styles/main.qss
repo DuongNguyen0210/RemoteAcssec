@@ -2,18 +2,10 @@
 #mainWindow,
 #appRoot,
 #contentShell,
-#contentStack {
-    background-color: #f7f9fb;
-}
-
-#childStatusWindow {
-    background-color: #f7f9fb;
-}
-
-#devicesPage {
-    background-color: #f7f9fb;
-}
-
+#contentStack,
+#loginWindow,
+#childStatusWindow,
+#devicesPage,
 #sessionsPage,
 #logsPage,
 #settingsPage,
@@ -34,66 +26,48 @@ QLabel[role="pageSubtitle"] {
     font-weight: 400;
 }
 
-QLabel[role="pagePlaceholder"] {
-    color: #404850;
-    font-size: 14px;
-    font-weight: 600;
-    background-color: transparent;
-}
-
 /* ─── Scroll areas ───────────────────────────────────────────────────────── */
-#deviceScrollArea {
-    border: none;
-    background-color: transparent;
-}
-
 QScrollArea[role="scrollArea"] {
     border: none;
     background-color: transparent;
 }
 
-#deviceScrollArea > QWidget > QWidget,
-#deviceScrollContent,
 QScrollArea[role="scrollArea"] > QWidget > QWidget,
 QWidget[role="scrollContent"] {
     background-color: transparent;
 }
 
-#deviceScrollArea QScrollBar:vertical,
 QScrollArea[role="scrollArea"] QScrollBar:vertical {
     background-color: transparent;
     width: 10px;
     margin: 0px;
 }
 
-#deviceScrollArea QScrollBar::handle:vertical,
 QScrollArea[role="scrollArea"] QScrollBar::handle:vertical {
     background-color: #bfc7d1;
     border-radius: 5px;
     min-height: 24px;
 }
 
-#deviceScrollArea QScrollBar::handle:vertical:hover,
 QScrollArea[role="scrollArea"] QScrollBar::handle:vertical:hover {
     background-color: #707881;
 }
 
-#deviceScrollArea QScrollBar::add-line:vertical,
-#deviceScrollArea QScrollBar::sub-line:vertical,
 QScrollArea[role="scrollArea"] QScrollBar::add-line:vertical,
 QScrollArea[role="scrollArea"] QScrollBar::sub-line:vertical {
     height: 0px;
     background-color: transparent;
 }
 
-#deviceScrollArea QScrollBar::add-page:vertical,
-#deviceScrollArea QScrollBar::sub-page:vertical,
 QScrollArea[role="scrollArea"] QScrollBar::add-page:vertical,
 QScrollArea[role="scrollArea"] QScrollBar::sub-page:vertical {
     background-color: transparent;
 }
 
 /* ─── Cards ──────────────────────────────────────────────────────────────── */
+#loginBox,
+#deviceCard,
+QFrame[role="accountCard"],
 QFrame[role="metricCard"],
 QFrame[role="sessionCard"],
 QFrame[role="toolbarCard"],
@@ -104,6 +78,8 @@ QFrame[role="settingsCard"] {
     border-radius: 12px;
 }
 
+#deviceCard:hover,
+QFrame[role="accountCard"]:hover,
 QFrame[role="metricCard"]:hover,
 QFrame[role="sessionCard"]:hover,
 QFrame[role="logRow"]:hover,
@@ -113,12 +89,6 @@ QFrame[role="settingsCard"]:hover {
 }
 
 /* ─── Metric card labels ─────────────────────────────────────────────────── */
-QLabel[role="metricValue"] {
-    color: #005d90;
-    font-size: 28px;
-    font-weight: 700;
-}
-
 QLabel[role="metricTitle"],
 QLabel[role="sectionTitle"] {
     color: #191c1e;
@@ -126,7 +96,6 @@ QLabel[role="sectionTitle"] {
     font-weight: 700;
 }
 
-QLabel[role="metricDetail"],
 QLabel[role="sectionSubtitle"],
 QLabel[role="cardSubtitle"] {
     color: #404850;
@@ -162,14 +131,6 @@ QLabel[role="strongText"] {
     font-weight: 600;
 }
 
-/* ─── Thin divider ───────────────────────────────────────────────────────── */
-QFrame[role="thinDivider"] {
-    background-color: #dfe4ea;
-    border: none;
-    max-height: 1px;
-    min-height: 1px;
-}
-
 /* ─── State chip ─────────────────────────────────────────────────────────── */
 QLabel[role="stateChip"] {
     border-radius: 10px;
@@ -201,10 +162,8 @@ QLabel[role="stateChip"][state="neutral"] {
 
 /* ─── Action buttons & inputs ────────────────────────────────────────────── */
 QPushButton[role="secondaryActionButton"],
-QPushButton[role="TertiaryActionButton"],
-QPushButton[role="filterButton"],
 QLineEdit[role="panelSearchInput"],
-*[role="settingsInput"] {
+QLineEdit[role="formInput"] {
     background-color: #ffffff;
     border: 1px solid #bfc7d1;
     border-radius: 8px;
@@ -214,19 +173,10 @@ QLineEdit[role="panelSearchInput"],
 }
 
 QPushButton[role="secondaryActionButton"]:hover,
-QPushButton[role="TertiaryActionButton"]:hover,
-QPushButton[role="filterButton"]:hover,
 QLineEdit[role="panelSearchInput"]:hover,
-*[role="settingsInput"]:hover {
+QLineEdit[role="formInput"]:hover {
     background-color: #eceef0;
     border-color: #707881;
-}
-
-QPushButton[role="filterButton"]:checked {
-    background-color: #e8f3fb;
-    border-color: #005d90;
-    color: #005d90;
-    font-weight: 700;
 }
 
 QPushButton[role="primaryActionButton"] {
@@ -243,8 +193,7 @@ QPushButton[role="primaryActionButton"]:hover {
     background-color: #004b74;
 }
 
-QPushButton[role="secondaryActionButton"],
-QPushButton[role="TertiaryActionButton"]{
+QPushButton[role="secondaryActionButton"] {
     font-weight: 700;
 }
 
@@ -270,26 +219,6 @@ QLabel[role="logTime"] {
     font-weight: 600;
 }
 
-/* ─── Settings checkbox ──────────────────────────────────────────────────── */
-QCheckBox[role="settingsCheckBox"] {
-    color: #191c1e;
-    font-size: 14px;
-    spacing: 8px;
-}
-
-QPushButton[role="linkButton"] {
-    background: transparent;
-    color: #005d90;
-    border: none;
-    text-decoration: underline;
-    font-size: 13px;
-    font-weight: 600;
-}
-
-QPushButton[role="linkButton"]:hover {
-    color: #004b74;
-}
-
 #emptyStateWidget {
     background: transparent;
 }
@@ -309,25 +238,11 @@ QPushButton[role="linkButton"]:hover {
     color: #707881;
 }
 
-QPushButton#emptyStateActionBtn {
-    background-color: #005d90;
-    color: #ffffff;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 0px 16px;
-}
-
-QPushButton#emptyStateActionBtn:hover {
-    background-color: #004b74;
-}
-
 /* ─── Confirm & Alert Dialog ─────────────────────────────────────────────── */
 #confirmDialogCard {
     background-color: #ffffff;
     border: 1px solid #dfe4ea;
-    border-radius: 16px;
+    border-radius: 12px;
 }
 
 #confirmBadge {
@@ -359,7 +274,6 @@ QPushButton#emptyStateActionBtn:hover {
     font-size: 14px;
     font-weight: 400;
     color: #404850;
-    line-height: 1.4;
     background-color: transparent;
 }
 
@@ -413,73 +327,16 @@ QPushButton#confirmBtnAction[actionRole="primary"]:hover {
     background-color: #004b74;
 }
 
-
 /* Account cards */
-QFrame[role="accountCard"] {
-    background-color: #ffffff;
-    border: 1px solid #dfe4ea;
-    border-radius: 12px;
-}
-QLabel[role="accountFieldLabel"] {
-    color: #52606d;
-    font-size: 12px;
-    font-weight: 600;
-    background: transparent;
-}
 QLabel[role="accountName"] {
     color: #191c1e;
     font-size: 20px;
     font-weight: 600;
     background: transparent;
 }
-QLabel[role="accountValue"] {
-    color: #303840;
-    font-size: 14px;
-    background: transparent;
-}
-QLineEdit[role="accountPassword"] {
-    background: #f7f9fb;
-    color: #303840;
-    border: 1px solid #dfe4ea;
-    border-radius: 6px;
-    padding: 0 12px;
-    font-size: 14px;
-    selection-background-color: #d6e9ff;
-    selection-color: #191c1e;
-}
-QPushButton[role="accountToggle"],
-QPushButton[role="accountEdit"],
-QPushButton[role="accountDelete"] {
-    border: 1px solid #bfc7d1;
-    border-radius: 6px;
-    padding: 0 12px;
-    background: #ffffff;
-    color: #303840;
-    font-size: 13px;
-    font-weight: 600;
-}
-QPushButton[role="accountEdit"] {
-    background: #005fb8;
-    border-color: #005fb8;
-    color: #ffffff;
-}
-QPushButton[role="accountEdit"]:hover { background: #004c94; }
-QPushButton[role="accountToggle"]:hover { background: #edf3f8; }
-QPushButton[role="accountDelete"] { color: #b42318; border-color: #efb5b0; }
-QPushButton[role="accountDelete"]:hover { background: #fff0ee; }
-QPushButton[role="accountToggle"]:checked { background: #e5eff9; }
-QPushButton[role="accountToggle"]:disabled { color: #697680; background: #f0f3f6; border-color: #dfe4ea; }
-QPushButton[role="accountToggle"]:focus,
-QPushButton[role="accountEdit"]:focus,
-QPushButton[role="accountDelete"]:focus,
-QLineEdit[role="accountPassword"]:focus { border: 2px solid #2779bd; }
-QPushButton[role="accountEdit"]:pressed { background: #003c75; }
-QPushButton[role="accountDelete"]:pressed { background: #fce0dc; }
-QPushButton[role="accountToggle"]:pressed { background: #d6e4f0; }
-
 #createAccountDialog,
 #editAccountDialog { background: #ffffff; }
-QLabel[role="accountError"] { color: #b42318; font-size: 13px; }
+QLabel[role="accountError"] { color: #ba1a1a; font-size: 13px; }
 
 /* Account summaries share typography and action styles with the other pages. */
 QLabel[role="accountAvatar"] {
@@ -495,33 +352,172 @@ QFrame[role="accountUsernameBadge"] {
     border: 1px solid #dfe4ea;
     border-radius: 8px;
 }
-QToolButton[role="accountEye"] {
-    border: none;
-    background: transparent;
-    padding: 4px;
-}
-QFrame[role="accountCard"] QPushButton:focus {
-    border: 2px solid #2779bd;
-}
-QFrame[role="accountCard"] QPushButton[role="primaryActionButton"]:pressed {
-    background-color: #001d32;
-}
-QFrame[role="accountCard"] QPushButton[role="dangerActionButton"]:pressed {
-    background-color: #f4c8c3;
-}
-
 QPushButton[role="primaryActionButton"]:disabled,
 QPushButton[role="secondaryActionButton"]:disabled,
-QPushButton[role="TertiaryActionButton"]:disabled,
-QPushButton[role="dangerActionButton"]:disabled,
-QPushButton[role="filterButton"]:disabled {
+QPushButton[role="dangerActionButton"]:disabled {
     background-color: #eceef0;
     border: 1px solid #dfe4ea;
     color: #707881;
 }
 QPushButton[role="primaryActionButton"]:focus,
 QPushButton[role="secondaryActionButton"]:focus,
-QPushButton[role="TertiaryActionButton"]:focus,
-QPushButton#emptyStateActionBtn:focus {
+QPushButton[role="dangerActionButton"]:focus {
     border: 2px solid #2779bd;
+}
+
+QLineEdit[role="formInput"]:focus,
+QLineEdit[role="panelSearchInput"]:focus {
+    border-color: #005d90;
+    background-color: #ffffff;
+}
+QLineEdit[role="formInput"]:read-only,
+QLineEdit[role="formInput"]:disabled {
+    background-color: #eceef0;
+    color: #404850;
+}
+QPushButton[role="primaryActionButton"]:pressed { background-color: #001d32; }
+QPushButton[role="secondaryActionButton"]:checked { background-color: #e8f3fb; }
+QPushButton[role="dangerActionButton"]:pressed { background-color: #f4c8c3; }
+
+#remoteHeaderBar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #dfe4ea;
+}
+QLabel[role="feedback"] {
+    color: #005d90;
+    font-size: 13px;
+    padding: 6px 0;
+}
+QLabel[role="feedback"][error="true"] { color: #ba1a1a; }
+
+#sidebar {
+    background-color: #ffffff;
+    border-right: 1px solid #bfc7d1;
+}
+
+#brandAvatar {
+    background-color: #e6e8ea;
+    border-radius: 20px;
+    color: #005d90;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+#lblName {
+    font-size: 20px;
+    font-weight: 700;
+    color: #005d90;
+}
+
+#lblRole {
+    color: #404850;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#logoContainer {
+    border-bottom: 1px solid #bfc7d1;
+}
+
+#menuRow {
+    background-color: transparent;
+}
+
+#menuButton {
+    text-align: left;
+    padding-left: 14px;
+    border: none;
+    border-radius: 8px;
+    background-color: transparent;
+    color: #404850;
+    font-size: 16px;
+    font-weight: 400;
+}
+#menuButton:hover {
+    background-color: #e6e8ea;
+}
+#menuButton:checked {
+    background-color: #e8f3fb;
+    color: #005d90;
+    font-weight: 700;
+}
+
+#activeIndicator {
+    background-color: transparent;
+    border: none;
+}
+#activeIndicator[active="true"] {
+    background-color: #005d90;
+    border-radius: 2px;
+    margin: 6px 0px;
+}
+
+#topbar {
+    background-color: #f7f9fb;
+    border-bottom: 1px solid #bfc7d1;
+}
+
+#deviceIcon {
+    background-color: #eceef0;
+    border-radius: 8px;
+}
+
+#deviceName {
+    font-size: 16px;
+    font-weight: 600;
+    color: #191c1e;
+}
+
+QLabel[role="muted"] {
+    color: #404850;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QLabel[role="strongValue"] {
+    color: #191c1e;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+#separatorLine {
+    background-color: #dfe4ea;
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
+}
+
+#statusChip {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #005d90;
+    border-radius: 10px;
+}
+#statusChip[status="online"] {
+    background-color: #e8f3fb;
+}
+#statusChip[status="offline"] {
+    background-color: #e0e3e5;
+    color: #404850;
+}
+#statusChip[status="warning"] {
+    background-color: #fff3cd;
+    color: #6f5200;
+}
+#statusChip[status="error"] {
+    background-color: #ffdad6;
+    color: #93000a;
+}
+
+#loginTitle {
+    font-size: 28px;
+    font-weight: 700;
+    color: #191c1e;
+}
+
+#errorLabel {
+    color: #ba1a1a;
+    font-size: 13px;
+    font-weight: 600;
 }

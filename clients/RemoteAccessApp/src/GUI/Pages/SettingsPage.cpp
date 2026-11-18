@@ -1,6 +1,7 @@
 #include "SettingsPage.h"
 
 #include <QFrame>
+#include <QStyle>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -14,6 +15,7 @@ namespace {
 QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 {
     QLabel *lbl = new QLabel(text, parent);
+    lbl->setTextFormat(Qt::PlainText);
     lbl->setProperty("role", objectName);
     return lbl;
 }
@@ -21,7 +23,7 @@ QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 QLineEdit *lineEdit(const QString &placeholder, QWidget *parent, bool isPassword = false)
 {
     QLineEdit *input = new QLineEdit(parent);
-    input->setProperty("role", "settingsInput");
+    input->setProperty("role", "formInput");
     input->setPlaceholderText(placeholder);
     input->setFixedHeight(38);
     input->setMaxLength(255);
@@ -78,6 +80,8 @@ void SettingsPage::setupUi()
     header->addWidget(label("Thông tin đăng nhập và bảo vệ tài khoản của bạn.", "pageSubtitle", this));
 
     m_feedbackLabel = new QLabel(this);
+    m_feedbackLabel->setProperty("role", "feedback");
+    m_feedbackLabel->setTextFormat(Qt::PlainText);
     m_feedbackLabel->setVisible(false);
     m_feedbackLabel->setWordWrap(true);
     header->addWidget(m_feedbackLabel);
@@ -105,7 +109,7 @@ void SettingsPage::setupUi()
     profileGrid->setHorizontalSpacing(16);
     profileGrid->setVerticalSpacing(12);
 
-    m_usernameLabel = label("Đang tải...", "fieldValue", profileCard);
+    m_usernameLabel = label("Đang tải...", "strongText", profileCard);
     addField(profileGrid, 0, "Tên tài khoản:", m_usernameLabel, profileCard);
 
     m_oldPasswordInput = lineEdit("Nhập mật khẩu hiện tại", profileCard, true);
@@ -152,9 +156,9 @@ void SettingsPage::showFeedback(const QString &message, bool isError)
 {
     if (!m_feedbackLabel) return;
     m_feedbackLabel->setText(message);
-    m_feedbackLabel->setStyleSheet(isError 
-        ? QStringLiteral("color: #e53935; font-weight: 500; font-size: 13px; padding: 6px 0;")
-        : QStringLiteral("color: #43a047; font-weight: 500; font-size: 13px; padding: 6px 0;"));
+    m_feedbackLabel->setProperty("error", isError);
+    m_feedbackLabel->style()->unpolish(m_feedbackLabel);
+    m_feedbackLabel->style()->polish(m_feedbackLabel);
     m_feedbackLabel->setVisible(true);
 }
 

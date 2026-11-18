@@ -20,9 +20,9 @@ EditAccountDialog::EditAccountDialog(const AccountInfo &info, QWidget *parent) :
     layout->addWidget(title);
     auto field = [this, layout](const QString &name) {
         auto *label = new QLabel(name, this);
-        label->setProperty("role", "accountFieldLabel");
+        label->setProperty("role", "fieldLabel");
         auto *input = new QLineEdit(this);
-        input->setProperty("role", "accountPassword");
+        input->setProperty("role", "formInput");
         input->setMinimumHeight(38);
         input->setAccessibleName(name);
         label->setBuddy(input);

@@ -9,7 +9,7 @@ PasswordField::PasswordField(QWidget *parent) : QWidget(parent)
     row->setContentsMargins(0, 0, 0, 0);
     row->setSpacing(8);
     m_input = new QLineEdit(this);
-    m_input->setProperty("role", "accountPassword");
+    m_input->setProperty("role", "formInput");
     m_input->setEchoMode(QLineEdit::Password);
     m_input->setMaxLength(255);
     m_input->setMinimumHeight(38);

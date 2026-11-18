@@ -20,6 +20,7 @@ void TopBarWidget::setupUi()
 
     searchInput = new QLineEdit(this);
     searchInput->setObjectName("topbarSearchInput");
+    searchInput->setProperty("role", "panelSearchInput");
     searchInput->setPlaceholderText("Tìm thiết bị");
     searchInput->setAccessibleName("Tìm thiết bị");
     searchInput->setClearButtonEnabled(true);

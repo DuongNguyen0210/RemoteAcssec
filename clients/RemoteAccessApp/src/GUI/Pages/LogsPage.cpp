@@ -14,6 +14,7 @@ namespace {
 QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 {
     QLabel *lbl = new QLabel(text, parent);
+    lbl->setTextFormat(Qt::PlainText);
     lbl->setProperty("role", objectName);
     return lbl;
 }
@@ -84,8 +85,7 @@ void LogsPage::setupUi()
     m_entries->setSpacing(10);
     m_empty = label("Chưa có hoạt động điều khiển trong lần chạy này.", "pageSubtitle", scrollContent);
     m_empty->setAlignment(Qt::AlignCenter);
-    m_entries->addWidget(m_empty);
-    m_entries->addStretch();
+    m_entries->addWidget(m_empty, 1);
 
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea, 1);
@@ -93,7 +93,10 @@ void LogsPage::setupUi()
 
 void LogsPage::addEntry(const QString &event, const QString &detail, bool warning)
 {
-    m_empty->hide();
+    if (m_entryCount == 0) {
+        m_empty->hide();
+        m_entries->addStretch();
+    }
     m_entries->insertWidget(0, logRow(QDateTime::currentDateTime().toString("HH:mm:ss"),
             event, detail, warning ? QStringLiteral("Cảnh báo") : QStringLiteral("Thông tin"),
             warning ? QStringLiteral("warning") : QStringLiteral("active"), this));

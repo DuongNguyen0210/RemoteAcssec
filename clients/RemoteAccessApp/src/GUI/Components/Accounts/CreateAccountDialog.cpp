@@ -23,7 +23,7 @@ CreateAccountDialog::CreateAccountDialog(QWidget *parent) : QDialog(parent)
     nameLabel->setProperty("role", "fieldLabel");
     m_name = new QLineEdit(this);
     m_name->setObjectName("createChildUsername");
-    m_name->setProperty("role", "accountPassword");
+    m_name->setProperty("role", "formInput");
     m_name->setMinimumHeight(38);
     m_name->setMaxLength(50);
     m_name->setAccessibleName("Tên tài khoản");
@@ -66,7 +66,7 @@ CreateAccountDialog::CreateAccountDialog(QWidget *parent) : QDialog(parent)
     m_save->setDefault(true);
 
     m_import = new QPushButton("Nhập CSV…", this);
-    m_import->setProperty("role", "TertiaryActionButton");
+    m_import->setProperty("role", "secondaryActionButton");
     m_import->setAutoDefault(false);
     m_import->setObjectName("importAccountsButton");
 
@@ -78,7 +78,7 @@ CreateAccountDialog::CreateAccountDialog(QWidget *parent) : QDialog(parent)
     layout->addLayout(actions);
 
     m_filepath = new QLabel(this);
-    m_filepath->setStyleSheet("color: #0284c7; font-size: 13px; margin-top: 6px;");
+    m_filepath->setProperty("role", "cardSubtitle");
     m_filepath->setWordWrap(true);
     m_filepath->setTextFormat(Qt::PlainText);
     m_filepath->hide();

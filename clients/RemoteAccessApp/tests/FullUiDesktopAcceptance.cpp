@@ -1,4 +1,5 @@
 #include <QtTest>
+#include "GUI/AppTheme.h"
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
@@ -25,7 +26,10 @@ template<class T> T *topWindow(const QString &name = {}) {
 class FullUiDesktopAcceptance : public QObject {
     Q_OBJECT
 private slots:
-    void initTestCase() { std::setvbuf(stdout, nullptr, _IONBF, 0); }
+    void initTestCase() {
+        applyAppTheme(*qApp);
+        std::setvbuf(stdout, nullptr, _IONBF, 0);
+    }
     void loginShareControlAndStop() {
         const auto role = qEnvironmentVariable("PBL4_DESKTOP_ROLE");
         const bool failover = qEnvironmentVariable("PBL4_UI_FAILOVER") == "1";

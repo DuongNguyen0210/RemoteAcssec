@@ -46,7 +46,7 @@ QFrame *sessionCard(QWidget *parent)
 
     header->addWidget(label("Phiên điều khiển hiện tại", "cardTitle", card), 1);
 
-    QLabel *status = label("Đang kết nối", "stateChip", card);
+    QLabel *status = label("Đang hoạt động", "stateChip", card);
     status->setProperty("state", "active");
     status->setAlignment(Qt::AlignCenter);
     header->addWidget(status);
@@ -111,7 +111,6 @@ void SessionsPage::setupUi()
     m_emptyLabel->setAlignment(Qt::AlignCenter);
     m_emptyLabel->setWordWrap(true);
     sessions->addWidget(m_emptyLabel, 1);
-    sessions->addStretch();
 
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea, 1);
@@ -125,12 +124,12 @@ void SessionsPage::setFrame(const QImage &image)
     if (image.isNull()) return;
     m_emptyLabel->hide();
     m_viewer->show();
-    static_cast<RemoteScreenWidget *>(m_viewer)->updateFrame(image);
+    m_viewer->updateFrame(image);
 }
 
 void SessionsPage::clearFrame()
 {
-    static_cast<RemoteScreenWidget *>(m_viewer)->clearFrame();
+    m_viewer->clearFrame();
     m_sessionCard->hide();
     m_viewer->hide();
     m_emptyLabel->show();

@@ -38,12 +38,12 @@ void DevicesPage::setupUi()
 
     mainLayout->addWidget(lblTitle);
     mainLayout->addWidget(lblSubtitle);
-    auto *refresh = new QPushButton("Làm mới", this);
-    refresh->setFixedHeight(38);
-    refresh->setCursor(Qt::PointingHandCursor);
-    refresh->setProperty("role", "primaryActionButton");
-    connect(refresh, &QPushButton::clicked, this, &DevicesPage::refreshRequested);
-    mainLayout->addWidget(refresh, 0, Qt::AlignLeft);
+    m_refreshButton = new QPushButton("Làm mới", this);
+    m_refreshButton->setFixedHeight(38);
+    m_refreshButton->setCursor(Qt::PointingHandCursor);
+    m_refreshButton->setProperty("role", "primaryActionButton");
+    connect(m_refreshButton, &QPushButton::clicked, this, &DevicesPage::refreshRequested);
+    mainLayout->addWidget(m_refreshButton, 0, Qt::AlignLeft);
     m_refreshStatus = new QLabel("Đang chờ cập nhật", this);
     m_refreshStatus->setObjectName("deviceRefreshStatus");
     m_refreshStatus->setProperty("role", "metaLabel");
@@ -105,6 +105,7 @@ void DevicesPage::renderDevices()
         delete item;
     }
 
+    m_refreshButton->setVisible(!m_allDevices.isEmpty());
     if (m_allDevices.isEmpty()) {
         m_emptyState->setTitle("Chưa có thiết bị nào");
         m_emptyState->setDescription("Hiện tại chưa có máy con nào kết nối đến hệ thống.");

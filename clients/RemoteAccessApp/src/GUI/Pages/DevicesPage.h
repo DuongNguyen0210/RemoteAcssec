@@ -8,6 +8,7 @@
 class FlowLayout;
 class EmptyStateWidget;
 class QScrollArea;
+class QPushButton;
 class QWidget;
 
 class DevicesPage : public QWidget
@@ -31,6 +32,7 @@ private:
     void setupUi();
     void renderDevices();
 
+    QPushButton *m_refreshButton = nullptr;
     EmptyStateWidget *m_emptyState = nullptr;
     QScrollArea *m_scrollArea = nullptr;
     FlowLayout *m_flowLayout;

@@ -56,6 +56,7 @@ void EmptyStateWidget::setupUi()
 
     m_actionButton = new QPushButton(this);
     m_actionButton->setObjectName("emptyStateActionBtn");
+    m_actionButton->setProperty("role", "primaryActionButton");
     m_actionButton->setCursor(Qt::PointingHandCursor);
     m_actionButton->setFixedHeight(38);
     m_actionButton->hide();
