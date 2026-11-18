@@ -40,7 +40,6 @@ void RemoteDesktopWindow::setupUi()
 
     auto *central = new QWidget(this);
     central->setObjectName("remoteDesktopRoot");
-    central->setStyleSheet(QStringLiteral("background-color: #121416;"));
     setCentralWidget(central);
 
     auto *rootLayout = new QVBoxLayout(central);
@@ -51,24 +50,23 @@ void RemoteDesktopWindow::setupUi()
     auto *headerWidget = new QWidget(central);
     headerWidget->setObjectName("remoteHeaderBar");
     headerWidget->setFixedHeight(52);
-    headerWidget->setStyleSheet(QStringLiteral(
-        "background-color: #1c1f22; border-bottom: 1px solid #2e3438;"
-    ));
 
     auto *headerLayout = new QHBoxLayout(headerWidget);
     headerLayout->setContentsMargins(16, 8, 16, 8);
     headerLayout->setSpacing(16);
 
     m_lblTitle = new QLabel(headerWidget);
-    m_lblTitle->setStyleSheet(QStringLiteral("color: #ffffff; font-size: 15px; font-weight: bold;"));
-    m_lblTitle->setText(QStringLiteral("🖥️ %1").arg(m_targetName.isEmpty() ? QStringLiteral("Remote Device") : m_targetName));
+    m_lblTitle->setProperty("role", "cardTitle");
+    m_lblTitle->setTextFormat(Qt::PlainText);
+    m_lblTitle->setText(QStringLiteral("🖥️ %1").arg(m_targetName.isEmpty() ? QStringLiteral("Máy con") : m_targetName));
 
     m_lblStats = new QLabel(headerWidget);
     m_lblStats->setObjectName("remoteFrameStatus");
-    m_lblStats->setStyleSheet(QStringLiteral("color: #9aa2a9; font-size: 13px;"));
+    m_lblStats->setProperty("role", "cardSubtitle");
 
     m_btnFullScreen = new QPushButton(QStringLiteral("Toàn màn hình"), headerWidget);
     m_btnFullScreen->setObjectName("remoteFullScreenButton");
+    m_btnFullScreen->setProperty("role", "secondaryActionButton");
     m_btnFullScreen->setToolTip(QStringLiteral("F11: chuyển chế độ xem. Esc: thoát toàn màn hình."));
     m_btnFullScreen->setFixedHeight(36);
     connect(m_btnFullScreen, &QPushButton::clicked, this, &RemoteDesktopWindow::toggleFullScreen);
@@ -99,6 +97,7 @@ void RemoteDesktopWindow::setupUi()
 
     // Screen viewport
     m_screenWidget = new RemoteScreenWidget(central);
+    connect(m_screenWidget, &RemoteScreenWidget::remoteInput, this, &RemoteDesktopWindow::remoteInput);
     connect(m_screenWidget, &RemoteScreenWidget::fpsUpdated, this, &RemoteDesktopWindow::onFpsUpdated);
     connect(m_screenWidget, &RemoteScreenWidget::resolutionChanged, this, &RemoteDesktopWindow::onResolutionChanged);
 

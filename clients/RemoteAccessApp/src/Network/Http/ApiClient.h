@@ -33,6 +33,7 @@ public:
     /** Returns the underlying network manager (needed for long-lived SSE connections). */
     QNetworkAccessManager* getManager() const { return m_networkManager; }
 
+    QNetworkReply* openEventStream(const QString &endpoint);
     QNetworkReply* post(const QString &endpoint, const QJsonObject &data);
     QNetworkReply* put(const QString &endpoint, const QJsonObject &data);
     QNetworkReply* get(const QString &endpoint);

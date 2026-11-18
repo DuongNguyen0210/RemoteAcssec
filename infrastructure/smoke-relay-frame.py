@@ -39,6 +39,7 @@ def main():
     admin = post(port, "/api/v1/auth/login", admin_credentials)
     post(port, "/api/v1/child/register", {"childUsername": "-child", "password": password},
          token=admin["token"])
+    post(port, "/api/v1/auth/logout", {}, token=admin["token"])
     env = dict(os.environ, PBL4_FRAME_SMOKE="1",
                PBL4_SMOKE_ADMIN_USERNAME=name, PBL4_SMOKE_CHILD_USERNAME=name + "-child",
                PBL4_SMOKE_PASSWORD=password, REMOTE_API_URL=f"http://127.0.0.1:{port}",

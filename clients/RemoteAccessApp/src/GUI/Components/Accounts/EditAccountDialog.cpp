@@ -20,9 +20,9 @@ EditAccountDialog::EditAccountDialog(const AccountInfo &info, QWidget *parent) :
     layout->addWidget(title);
     auto field = [this, layout](const QString &name) {
         auto *label = new QLabel(name, this);
-        label->setProperty("role", "accountFieldLabel");
+        label->setProperty("role", "fieldLabel");
         auto *input = new QLineEdit(this);
-        input->setProperty("role", "accountPassword");
+        input->setProperty("role", "formInput");
         input->setMinimumHeight(38);
         input->setAccessibleName(name);
         label->setBuddy(input);
@@ -51,6 +51,14 @@ EditAccountDialog::EditAccountDialog(const AccountInfo &info, QWidget *parent) :
     passwordLabel->setBuddy(m_password);
     layout->addWidget(passwordLabel);
     layout->addWidget(password);
+    auto *resetHint = new QLabel("Đổi mật khẩu sẽ yêu cầu máy con đăng nhập lại.", this);
+    resetHint->setProperty("role", "cardSubtitle");
+    resetHint->setWordWrap(true);
+    resetHint->hide();
+    layout->addWidget(resetHint);
+    connect(m_password, &QLineEdit::textChanged, resetHint, [resetHint](const QString &value) {
+        resetHint->setVisible(!value.isEmpty());
+    });
     m_status = new QLabel(this);
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);

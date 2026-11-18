@@ -51,7 +51,7 @@ DevicesController::DevicesController(DeviceStore *store, DeviceService *service,
                 emit remoteSessionEnded();
                 if (m_view && !m_requestedDisconnect)
                 {
-                    m_view->finishConnectionRequest(QStringLiteral("Phiên điều khiển đã kết thúc: %1").arg(reason));
+                    m_view->showSessionStatus(QStringLiteral("Phiên điều khiển đã kết thúc: %1").arg(reason));
                 }
             });
 
@@ -94,6 +94,11 @@ void DevicesController::disconnectCurrentSession()
     }
 }
 
+bool DevicesController::sendInput(Protocol::MessageType type, const QByteArray &payload)
+{
+    return m_sessionController && m_sessionController->sendInput(type, payload);
+}
+
 void DevicesController::onDevicesUpdated(const QList<DeviceInfo> &devices)
 {
     if (m_view) {
@@ -103,6 +108,7 @@ void DevicesController::onDevicesUpdated(const QList<DeviceInfo> &devices)
 
 void DevicesController::onConnectRequested(const QString &agentSessionId)
 {
+    if (m_view) m_view->showSessionStatus(QString());
     m_sessionController->requestSession(agentSessionId);
 }
 

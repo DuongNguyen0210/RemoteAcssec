@@ -28,6 +28,7 @@ signals:
 
 private:
     bool m_fetching = false;
+    bool m_refreshPending = false;
 
 private slots:
     void onCreateAccountReply(QNetworkReply *reply);

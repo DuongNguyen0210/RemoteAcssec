@@ -3,6 +3,7 @@
 #include <QBuffer>
 #include <QDebug>
 #include <algorithm>
+#include <utility>
 
 QByteArray ScreenEncoder::encodeJpeg(const QImage &image, int quality)
 {
@@ -33,10 +34,21 @@ QByteArray ScreenEncoder::encodeJpeg(const QImage &image, int quality)
         return QByteArray{};
     }
 
-    qDebug() << "[ScreenEncoder] JPEG encode OK:"
-             << "raw-estimate=" << (image.width() * image.height() * 4) << "bytes"
-             << "encoded-bytes=" << buffer.size()
-             << "quality=" << quality;
-
     return buffer;
+}
+
+EncodedScreenFrame ScreenEncoder::encodeWithinLimit(const QImage &image, qsizetype maxBytes)
+{
+    if (image.isNull() || maxBytes <= 0) return {};
+    QImage candidate = image;
+    while (!candidate.isNull()) {
+        QByteArray jpeg = encodeJpeg(candidate);
+        if (jpeg.isEmpty()) return {};
+        if (jpeg.size() <= maxBytes) return {std::move(jpeg), candidate.size()};
+        if (candidate.width() <= 1 || candidate.height() <= 1) break;
+        candidate = candidate.scaled(qMax(1, candidate.width() / 2),
+                                     qMax(1, candidate.height() / 2),
+                                     Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    }
+    return {};
 }

@@ -21,3 +21,7 @@
 - PASS on Nginx 1.28.3 for Windows with an isolated loopback HTTP upstream. Both configurations passed `nginx -t`. The baseline lost the second event. The fixed configuration delivered the first in under two seconds and the second after 16 seconds, forwarded REST with the expected proxy header, and returned 404 for `/internal/`.
 - Verify this branch with `git log -1` and `git show --stat`. The progress document and proxy configuration are the only milestone files.
 - After review, reconcile PR #21 ownership for the next milestone before creating its branch. The full Docker Compose runtime remains unverified because Docker Desktop's Linux engine was unavailable in this session.
+
+## Integration into `codex/pbl4-reliability-ux`
+
+The old `infrastructure/nginx.conf` has been replaced by `nginx.conf.template`. Its exact SSE route already disables buffering/cache and uses HTTP/1.1, with a 45-second read timeout. Current server snapshots arrive every 3 seconds, so the historical 75-second timeout for a quiet stream is unnecessary here. Keep the template and its dynamic API DNS/upstreams; do not restore the retired static configuration. Full UI through this proxy has separate host/VM evidence in `docs/testing/FULL_UI_ACCEPTANCE.md`.

@@ -1,9 +1,16 @@
 server:
+  address: 127.0.0.1
   port: 9090
+
+jwt:
+  secret: ${JWT_SECRET}
 
 spring:
   application:
     name: management-api
+  config:
+    # Support IDE working directories: repository root, server, and management-api.
+    import: "optional:file:./infrastructure/.env[.properties],optional:file:../infrastructure/.env[.properties],optional:file:../../infrastructure/.env[.properties]"
 
   datasource:
     url: jdbc:postgresql://localhost:5432/remote_db

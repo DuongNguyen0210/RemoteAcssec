@@ -68,15 +68,66 @@ class ChildUpdateTest {
         when(children.findByUsername("adminnew")).thenReturn(Optional.of(child));
         var presence = mock(PresenceService.class);
         var auth = new AuthService(mock(UserRepository.class), children,
-                new com.remotecontrol.api.util.JwtUtil(), presence);
+                new com.remotecontrol.api.util.JwtUtil("test-only-jwt-secret-of-at-least-32-bytes"), presence, com.remotecontrol.api.support.SessionTestSupport.validLease());
         assertTrue(auth.login(new com.remotecontrol.api.dto.auth.LoginRequest("adminnew", "new-password")).getSuccess());
         assertFalse(auth.login(new com.remotecontrol.api.dto.auth.LoginRequest("adminnew", "old-password")).getSuccess());
-        verify(presence).openSession(eq(2L), anyString());
+        verify(presence).openSession(eq(2L), anyString(), eq(child.getPassword()));
     }
     @Test void legacyCredentialsRemainUsableAndHashCannotBeUsedAsPassword() {
         assertTrue(ChildPasswords.matches("legacy", "legacy"));
         var hash = ChildPasswords.encode("new-password");
         assertFalse(ChildPasswords.matches(hash, hash));
         assertFalse(ChildPasswords.matches("anything", "{pbkdf2-sha256}broken"));
+    }
+
+    @Test void passwordResetInvalidatesActiveSessionAndLegacyFailsClosed() {
+        var redis = mock(org.springframework.data.redis.core.StringRedisTemplate.class);
+        var ops = mock(org.springframework.data.redis.core.ValueOperations.class);
+        when(redis.opsForValue()).thenReturn(ops);
+        when(children.findById(2L)).thenReturn(Optional.of(child));
+        var presence = new PresenceService(redis, new ObjectMapper(), children, com.remotecontrol.api.support.SessionTestSupport.validLease());
+
+        String oldPass = child.getPassword();
+        presence.openSession(2L, "active-session", oldPass);
+        String oldFp = ChildPasswords.fingerprint(oldPass);
+        verify(ops).set(eq("auth:child:active-session"), eq("2:" + oldFp), any(java.time.Duration.class));
+
+        when(ops.get("auth:child:active-session")).thenReturn("2:" + oldFp);
+        assertTrue(presence.isSessionActive("2", "active-session"));
+
+        // Admin resets child password
+        service.updateChild(2L, request("new-password"), principal);
+        assertNotEquals(oldPass, child.getPassword());
+
+        // Previous active session is immediately invalid and purged
+        assertFalse(presence.isSessionActive("2", "active-session"));
+        verify(redis).delete("auth:child:active-session");
+
+        // Legacy session without fingerprint fails closed
+        when(ops.get("auth:child:legacy-session")).thenReturn("2");
+        assertFalse(presence.isSessionActive("2", "legacy-session"));
+        verify(redis).delete("auth:child:legacy-session");
+    }
+
+    @Test void staleLoginSnapshotAfterResetIsInactive() {
+        var redis = mock(org.springframework.data.redis.core.StringRedisTemplate.class);
+        var ops = mock(org.springframework.data.redis.core.ValueOperations.class);
+        when(redis.opsForValue()).thenReturn(ops);
+        when(children.findById(2L)).thenReturn(Optional.of(child));
+        var presence = new PresenceService(redis, new ObjectMapper(), children, com.remotecontrol.api.support.SessionTestSupport.validLease());
+
+        String oldPass = child.getPassword();
+        // Reset password first
+        service.updateChild(2L, request("new-password"), principal);
+
+        // A concurrent login that captured oldPass snapshot opens session after reset
+        presence.openSession(2L, "stale-snapshot-sid", oldPass);
+        String oldFp = ChildPasswords.fingerprint(oldPass);
+        verify(ops).set(eq("auth:child:stale-snapshot-sid"), eq("2:" + oldFp), any(java.time.Duration.class));
+
+        when(ops.get("auth:child:stale-snapshot-sid")).thenReturn("2:" + oldFp);
+        assertFalse(presence.isSessionActive("2", "stale-snapshot-sid"),
+                "Stale snapshot session must fail isSessionActive check");
+        verify(redis).delete("auth:child:stale-snapshot-sid");
     }
 }

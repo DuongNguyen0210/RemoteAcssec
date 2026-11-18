@@ -1,5 +1,20 @@
+#include "GUI/AppTheme.h"
+#include "GUI/Windows/RemoteDesktopWindow.h"
+#include "GUI/Dialogs/ConfirmDialog.h"
 #include <QtTest>
+#include "GUI/Windows/LoginWindow.h"
 #include <QTcpServer>
+#include <QScopeGuard>
+#include <QSettings>
+#include "Controllers/SettingsController.h"
+#include "GUI/Pages/SettingsPage.h"
+#include <QComboBox>
+#include <QCheckBox>
+#include <QApplication>
+#include <QClipboard>
+#include <QTemporaryFile>
+#include "Controllers/AccountController.h"
+#include "Network/Http/AccountService.h"
 #include <QTcpSocket>
 #include <QStackedWidget>
 #include <QLabel>
@@ -22,9 +37,13 @@
 #include "GUI/Windows/MainWindow.h"
 #include "GUI/Pages/AccountPage.h"
 #include "GUI/Pages/DevicesPage.h"
+#include "GUI/Components/SidebarWidget.h"
 #include "GUI/Pages/LogsPage.h"
 #include "GUI/Components/DeviceCardWidget.h"
 #include "Network/Protocol/RelayAuthPayload.h"
+#include "Network/Http/HeartbeatReporter.h"
+#include "Network/Http/ApiClient.h"
+#include "Network/Relay/ChildSessionController.h"
 
 class AccountDeviceFlowTest : public QObject {
     Q_OBJECT
@@ -33,9 +52,8 @@ private slots:
         auto *translation = new QTranslator(this);
         QVERIFY(translation->load(":/translations/qt_vi.qm"));
         QVERIFY(qApp->installTranslator(translation));
-        QFile stylesheet(":/styles/Resources/styles/main.qss");
-        QVERIFY(stylesheet.open(QIODevice::ReadOnly));
-        qApp->setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
+        applyAppTheme(*qApp);
+        QVERIFY(!qApp->styleSheet().isEmpty());
     }
     void pendingConnectionSurvivesDeviceListRefresh() {
         DevicesPage page;
@@ -72,16 +90,319 @@ private slots:
         QVERIFY(buttons.first()->isEnabled());
     }
 
-    void logsPageShowsUnavailableStateWithoutDemoRecords() {
-        LogsPage page;
-        auto *state = page.findChild<QLabel *>("emptyStateTitle");
-        QVERIFY(state);
-        QCOMPARE(state->text(), QStringLiteral("Nhật ký chưa khả dụng"));
-        QVERIFY(page.findChildren<QLineEdit *>().isEmpty());
-        for (auto *widget : page.findChildren<QWidget *>()) {
-            QVERIFY(widget->property("role").toString() != QStringLiteral("logRow"));
-            QVERIFY(widget->property("role").toString() != QStringLiteral("filterButton"));
+    void dialogsAndLoginUseTheApplicationTheme() {
+        LoginWindow login;
+        CreateAccountDialog create;
+        AccountInfo info;
+        EditAccountDialog edit(info);
+        RemoteDesktopWindow desktop(42, QStringLiteral("Máy thử nghiệm"));
+        ConfirmDialog confirm;
+        confirm.setTitleText(QStringLiteral("Dừng chia sẻ"));
+        confirm.setMessageText(QStringLiteral("Kết thúc phiên điều khiển hiện tại?"));
+        create.ensurePolished();
+        edit.ensurePolished();
+        QCOMPARE(create.palette().color(QPalette::Window), edit.palette().color(QPalette::Window));
+        auto *submit = login.findChild<QPushButton *>("loginButton");
+        auto *save = create.findChild<QPushButton *>("createAccountSubmit");
+        QVERIFY(submit && save);
+        QCOMPARE(submit->property("role"), save->property("role"));
+        const auto dir = qEnvironmentVariable("TEST_SCREENSHOT_DIR");
+        if (!dir.isEmpty()) {
+            for (QWidget *window : QList<QWidget *>{&login, &desktop, &confirm}) {
+                window->show();
+                QCoreApplication::processEvents();
+                QVERIFY(window->grab().save(dir + "/" + window->objectName() + ".png"));
+            }
         }
+    }
+    void emptyDevicesAreCenteredAndSidebarHasNoNewConnectionButton() {
+        SidebarWidget sidebar;
+        QVERIFY(!sidebar.findChild<QPushButton *>("newConnButton"));
+        DevicesPage page;
+        page.resize(900, 650);
+        page.updateDeviceList({});
+        page.show();
+        QCoreApplication::processEvents();
+        auto *title = page.findChild<QLabel *>("emptyStateTitle");
+        QVERIFY(title && title->isVisible());
+        const auto center = title->mapTo(&page, title->rect().center());
+        QVERIFY(qAbs(center.x() - page.rect().center().x()) <= 2);
+        auto *state = title->parentWidget();
+        QVERIFY(qAbs(center.y() - state->mapTo(&page, state->rect().center()).y()) < 65);
+        int visibleRefreshButtons = 0;
+        for (auto *button : page.findChildren<QPushButton *>())
+            if (button->isVisible() && button->text() == "Làm mới") ++visibleRefreshButtons;
+        QCOMPARE(visibleRefreshButtons, 1);
+        QSignalSpy refresh(&page, &DevicesPage::refreshRequested);
+        page.findChild<QPushButton *>("emptyStateActionBtn")->click();
+        QCOMPARE(refresh.count(), 1);
+        const auto dir = qEnvironmentVariable("TEST_SCREENSHOT_DIR");
+        if (!dir.isEmpty()) page.grab().save(dir + "/devices-centered.png");
+    }
+    void enterSubmitsLoginFromBothFieldsWithoutDuplicateRequests() {
+        LoginWindow window;
+        auto *username = window.findChild<QLineEdit *>("usernameInput");
+        auto *password = window.findChild<QLineEdit *>("passwordInput");
+        auto *button = window.findChild<QPushButton *>("loginButton");
+        QVERIFY(username && password && button);
+        username->setText("admin");
+        password->setText("example-password");
+        QSignalSpy requests(&window, &LoginWindow::loginRequested);
+        QTest::keyClick(username, Qt::Key_Return);
+        QCOMPARE(requests.count(), 1);
+        QCOMPARE(requests.first().at(0).toString(), QString("admin"));
+        QCOMPARE(requests.first().at(1).toString(), QString("example-password"));
+        QTest::keyClick(password, Qt::Key_Return);
+        button->click();
+        QCOMPARE(requests.count(), 1);
+        window.showError("Sai mật khẩu");
+        QVERIFY(button->isEnabled());
+        QTest::keyClick(password, Qt::Key_Enter);
+        QCOMPARE(requests.count(), 2);
+    }
+    void settingsExposeOnlyUsefulAccountControls() {
+        SettingsPage page;
+        const auto preview = qEnvironmentVariable("TEST_SCREENSHOT_DIR");
+        if (!preview.isEmpty()) { page.resize(850, 600); page.show(); QCoreApplication::processEvents(); page.grab().save(preview + "/settings.png"); }
+        QCOMPARE(page.findChildren<QLineEdit *>().size(), 3);
+        QVERIFY(page.findChildren<QComboBox *>().isEmpty());
+        QVERIFY(page.findChildren<QCheckBox *>().isEmpty());
+        QCOMPARE(page.findChildren<QPushButton *>().size(), 1);
+        for (auto *label : page.findChildren<QLabel *>()) {
+            QVERIFY(!label->text().contains("Server API"));
+            QVERIFY(!label->text().contains("JPEG"));
+        }
+    }
+    void accountCardHasUsefulActionsAndCopiesFullLogin() {
+        AccountCardWidget card(AccountInfo{1, "ownerchild", "child"});
+        QCOMPARE(card.findChildren<QPushButton *>().size(), 3);
+        auto *copy = card.findChild<QPushButton *>("copyAccountUsername");
+        QVERIFY(copy);
+        copy->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString("ownerchild"));
+        for (auto *label : card.findChildren<QLabel *>())
+            QVERIFY(!label->text().contains("MẬT KHẨU"));
+    }
+    void createShowsFullLoginAndBoundsSuffix() {
+        CreateAccountDialog dialog;
+        dialog.setOwnerUsername("owner");
+        auto *name = dialog.findChild<QLineEdit *>("createChildUsername");
+        auto *preview = dialog.findChild<QLabel *>("createLoginPreview");
+        QVERIFY(name && preview);
+        QCOMPARE(name->maxLength(), 45);
+        name->setText(" child ");
+        QCOMPARE(preview->text(), QString("Tên đăng nhập: ownerchild"));
+    }
+    void csvCreatesAccountsSequentially() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        auto &api = ApiClient::instance();
+        const auto previous = api.getBaseUrl();
+        const auto restore = qScopeGuard([&] { api.setBaseUrl(previous); });
+        api.setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
+        QList<QPointer<QTcpSocket>> pending;
+        int lists = 0;
+        connect(&server, &QTcpServer::newConnection, this, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                    const auto bytes = socket->property("buffer").toByteArray() + socket->readAll();
+                    socket->setProperty("buffer", bytes);
+                    if (!bytes.contains("\r\n\r\n") || socket->property("handled").toBool()) return;
+                    socket->setProperty("handled", true);
+                    if (bytes.startsWith("GET ")) {
+                        ++lists;
+                        const QByteArray body = R"({"success":true,"data":[]})";
+                        socket->write("HTTP/1.1 200 OK\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\nConnection: close\r\n\r\n" + body);
+                        socket->disconnectFromHost();
+                    } else pending.append(socket);
+                });
+            }
+        });
+        QTemporaryFile csv;
+        QVERIFY(csv.open());
+        csv.write("username,password\na,example-password\nb,example-password\n");
+        csv.flush();
+        AccountStore store;
+        AccountService service;
+        AccountController controller(&store, &service);
+        auto *search = controller.getView()->findChild<QLineEdit *>();
+        QVERIFY(search);
+        search->setText("stale-filter");
+        QVERIFY(QMetaObject::invokeMethod(&controller, "handleRegisterRequested", Qt::DirectConnection,
+            Q_ARG(QString, QString()), Q_ARG(QString, QString()), Q_ARG(QString, csv.fileName())));
+        QTRY_COMPARE(pending.size(), 1);
+        QTest::qWait(30);
+        QCOMPARE(pending.size(), 1);
+        auto reply = [&](int index) {
+            QVERIFY(pending.at(index));
+            pending.at(index)->write("HTTP/1.1 200 OK\r\nContent-Length: 16\r\nConnection: close\r\n\r\n{\"success\":true}");
+            pending.at(index)->disconnectFromHost();
+        };
+        reply(0);
+        QTRY_COMPARE(pending.size(), 2);
+        reply(1);
+        QTRY_COMPARE(lists, 1);
+        QVERIFY(search->text().isEmpty());
+    }
+    void csvPartialFailureCanBeFollowedByManualCreate() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        auto &api = ApiClient::instance();
+        const auto previous = api.getBaseUrl();
+        const auto restore = qScopeGuard([&] { api.setBaseUrl(previous); });
+        api.setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
+        int creates = 0, lists = 0;
+        connect(&server, &QTcpServer::newConnection, this, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                    const auto bytes = socket->property("buffer").toByteArray() + socket->readAll();
+                    socket->setProperty("buffer", bytes);
+                    if (!bytes.contains("\r\n\r\n") || socket->property("handled").toBool()) return;
+                    socket->setProperty("handled", true);
+                    const bool list = bytes.startsWith("GET ");
+                    if (list) ++lists;
+                    else ++creates;
+                    const bool fail = !list && creates == 2;
+                    const QByteArray body = list ? R"({"success":true,"data":[]})"
+                            : fail ? R"({"success":false,"message":"Import rejected"})" : R"({"success":true})";
+                    socket->write(QByteArray(fail ? "HTTP/1.1 409 Conflict" : "HTTP/1.1 200 OK")
+                            + "\r\nContent-Length: " + QByteArray::number(body.size())
+                            + "\r\nConnection: close\r\n\r\n" + body);
+                    socket->disconnectFromHost();
+                });
+            }
+        });
+        QTemporaryFile csv;
+        QVERIFY(csv.open());
+        csv.write("username,password\na,example-password\nb,example-password\n"); csv.flush();
+        AccountStore store;
+        AccountService service;
+        AccountController controller(&store, &service);
+        QVERIFY(QMetaObject::invokeMethod(&controller, "onAddAccountRequested", Qt::DirectConnection));
+        QPointer<CreateAccountDialog> dialog = controller.getView()->findChild<CreateAccountDialog *>();
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(&controller, "handleRegisterRequested", Qt::DirectConnection,
+                Q_ARG(QString, QString()), Q_ARG(QString, QString()), Q_ARG(QString, csv.fileName())));
+        QTRY_COMPARE(lists, 1);
+        QCOMPARE(creates, 2);
+        QVERIFY(dialog && dialog->isVisible());
+        bool summaryShown = false;
+        for (auto *label : dialog->findChildren<QLabel *>())
+            if (label->text().contains("Đã thêm 1 tài khoản. Thất bại 1")) summaryShown = true;
+        QVERIFY(summaryShown);
+        QVERIFY(QMetaObject::invokeMethod(&controller, "handleRegisterRequested", Qt::DirectConnection,
+                Q_ARG(QString, QStringLiteral("manual")), Q_ARG(QString, QStringLiteral("password")), Q_ARG(QString, QString())));
+        QTRY_COMPARE(lists, 2);
+        QCOMPARE(creates, 3);
+        QTRY_VERIFY(!dialog || !dialog->isVisible());
+    }
+
+    void csvDialogPreservesSubmitLabelAndClearsErrorsOnPickOrClear() {
+        CreateAccountDialog dialog;
+        auto *save = dialog.findChild<QPushButton *>("createAccountSubmit");
+        auto *clear = dialog.findChild<QPushButton *>("clearAccountCsv");
+        QVERIFY(save && clear);
+        dialog.selectImportFile("/tmp/empty.csv");
+        QCOMPARE(save->text(), QString("Nhập danh sách"));
+        dialog.showError("Không thể đọc file hoặc danh sách rỗng!");
+        QCOMPARE(save->text(), QString("Nhập danh sách"));
+        auto findError = [&]() -> QLabel * {
+            for (auto *label : dialog.findChildren<QLabel *>()) {
+                if (label->text() == "Không thể đọc file hoặc danh sách rỗng!") return label;
+            }
+            return nullptr;
+        };
+        auto *errorLabel = findError();
+        QVERIFY(errorLabel && !errorLabel->isHidden());
+        dialog.selectImportFile("/tmp/another.csv");
+        QVERIFY(errorLabel->isHidden());
+        dialog.showError("Không thể đọc file hoặc danh sách rỗng!");
+        QVERIFY(!errorLabel->isHidden());
+        clear->click();
+        QCOMPARE(save->text(), QString("Thêm tài khoản"));
+        QVERIFY(errorLabel->isHidden());
+    }
+    void settingsProfileFallbackAndPasswordValidation() {
+        SettingsPage page;
+        SettingsController controller(&page, nullptr);
+        QVERIFY(QMetaObject::invokeMethod(&controller, "onProfileResult", Qt::DirectConnection,
+            Q_ARG(bool, false), Q_ARG(QString, QString()), Q_ARG(QString, QString()), Q_ARG(QString, QStringLiteral("err"))));
+        for (auto *label : page.findChildren<QLabel *>()) {
+            QVERIFY(label->text() != QStringLiteral("Đang tải..."));
+        }
+        controller.setKnownUsername(QStringLiteral("admin"));
+        QVERIFY(QMetaObject::invokeMethod(&controller, "onProfileResult", Qt::DirectConnection,
+            Q_ARG(bool, false), Q_ARG(QString, QString()), Q_ARG(QString, QString()), Q_ARG(QString, QStringLiteral("err"))));
+        bool sawAdmin = false;
+        for (auto *label : page.findChildren<QLabel *>()) {
+            if (label->text() == QStringLiteral("admin")) sawAdmin = true;
+        }
+        QVERIFY(sawAdmin);
+        controller.handleChangePassword(QStringLiteral("oldpass"), QStringLiteral("      "), QStringLiteral("      "));
+        bool sawBlankError = false;
+        for (auto *label : page.findChildren<QLabel *>()) {
+            if (label->text().contains(QStringLiteral("khoảng trắng"))) sawBlankError = true;
+        }
+        QVERIFY(sawBlankError);
+        controller.handleChangePassword(QStringLiteral("oldpass"), QString(256, QLatin1Char('a')), QString(256, QLatin1Char('a')));
+        bool sawLengthError = false;
+        for (auto *label : page.findChildren<QLabel *>()) {
+            if (label->text().contains(QStringLiteral("255"))) sawLengthError = true;
+        }
+        QVERIFY(sawLengthError);
+    }
+    void accountRefreshDuringFetchDiscardsOldSnapshotAndFetchesAgain() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        auto &api = ApiClient::instance();
+        const auto previous = api.getBaseUrl();
+        const auto restore = qScopeGuard([&] { api.setBaseUrl(previous); });
+        api.setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
+        QList<QPointer<QTcpSocket>> peers;
+        connect(&server, &QTcpServer::newConnection, this, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                    const auto bytes = socket->property("buffer").toByteArray() + socket->readAll();
+                    socket->setProperty("buffer", bytes);
+                    if (!bytes.contains("\r\n\r\n") || socket->property("handled").toBool()) return;
+                    socket->setProperty("handled", true);
+                    peers.append(socket);
+                });
+            }
+        });
+        AccountService service;
+        QSignalSpy results(&service, &AccountService::fetchListChildrenResult);
+        service.fetchListChildren();
+        QTRY_COMPARE(peers.size(), 1);
+        service.fetchListChildren();
+        auto respond = [&](int index, const QByteArray &body) {
+            peers.at(index)->write("HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+            peers.at(index)->disconnectFromHost();
+        };
+        respond(0, R"({"success":true,"data":[{"id":1,"username":"old","childUsername":"old"}]})");
+        QTRY_COMPARE(peers.size(), 2);
+        QCOMPARE(results.count(), 0);
+        respond(1, R"({"success":true,"data":[{"id":1,"username":"new","childUsername":"new"}]})");
+        QTRY_COMPARE(results.count(), 1);
+        const auto accounts = qvariant_cast<QList<AccountInfo>>(results.first().at(1));
+        QCOMPARE(accounts.size(), 1);
+        QCOMPARE(accounts.first().username, QString("new"));
+    }
+    void logsShowOnlyRealCurrentRunEvents() {
+        LogsPage page;
+        for (auto *frame : page.findChildren<QFrame *>())
+            QVERIFY(frame->property("role") != "logRow");
+        bool emptyFound = false;
+        for (auto *label : page.findChildren<QLabel *>())
+            if (label->text().contains(QStringLiteral("Chưa có hoạt động"))) emptyFound = true;
+        QVERIFY(emptyFound);
+        page.addEntry(QStringLiteral("Bắt đầu phiên"), QStringLiteral("Laptop"));
+        int rows = 0;
+        for (auto *frame : page.findChildren<QFrame *>())
+            if (frame->property("role") == "logRow") ++rows;
+        QCOMPARE(rows, 1);
+        for (auto *label : page.findChildren<QLabel *>())
+            QVERIFY(!label->text().contains(QStringLiteral("j.doe@company.com")));
     }
     void inputContextMenuIsVietnamese() {
         QLineEdit input;
@@ -220,10 +541,59 @@ private slots:
         dialog.reject();
         QVERIFY(password->text().isEmpty());
     }
+    void stopAndResumeSerializePresenceAfterInflightHeartbeat() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        auto &api = ApiClient::instance();
+        const auto previousUrl = api.getBaseUrl();
+        const auto restore = qScopeGuard([&] { api.setBaseUrl(previousUrl); });
+        api.setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
+        QStringList routes;
+        QList<QPointer<QTcpSocket>> peers;
+        connect(&server, &QTcpServer::newConnection, this, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                    const auto bytes = socket->property("buffer").toByteArray() + socket->readAll();
+                    socket->setProperty("buffer", bytes);
+                    if (!bytes.contains("\r\n\r\n") || socket->property("handled").toBool()) return;
+                    socket->setProperty("handled", true);
+                    routes.append(QString::fromUtf8(bytes.split(' ').value(1)));
+                    peers.append(socket);
+                });
+            }
+        });
+        auto respond = [&](int index) {
+            QVERIFY(peers.at(index));
+            peers.at(index)->write("HTTP/1.1 200 OK\r\nContent-Length: 16\r\nConnection: close\r\n\r\n{\"success\":true}");
+            peers.at(index)->disconnectFromHost();
+        };
+        HeartbeatReporter reporter;
+        reporter.start();
+        QTRY_COMPARE(routes.size(), 1);
+        QCOMPARE(routes.at(0), QString("/api/v1/child/heartbeat"));
+        reporter.stop();
+        reporter.start();
+        QTest::qWait(50);
+        QCOMPARE(routes.size(), 1);
+        respond(0);
+        QTRY_COMPARE(routes.size(), 2);
+        QCOMPARE(routes.at(1), QString("/api/v1/child/unshare"));
+        respond(1);
+        QTRY_COMPARE(routes.size(), 3);
+        QCOMPARE(routes.at(2), QString("/api/v1/child/heartbeat"));
+        reporter.stop();
+        respond(2);
+        QTRY_COMPARE(routes.size(), 4);
+        QCOMPARE(routes.at(3), QString("/api/v1/child/unshare"));
+        respond(3);
+        QVERIFY(!reporter.isRunning());
+    }
     void adminStartsWithAccountsAndReceivesDeviceUpdates() {
         QTcpServer server;
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));
-        qputenv("REMOTE_API_URL", QString("http://127.0.0.1:%1").arg(server.serverPort()).toUtf8());
+        const auto previousUrl = ApiClient::instance().getBaseUrl();
+        const auto restoreUrl = qScopeGuard([&] { ApiClient::instance().setBaseUrl(previousUrl); });
+        ApiClient::instance().setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
         int accountsRequests = 0, deviceRequests = 0, sseRequests = 0, updateRequests = 0, createRequests = 0, deleteRequests = 0;
         QPointer<QTcpSocket> ssePeer;
         bool hasAccount = true;
@@ -292,12 +662,6 @@ private slots:
                 });
             }
         });
-        QString styles;
-        for (const auto &name : {"main", "sidebar", "topbar", "devicecard"}) {
-            QFile f(QString(":/styles/Resources/styles/%1.qss").arg(name));
-            if (f.open(QIODevice::ReadOnly)) styles += QString::fromUtf8(f.readAll());
-        }
-        qApp->setStyleSheet(styles);
         AppCoordinator coordinator;
         QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleLoginSuccess", Qt::DirectConnection,
                 Q_ARG(QString, "ADMIN"), Q_ARG(QString, "owner")));
@@ -327,11 +691,10 @@ private slots:
         if (!screenshotDir.isEmpty()) {
             window->grab().save(screenshotDir + "/accounts.png");
             for (int index : {1, 2, 3}) {
-                stack->setCurrentIndex(index);
+                window->findChild<SidebarWidget *>()->selectPage(index);
                 QCoreApplication::processEvents();
                 window->grab().save(screenshotDir + QString("/page-%1.png").arg(index));
             }
-            stack->setCurrentIndex(4);
         }
         QPushButton *devicesButton = nullptr;
         for (auto *button : window->findChildren<QPushButton*>()) {
@@ -485,6 +848,49 @@ private slots:
         QCOMPARE(payload.mid(5, 2), QByteArray::fromHex("0024"));
         QVERIFY(Protocol::relayAuthPayload("").isEmpty());
         QVERIFY(Protocol::relayAuthPayload(QString(4097, 'x')).isEmpty());
+    }
+
+    void childCanSeeAndStopSharing() {
+        const QByteArray oldHost = qgetenv("REMOTE_RELAY_HOST");
+        const QByteArray oldPort = qgetenv("REMOTE_RELAY_PORT");
+        qputenv("REMOTE_RELAY_HOST", "127.0.0.1");
+        qputenv("REMOTE_RELAY_PORT", "1");
+        {
+            AppCoordinator coordinator;
+            QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleLoginSuccess", Qt::DirectConnection,
+                    Q_ARG(QString, QStringLiteral("CHILD")), Q_ARG(QString, QStringLiteral("child"))));
+            auto *window = [&]() -> QWidget * {
+                for (auto *widget : QApplication::topLevelWidgets())
+                    if (widget->objectName() == "childStatusWindow") return widget;
+                return nullptr;
+            }();
+            QVERIFY(window);
+            QVERIFY(window->isVisible());
+            auto *status = window->findChild<QLabel *>("childSessionStatus");
+            auto *stop = window->findChild<QPushButton *>("stopSharingButton");
+            auto *heartbeat = coordinator.findChild<HeartbeatReporter *>();
+            auto *session = coordinator.findChild<ChildSessionController *>();
+            QVERIFY(status && stop && heartbeat && session);
+            QVERIFY(!heartbeat->isRunning());
+            QCOMPARE(stop->text(), QStringLiteral("Bật chia sẻ"));
+            QVERIFY(status->text().contains(QStringLiteral("đang tắt")));
+            const auto screenshotDir = qEnvironmentVariable("TEST_SCREENSHOT_DIR");
+            if (!screenshotDir.isEmpty()) window->grab().save(screenshotDir + "/child-sharing-off.png");
+            stop->click();
+            QVERIFY(heartbeat->isRunning());
+            QCOMPARE(stop->text(), QStringLiteral("Dừng chia sẻ"));
+            emit session->relayRegistered();
+            QVERIFY(status->text().contains(QStringLiteral("Sẵn sàng nhận phiên")));
+            if (!screenshotDir.isEmpty()) window->grab().save(screenshotDir + "/child-sharing-on.png");
+            stop->click();
+            QVERIFY(status->text().contains(QStringLiteral("Đã dừng chia sẻ")));
+            QCOMPARE(stop->text(), QStringLiteral("Bật chia sẻ"));
+            QVERIFY(!heartbeat->isRunning());
+            window->close();
+        }
+        if (oldHost.isNull()) qunsetenv("REMOTE_RELAY_HOST"); else qputenv("REMOTE_RELAY_HOST", oldHost);
+        if (oldPort.isNull()) qunsetenv("REMOTE_RELAY_PORT"); else qputenv("REMOTE_RELAY_PORT", oldPort);
+        QApplication::setQuitOnLastWindowClosed(true);
     }
 };
 QTEST_MAIN(AccountDeviceFlowTest)

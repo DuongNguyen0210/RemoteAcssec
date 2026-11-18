@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import com.remotecontrol.api.service.PresenceService;
+import com.remotecontrol.api.service.AuthService;
 import org.springframework.dao.DataAccessException;
 import java.util.Arrays;
 import java.util.List;
@@ -21,7 +21,7 @@ import java.util.List;
 public class JwtInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
-    private final PresenceService presenceService;
+    private final AuthService authService;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -46,7 +46,7 @@ public class JwtInterceptor implements HandlerInterceptor {
             String role = jwtUtil.extractRole(token);
             String id = jwtUtil.extractId(token);
             String sessionId = jwtUtil.extractSessionId(token);
-            if ("CHILD".equals(role) && !presenceService.isSessionActive(id, sessionId)) {
+            if (sessionId == null || !authService.isSessionActive(role, id, sessionId)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write("{\"success\":false,\"errorCode\":\"SESSION_EXPIRED\",\"message\":\"Please sign in again\"}");

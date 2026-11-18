@@ -10,31 +10,19 @@ set(CMAKE_AUTORCC ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Svg Core Gui Widgets Network Concurrent)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Svg Core Gui Widgets Network Concurrent)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS LinguistTools)
 
-set(translation_source "${CMAKE_CURRENT_SOURCE_DIR}/Resources/translations/qt_vi.ts")
-set(translation_catalog "${CMAKE_CURRENT_BINARY_DIR}/qt_vi.qm")
-set(translation_qrc "${CMAKE_CURRENT_BINARY_DIR}/translations.qrc")
-set(translation_resource "${CMAKE_CURRENT_BINARY_DIR}/qrc_translations.cpp")
-
-file(GENERATE OUTPUT "${translation_qrc}" CONTENT
-    "<RCC><qresource prefix=\"/translations\"><file>qt_vi.qm</file></qresource></RCC>")
-
-add_custom_command(
-    OUTPUT "${translation_catalog}"
-    COMMAND Qt${QT_VERSION_MAJOR}::lrelease "${translation_source}" -qm "${translation_catalog}"
-    DEPENDS "${translation_source}"
-    VERBATIM
-)
-add_custom_command(
-    OUTPUT "${translation_resource}"
-    COMMAND Qt${QT_VERSION_MAJOR}::rcc --name translations --output "${translation_resource}" "${translation_qrc}"
-    DEPENDS "${translation_catalog}" "${translation_qrc}"
-    VERBATIM
-)
-
-add_library(AppTranslations OBJECT "${translation_resource}")
-target_link_libraries(AppTranslations PRIVATE Qt${QT_VERSION_MAJOR}::Core)
+find_program(PBL4_LRELEASE NAMES lrelease-qt${QT_VERSION_MAJOR} lrelease${QT_VERSION_MAJOR} lrelease
+    HINTS "${QT_HOST_PATH}/bin" "${Qt${QT_VERSION_MAJOR}_DIR}/../../../bin" "/usr/lib/qt${QT_VERSION_MAJOR}/bin")
+if(NOT PBL4_LRELEASE)
+    message(FATAL_ERROR "Qt lrelease is required to build translations (install qt6-l10n-tools or Qt Linguist tools).")
+endif()
+set(PBL4_TRANSLATION "${CMAKE_CURRENT_BINARY_DIR}/qt_vi.qm")
+add_custom_command(OUTPUT "${PBL4_TRANSLATION}"
+    COMMAND "${PBL4_LRELEASE}" "${CMAKE_CURRENT_SOURCE_DIR}/Resources/translations/qt_vi.ts" -qm "${PBL4_TRANSLATION}"
+    DEPENDS Resources/translations/qt_vi.ts VERBATIM)
+add_custom_target(Pbl4Translations DEPENDS "${PBL4_TRANSLATION}")
+set(PBL4_TRANSLATION_QRC "${CMAKE_CURRENT_BINARY_DIR}/translations.qrc")
+file(WRITE "${PBL4_TRANSLATION_QRC}" "<RCC><qresource prefix=\"/translations\"><file alias=\"qt_vi.qm\">${PBL4_TRANSLATION}</file></qresource></RCC>")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -48,10 +36,11 @@ add_subdirectory(src/Controllers)
 add_executable(${PROJECT_NAME}
     src/Main.cpp
     project.qrc
+    "${PBL4_TRANSLATION_QRC}"
 )
+add_dependencies(${PROJECT_NAME} Pbl4Translations)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    AppTranslations
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Svg
     Utils
@@ -63,11 +52,29 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 include(CTest)
+option(ENABLE_X11_INPUT_INTEGRATION "Build native input test for an isolated X11 display" OFF)
+option(ENABLE_WINDOWS_INPUT_INTEGRATION "Build native input test for a dedicated Windows VM" OFF)
+if(BUILD_TESTING AND ENABLE_WINDOWS_INPUT_INTEGRATION AND WIN32)
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(WindowsInputIntegrationTest tests/NativeInputIntegrationTest.cpp)
+    target_link_libraries(WindowsInputIntegrationTest PRIVATE Controllers Streaming Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+endif()
+if(BUILD_TESTING AND ENABLE_X11_INPUT_INTEGRATION AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(X11InputIntegrationTest tests/NativeInputIntegrationTest.cpp)
+    target_link_libraries(X11InputIntegrationTest PRIVATE Controllers Streaming Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+    add_executable(DesktopRelayAcceptance tests/DesktopRelayAcceptance.cpp)
+    target_link_libraries(DesktopRelayAcceptance PRIVATE Controllers Streaming Qt${QT_VERSION_MAJOR}::Widgets)
+    add_executable(FullUiDesktopAcceptance tests/FullUiDesktopAcceptance.cpp project.qrc "${PBL4_TRANSLATION_QRC}")
+    add_dependencies(FullUiDesktopAcceptance Pbl4Translations)
+    target_link_libraries(FullUiDesktopAcceptance PRIVATE Controllers Streaming Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+endif()
 if(BUILD_TESTING)
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
-    add_executable(AccountDeviceFlowTest tests/AccountDeviceFlowTest.cpp project.qrc)
+    add_executable(AccountDeviceFlowTest tests/AccountDeviceFlowTest.cpp project.qrc "${PBL4_TRANSLATION_QRC}")
+    add_dependencies(AccountDeviceFlowTest Pbl4Translations)
     target_link_libraries(AccountDeviceFlowTest PRIVATE
-        AppTranslations Controllers GUI Streaming Network Domain Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+        Controllers GUI Streaming Network Domain Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME account_device_flow COMMAND AccountDeviceFlowTest)
     set_tests_properties(account_device_flow PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(ProtocolContractTest
@@ -115,10 +122,17 @@ if(BUILD_TESTING)
         NAME screen_frame_reassembler
         COMMAND ScreenFrameReassemblerTest
     )
+    set_tests_properties(screen_frame_reassembler PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     add_executable(SseClientTest tests/SseClientTest.cpp)
     target_link_libraries(SseClientTest PRIVATE Network Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Network)
     add_test(NAME sse_client COMMAND SseClientTest)
+    add_executable(SingleLoginDesktopAcceptance tests/SingleLoginDesktopAcceptance.cpp project.qrc "${PBL4_TRANSLATION_QRC}")
+    add_dependencies(SingleLoginDesktopAcceptance Pbl4Translations)
+    target_link_libraries(SingleLoginDesktopAcceptance PRIVATE Controllers Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
+    add_executable(LoginSessionMonitorTest tests/LoginSessionMonitorTest.cpp)
+    target_link_libraries(LoginSessionMonitorTest PRIVATE Network Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Network)
+    add_test(NAME login_session_monitor COMMAND LoginSessionMonitorTest)
 endif()
 
 if(BUILD_TESTING)

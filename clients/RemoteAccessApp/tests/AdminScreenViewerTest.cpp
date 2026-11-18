@@ -11,17 +11,21 @@
 #include "GUI/Pages/AccountPage.h"
 #include "GUI/Windows/MainWindow.h"
 #include <QLineEdit>
+#include <QLabel>
+#include <QRandomGenerator>
 #include <QStackedWidget>
 #include <QPushButton>
 #include "Network/Relay/ChildSessionController.h"
 #include "Streaming/ScreenStreamSender.h"
+#include "Streaming/ScreenEncoder.h"
 #include "Controllers/AppCoordinator.h"
-#include "Controllers/AuthController.h"
+#include "Controllers/RemoteInputInjector.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Components/RemoteScreenWidget.h"
+#include "Network/Protocol/RemoteInputPacket.h"
+#include "Controllers/AuthController.h"
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/ScreenFramePacketizer.h"
-#include "Network/Relay/RelayClient.h"
 #include "Network/Relay/StaticRelayEndpointProvider.h"
 
 class AdminScreenViewerTest : public QObject {
@@ -75,6 +79,69 @@ class AdminScreenViewerTest : public QObject {
                 && reply->error() == QNetworkReply::NoError;
     }
 private slots:
+    void boundsEncodedFramesWithoutDroppingLargeScreens() {
+        QImage noisy(1600, 1200, QImage::Format_RGB32);
+        QRandomGenerator random(42);
+        for (int y = 0; y < noisy.height(); ++y) {
+            auto *pixels = reinterpret_cast<QRgb *>(noisy.scanLine(y));
+            for (int x = 0; x < noisy.width(); ++x) pixels[x] = 0xff000000u | random.generate();
+        }
+        const auto encoded = ScreenEncoder::encodeWithinLimit(noisy, 256 * 1024);
+        QVERIFY(!encoded.jpeg.isEmpty());
+        QVERIFY(encoded.jpeg.size() <= 256 * 1024);
+        QVERIFY(encoded.size.width() < noisy.width());
+        QCOMPARE(QImage::fromData(encoded.jpeg, "JPEG").size(), encoded.size);
+    }
+    void mapsFramePixelsToDesktopCoordinates() {
+        const QRect desktop(100, 50, 1920, 1080);
+        QCOMPARE(RemoteInputInjector::desktopPosition(1919, 1079, QSize(1920, 1080), desktop),
+                 std::optional<QPoint>(QPoint(2019, 1129)));
+        QCOMPARE(RemoteInputInjector::desktopPosition(1920, 1080, QSize(3840, 2160), desktop),
+                 std::optional<QPoint>(QPoint(1060, 590)));
+        QCOMPARE(RemoteInputInjector::desktopPosition(3839, 2159, QSize(3840, 2160), desktop),
+                 std::optional<QPoint>(QPoint(2019, 1129)));
+        QVERIFY(!RemoteInputInjector::desktopPosition(3840, 0, QSize(3840, 2160), desktop));
+        QVERIFY(!RemoteInputInjector::desktopPosition(0, 0, QSize(), desktop));
+    }
+    void delayedInputRetainsViewedFrameGeometry() {
+        const auto payload = RemoteInputPacket::withFrame(RemoteInputPacket::position(480, 270), QSize(960, 540));
+        const auto reference = RemoteInputPacket::referenceFrame(payload, 8, QSize(1920, 1080));
+        QCOMPARE(reference, QSize(960, 540));
+        QCOMPARE(RemoteInputInjector::desktopPosition(480, 270, reference, QRect(0, 0, 1920, 1080)),
+                 std::optional<QPoint>(QPoint(960, 540)));
+        QVERIFY(RemoteInputPacket::referenceFrame(payload + 'x', 8, QSize(1920, 1080)).isEmpty());
+        QVERIFY(RemoteInputPacket::referenceFrame(RemoteInputPacket::withFrame(RemoteInputPacket::position(0, 0), QSize(0, 0)), 8, QSize(1920, 1080)).isEmpty());
+    }
+    void viewerEncodesMouseAndKeyboardForRemoteSession() {
+        RemoteScreenWidget view;
+        view.resize(320, 240);
+        QImage frame(160, 120, QImage::Format_RGB32); frame.fill(Qt::blue);
+        view.updateFrame(frame);
+        view.show();
+        QVector<QPair<Protocol::MessageType, QByteArray>> events;
+        connect(&view, &RemoteScreenWidget::remoteInput, &view,
+                [&events](Protocol::MessageType type, const QByteArray &payload) {
+                    events.append({type, payload});
+                });
+        QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, QPoint(160, 120));
+        QVERIFY(events.size() >= 2);
+        QCOMPARE(events.at(0).first, Protocol::MessageType::MOUSE_BUTTON_DOWN);
+        quint32 x = 0, y = 0;
+        QVERIFY(RemoteInputPacket::readPosition(events.at(0).second, x, y));
+        QCOMPARE(x, quint32(80)); QCOMPARE(y, quint32(60));
+        QCOMPARE(RemoteInputPacket::referenceFrame(events.at(0).second, 9, QSize()), QSize(160, 120));
+        QCOMPARE(events.at(1).first, Protocol::MessageType::MOUSE_BUTTON_UP);
+        QTest::keyClick(&view, Qt::Key_A);
+        QCOMPARE(events.constLast().first, Protocol::MessageType::KEY_RELEASE);
+        QCOMPARE(events.constLast().second, RemoteInputPacket::key(Qt::Key_A));
+        events.clear();
+        QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, QPoint(160, 120));
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, QPoint(500, 500));
+        QCOMPARE(events.size(), 2);
+        QCOMPARE(events.at(0).first, Protocol::MessageType::MOUSE_BUTTON_DOWN);
+        QCOMPARE(events.at(1).first, Protocol::MessageType::MOUSE_BUTTON_UP);
+    }
+
     void viewerFullScreenPreservesSessionAndFrame() {
         RemoteDesktopWindow viewer(42, QStringLiteral("CHILD"));
         auto *toggle = viewer.findChild<QPushButton *>("remoteFullScreenButton");
@@ -150,7 +217,7 @@ private slots:
         QVERIFY(!childToken.isEmpty());
         const auto logout = qScopeGuard([&] {
             api.setToken(childToken);
-            auto *reply = api.post("/api/v1/child/logout", {});
+            auto *reply = api.post("/api/v1/auth/logout", {});
             waitForReply(reply);
             reply->deleteLater();
             api.setToken({});
@@ -175,7 +242,7 @@ private slots:
         QVERIFY(host == QStringLiteral("localhost") || host == QStringLiteral("127.0.0.1"));
         const int port = relay.value("port").toInt();
         QVERIFY(port > 0 && port <= 65535);
-        qputenv("REMOTE_RELAY_HOST", "127.0.0.1");
+        qputenv("REMOTE_RELAY_HOST", host.toUtf8());
         qputenv("REMOTE_RELAY_PORT", QByteArray::number(port));
         StaticRelayEndpointProvider provider;
         ChildSessionController child(&provider);
@@ -188,18 +255,9 @@ private slots:
         QSignalSpy childEnded(&child, &ChildSessionController::sessionEnded);
         QSignalSpy adminStarted(&admin, &AdminSessionController::sessionEstablished);
         QSignalSpy frames(&admin, &AdminSessionController::frameReady);
-        Protocol::RdtpStreamParser registrationParser;
-        bool registered = false;
-        connect(child.relayClient(), &RelayClient::bytesReceived, &child, [&](const QByteArray &bytes) {
-            for (const auto &message : registrationParser.feed(bytes).messages) {
-                if (message.header.type == Protocol::MessageType::REGISTER_ACK
-                        && message.payload == QByteArray(1, '\1'))
-                    registered = true;
-            }
-        });
         ApiClient::instance().setToken(childToken);
         child.start();
-        QTRY_VERIFY_WITH_TIMEOUT(registered, 8000);
+        QTRY_VERIFY_WITH_TIMEOUT(child.relayReady(), 8000);
         ApiClient::instance().setToken({});
         loginWithForm(adminUsername, password, QStringLiteral("ADMIN"));
         if (QTest::currentTestFailed())
@@ -291,7 +349,12 @@ private slots:
         QVERIFY(!timer->isActive());
     }
     void sessionNavigationKeepsSidebarAndTopbarInSync() {
-        MainWindow window(new DevicesPage, new AccountPage);
+        auto *devicePage = new DevicesPage;
+        MainWindow window(devicePage, new AccountPage);
+        devicePage->updateDeviceList({
+            {"session-a", 1, "alice", "DESKTOP-A", "Windows", "10.0.0.1", 0},
+            {"session-b", 2, "bob", "DESKTOP-B", "Linux", "10.0.0.2", 0}
+        });
         window.show();
         auto *stack = window.findChild<QStackedWidget *>("contentStack");
         auto *search = window.findChild<QLineEdit *>("topbarSearchInput");
@@ -309,27 +372,48 @@ private slots:
         QCOMPARE(stack->currentIndex(), 1);
         QVERIFY(qobject_cast<SessionsPage *>(stack->currentWidget()));
         QVERIFY(sessions->isChecked());
-        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm phiên kết nối — Sắp có"));
+        QVERIFY(search->isEnabled());
+        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm thiết bị"));
         QCOMPARE(changed.count(), 1);
-        QTest::mouseClick(devices, Qt::LeftButton);
+        search->setText("alice");
         QCOMPARE(stack->currentIndex(), 0);
         QVERIFY(devices->isChecked());
-        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm thiết bị — Sắp có"));
+        QCOMPARE(changed.count(), 2);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(devicePage->findChildren<QWidget *>("deviceCard").size(), 1);
+        search->setText("alice-x");
+        QCOMPARE(changed.count(), 2);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(devicePage->findChildren<QWidget *>("deviceCard").size(), 0);
+        auto *clear = devicePage->findChild<QPushButton *>("emptyStateActionBtn");
+        QVERIFY(clear);
+        QTest::mouseClick(clear, Qt::LeftButton);
+        QCOMPARE(search->text(), QString());
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(devicePage->findChildren<QWidget *>("deviceCard").size(), 2);
         window.showRemoteSession();
         QCOMPARE(stack->currentIndex(), 1);
         QVERIFY(sessions->isChecked());
-        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm phiên kết nối — Sắp có"));
+        QCOMPARE(search->placeholderText(), QStringLiteral("Tìm thiết bị"));
     }
     void disconnectButtonClearsViewer() {
-        SessionsPage page; page.resize(900,700); page.showSession(); page.show();
+        SessionsPage page; page.resize(900,700); page.show();
+        auto *empty = page.findChild<QLabel *>("sessionsEmptyState"); QVERIFY(empty);
+        QVERIFY(empty->isVisible());
+        page.showSession();
+        QVERIFY(!empty->isVisible());
         auto *button = page.findChild<QPushButton *>("disconnectSessionButton"); QVERIFY(button);
         auto *viewer = page.findChild<QWidget *>("screenViewer"); QVERIFY(viewer);
+        QVERIFY(viewer->isVisible());
         QImage image(32,24,QImage::Format_RGB32); image.fill(Qt::red); page.setFrame(image);
         QSignalSpy requested(&page, &SessionsPage::disconnectRequested);
         connect(&page, &SessionsPage::disconnectRequested, &page, &SessionsPage::clearFrame);
         auto before = viewer->grab().toImage();
         QTest::mouseClick(button, Qt::LeftButton);
         QCOMPARE(requested.count(),1); QVERIFY(viewer->grab().toImage() != before);
+        page.clearFrame();
+        QVERIFY(empty->isVisible());
+        QVERIFY(!viewer->isVisible());
     }
     void singleChunkAndWidget() {
         AdminSessionController c; c.m_activeSessionId = 42;
@@ -341,10 +425,9 @@ private slots:
         QCOMPARE(image.size(), QSize(32, 24));
         SessionsPage page; page.resize(320,240); page.setFrame(image); page.show();
         QTest::qWait(20);
-        int metricCards = 0;
         for (auto *widget : page.findChildren<QWidget *>())
-            if (widget->property("role") == "metricCard") ++metricCards;
-        QCOMPARE(metricCards, 3);
+            QVERIFY(widget->property("role") != "metricCard");
+        QCOMPARE(page.findChildren<QPushButton *>().size(), 1);
         auto *viewer = page.findChild<QWidget *>("screenViewer"); QVERIFY(viewer);
         auto shown = viewer->grab().toImage();
         QVERIFY(shown.pixelColor(shown.width()/2,shown.height()/2).red() > 180);

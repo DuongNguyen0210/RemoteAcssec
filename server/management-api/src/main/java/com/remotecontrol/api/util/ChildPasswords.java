@@ -1,8 +1,11 @@
 package com.remotecontrol.api.util;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Objects;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -12,6 +15,17 @@ public final class ChildPasswords {
     private static final String PREFIX = "{pbkdf2-sha256}";
     private static final int ITERATIONS = 600_000;
     private ChildPasswords() {}
+
+    public static String fingerprint(String credential) {
+        if (credential == null || credential.isEmpty()) return "";
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(credential.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
 
     public static String encode(String password) {
         byte[] salt = new byte[16];

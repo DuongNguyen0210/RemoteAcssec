@@ -3,6 +3,7 @@
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/ProtocolSerializer.h"
 #include "Network/Protocol/RelayAuthPayload.h"
+#include <QRandomGenerator>
 
 namespace {
 bool isInput(Protocol::MessageType type) {
@@ -15,7 +16,6 @@ bool isInput(Protocol::MessageType type) {
 ChildSessionController::ChildSessionController(RelayEndpointProvider *provider, QObject *parent)
     : QObject(parent), m_provider(provider), m_client(new RelayClient(this)) {
     m_retry.setSingleShot(true);
-    m_retry.setInterval(1500);
     m_renew.setInterval(10000);
     m_timeout.setSingleShot(true);
     m_timeout.setInterval(10000);
@@ -42,6 +42,7 @@ void ChildSessionController::stop() {
     ++m_generation;
     m_allocating = false;
     m_retry.stop();
+    m_retryAttempt = 0;
     m_renew.stop();
     m_timeout.stop();
     reset(QStringLiteral("Đã dừng kết nối Relay."));
@@ -106,8 +107,10 @@ void ChildSessionController::receive(const QByteArray &bytes) {
             }
             m_registered = true;
             m_connecting = false;
+            m_retryAttempt = 0;
             m_timeout.stop();
             if (m_endpoint.expiresAt != 0) m_renew.start();
+            emit relayRegistered();
         } else if (h.type == T::SESSION_REQUEST) {
             if (!m_registered || h.sessionId == 0 || h.flags != 0 || h.sequenceNumber != 0
                     || !message.payload.isEmpty()) {
@@ -176,6 +179,9 @@ qint64 ChildSessionController::pendingBytes() const { return m_client->pendingBy
 void ChildSessionController::scheduleReconnect()
 {
     if (!m_running || m_retry.isActive()) return;
+    const int base = qMin(30000, 1500 * (1 << qMin(m_retryAttempt, 5)));
+    m_retry.setInterval(qMin(30000, base + QRandomGenerator::global()->bounded(500)));
+    if (m_retryAttempt < 5) ++m_retryAttempt;
     m_retry.start();
 }
 

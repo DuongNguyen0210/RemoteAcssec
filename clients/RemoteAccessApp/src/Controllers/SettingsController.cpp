@@ -3,9 +3,6 @@
 #include "Network/Http/UserService.h"
 #include "Network/Http/ApiClient.h"
 
-#include <QSettings>
-#include <QUrl>
-#include <QDebug>
 
 SettingsController::SettingsController(SettingsPage *view, UserService *userService, QObject *parent)
     : QObject(parent)
@@ -20,79 +17,33 @@ SettingsController::SettingsController(SettingsPage *view, UserService *userServ
     }
 
     if (m_view) {
-        connect(m_view, &SettingsPage::saveServerRequested,
-                this, &SettingsController::handleSaveServerConfig);
-        connect(m_view, &SettingsPage::resetServerRequested,
-                this, &SettingsController::handleResetServerConfig);
         connect(m_view, &SettingsPage::changePasswordRequested,
                 this, &SettingsController::handleChangePassword);
-        connect(m_view, &SettingsPage::saveStreamSettingsRequested,
-                this, &SettingsController::handleSaveStreamSettings);
     }
 }
 
 void SettingsController::loadSettings()
 {
-    QSettings settings("DUT_PBL4", "RemoteAccessApp");
-
-    QString apiUrl = settings.value("server/apiUrl", ApiClient::instance().getBaseUrl()).toString();
-    int qualityIndex = settings.value("streaming/qualityIndex", 1).toInt(); // 1 = Cân bằng (70%)
-    bool keepAspect = settings.value("display/keepAspectRatio", true).toBool();
-
-    if (m_view) {
-        m_view->setServerUrl(apiUrl);
-        m_view->setStreamSettings(qualityIndex, keepAspect);
-    }
-
     if (m_userService) {
         m_userService->fetchProfile();
     }
 }
 
-void SettingsController::handleSaveServerConfig(const QString &apiUrl)
-{
-    QString trimmed = apiUrl.trimmed();
-    QUrl url(trimmed);
-    if (!url.isValid() || (url.scheme() != "http" && url.scheme() != "https")) {
-        if (m_view) {
-            m_view->showFeedback(QStringLiteral("URL máy chủ không hợp lệ (phải bắt đầu bằng http:// hoặc https://)"), true);
-        }
-        return;
-    }
-
-    QSettings settings("DUT_PBL4", "RemoteAccessApp");
-    settings.setValue("server/apiUrl", trimmed);
-
-    ApiClient::instance().setBaseUrl(trimmed);
-
-    if (m_view) {
-        m_view->showFeedback(QStringLiteral("Đã lưu địa chỉ máy chủ thành công."), false);
-    }
-}
-
-void SettingsController::handleResetServerConfig()
-{
-    QSettings settings("DUT_PBL4", "RemoteAccessApp");
-    settings.remove("server/apiUrl");
-
-    QString defaultUrl = qEnvironmentVariable("REMOTE_API_URL", "http://cornball-ibuprofen-polygraph.ngrok-free.dev");
-    ApiClient::instance().setBaseUrl(defaultUrl);
-
-    if (m_view) {
-        m_view->setServerUrl(defaultUrl);
-        m_view->showFeedback(QStringLiteral("Đã khôi phục địa chỉ máy chủ về mặc định."), false);
-    }
-}
-
 void SettingsController::handleChangePassword(const QString &oldPassword, const QString &newPassword, const QString &confirmPassword)
 {
+    if (m_passwordChangePending) return;
     if (oldPassword.isEmpty()) {
         if (m_view) m_view->showFeedback(QStringLiteral("Vui lòng nhập mật khẩu hiện tại."), true);
         return;
     }
 
-    if (newPassword.length() < 6) {
-        if (m_view) m_view->showFeedback(QStringLiteral("Mật khẩu mới phải có ít nhất 6 ký tự."), true);
+    if (newPassword.trimmed().isEmpty() || newPassword.length() < 6) {
+        if (m_view) m_view->showFeedback(QStringLiteral("Mật khẩu mới phải có ít nhất 6 ký tự và không chỉ chứa khoảng trắng."), true);
+        return;
+    }
+
+    if (newPassword.length() > 255) {
+        if (m_view) m_view->showFeedback(QStringLiteral("Mật khẩu mới tối đa 255 ký tự."), true);
         return;
     }
 
@@ -107,23 +58,16 @@ void SettingsController::handleChangePassword(const QString &oldPassword, const 
     }
 
     if (m_userService) {
+        m_passwordChangePending = true;
+        if (m_view) m_view->setPasswordChangePending(true);
         m_userService->changePassword(oldPassword, newPassword);
-    }
-}
-
-void SettingsController::handleSaveStreamSettings(int qualityIndex, bool keepAspectRatio)
-{
-    QSettings settings("DUT_PBL4", "RemoteAccessApp");
-    settings.setValue("streaming/qualityIndex", qualityIndex);
-    settings.setValue("display/keepAspectRatio", keepAspectRatio);
-
-    if (m_view) {
-        m_view->showFeedback(QStringLiteral("Đã cập nhật cài đặt truyền phát."), false);
     }
 }
 
 void SettingsController::onChangePasswordResult(bool success, const QString &message)
 {
+    m_passwordChangePending = false;
+    if (m_view) m_view->setPasswordChangePending(false);
     if (m_view) {
         m_view->showFeedback(message, !success);
         if (success) {
@@ -132,10 +76,28 @@ void SettingsController::onChangePasswordResult(bool success, const QString &mes
     }
 }
 
+void SettingsController::setKnownUsername(const QString &username)
+{
+    m_knownUsername = username.trimmed();
+    if (m_view && !m_knownUsername.isEmpty()) {
+        m_view->setProfileInfo(m_knownUsername, QString());
+    }
+}
+
 void SettingsController::onProfileResult(bool success, const QString &username, const QString &email, const QString &message)
 {
     Q_UNUSED(message);
-    if (success && m_view) {
-        m_view->setProfileInfo(username, email.isEmpty() ? QStringLiteral("Chưa thiết lập") : email);
+    if (!m_view) return;
+    if (success) {
+        const QString resolvedUsername = username.isEmpty() ? m_knownUsername : username;
+        if (!resolvedUsername.isEmpty()) m_knownUsername = resolvedUsername;
+        m_view->setProfileInfo(
+            resolvedUsername.isEmpty() ? QStringLiteral("Không xác định") : resolvedUsername,
+            email.isEmpty() ? QStringLiteral("Chưa thiết lập") : email
+        );
+    } else if (!m_knownUsername.isEmpty()) {
+        m_view->setProfileInfo(m_knownUsername, QString());
+    } else {
+        m_view->setProfileInfo(QStringLiteral("Không thể tải"), QString());
     }
 }

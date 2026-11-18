@@ -25,14 +25,16 @@ HeartbeatReporter::~HeartbeatReporter()
 void HeartbeatReporter::start()
 {
     m_deviceName = QHostInfo::localHostName();
-    sendHeartbeat();
     m_timer->start();
+    sendHeartbeat();
 }
 
 void HeartbeatReporter::stop()
 {
-    if (m_timer->isActive())
-        m_timer->stop();
+    if (!m_timer->isActive()) return;
+    m_timer->stop();
+    m_unsharePending = true;
+    sendUnshare();
 }
 
 bool HeartbeatReporter::isRunning() const
@@ -42,7 +44,8 @@ bool HeartbeatReporter::isRunning() const
 
 void HeartbeatReporter::sendHeartbeat()
 {
-    if (m_inFlight) return;
+    if (m_inFlight || !m_timer->isActive()) return;
+    if (m_unsharePending) { sendUnshare(); return; }
     QJsonObject body;
     body[QStringLiteral("hostname")] = m_deviceName;
     body[QStringLiteral("os")] = QSysInfo::prettyProductName();
@@ -57,27 +60,33 @@ void HeartbeatReporter::sendHeartbeat()
     });
 }
 
+void HeartbeatReporter::sendUnshare()
+{
+    if (m_inFlight || !m_unsharePending) return;
+    auto *reply = ApiClient::instance().post("/api/v1/child/unshare", {});
+    if (!reply) return; // Presence TTL remains the network-failure fallback.
+    m_inFlight = true;
+    m_unsharePending = false;
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        m_inFlight = false;
+        reply->deleteLater();
+        if (m_unsharePending) sendUnshare();
+        else if (m_timer->isActive()) sendHeartbeat();
+    });
+}
+
 void HeartbeatReporter::onHeartbeatReply(QNetworkReply *reply)
 {
     m_inFlight = false;
     reply->deleteLater();
-
-    ApiParsedResponse res = ApiClient::parseReply(reply);
-
-    if (res.httpStatusCode == 0) {
-        return;
-    }
-
-    if (res.success)
-        return;
-
-    if (res.httpStatusCode == 404 ||
-        res.httpStatusCode == 401 ||
-        res.httpStatusCode == 403 ||
-        res.httpStatusCode == 400)
-    {
-        stop();
+    const auto res = ApiClient::parseReply(reply);
+    if (!res.success && (res.httpStatusCode == 404 || res.httpStatusCode == 401
+                        || res.httpStatusCode == 403 || res.httpStatusCode == 400)) {
+        m_timer->stop();
+        m_unsharePending = false;
         emit authenticationLost();
         return;
     }
+    // Serialize stop after any heartbeat already in flight, and resume after unshare.
+    if (m_unsharePending) sendUnshare();
 }

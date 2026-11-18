@@ -273,29 +273,43 @@ nguồn đều bắt buộc.
 Protocol SCREEN_FRAME đầu vào
 → kiểm tra sessionId, trạng thái ACTIVE và channel nguồn
 → ghi chính đối tượng Protocol gốc đến channel ADMIN
-→ ScreenFrameHandler/ScreenFrameReassembler chẩn đoán có thể chạy sau đó
 ```
 
 Mỗi chunk gốc được chuyển độc lập. Relay không ghép ảnh trước khi định tuyến,
 không packetize lại, không sửa byte JPEG, metadata payload, `sequenceNumber` hay
-`sessionId`. Bộ ghép khung phía Relay chỉ phục vụ chẩn đoán và không phải điều
-kiện của đường chuyển tiếp.
+`sessionId`. ADMIN tự ghép các chunk thành ảnh JPEG.
 
-ADMIN hiện nhận được byte TCP/RDTP đã chuyển tiếp, nhưng chưa có bộ ghép
-`SCREEN_FRAME`, giải mã JPEG, tạo `QImage` hoặc hiển thị bằng Qt.
+ADMIN ghép `SCREEN_FRAME`, giải mã JPEG thành `QImage` và hiển thị trong Qt.
 
 ---
 
 ## Nhom: Mouse (Remote Input)
 
-| Ten | Hex | Y nghia du kien |
+Payload của Qt client hiện tại dùng Big Endian và tọa độ pixel trên màn hình
+chính của CHILD (gốc là góc trên trái của frame):
+
+| Loại | Payload |
+|---|---|
+| `MOUSE_MOVE` | `uint32 x`, `uint32 y` (8 byte) |
+| `MOUSE_BUTTON_DOWN/UP` | `uint32 x`, `uint32 y`, `uint8 button` (1 trái, 2 phải, 3 giữa) |
+| `MOUSE_WHEEL` | `uint32 x`, `uint32 y`, `int32 delta` theo đơn vị Qt angle delta |
+| `KEY_PRESS/RELEASE` | `uint32 Qt::Key` (4 byte); hỗ trợ chữ Latin, số và các phím điều hướng/cơ bản |
+
+Client hiện tại nối thêm `uint32 frameWidth, uint32 frameHeight` Big Endian vào cuối payload chuột (16/17/20 byte tương ứng). Đây là kích thước ảnh ADMIN đang xem lúc phát thao tác, giúp CHILD ánh xạ đúng khi frame tiếp theo đã đổi kích thước do nén. Mỗi chiều phải thuộc 1..32768. Relay và CHILD vẫn nhận dạng payload cũ 8/9/12 byte để tương thích, nhưng payload cũ không bảo đảm ánh xạ khi độ phân giải thay đổi. Triển khai relay mới trước client mới; relay cũ sẽ từ chối payload mở rộng. Payload phím vẫn đúng 4 byte.
+
+CHILD kiểm tra đúng kích thước payload và tọa độ nằm trong ảnh tham chiếu. Khi nhả nút chuột đang được giữ, việc nhả được ưu tiên ngay cả khi geometry không còn hợp lệ, tránh kẹt nút sau khi dừng phiên. Linux
+thực thi qua X11/XTest khi Qt chạy với `xcb`; Windows dùng `SendInput`.
+Wayland không hỗ trợ inject toàn hệ thống trong phiên bản này.
+Relay cũng kiểm tra kích thước input theo loại ngay từ header và đóng kết nối
+gửi gói sai. Gói không phải `SCREEN_FRAME` bị giới hạn ở 8192 byte trước khi
+cấp phát payload; giới hạn chung của `SCREEN_FRAME` là 524288 byte.
+
+| Ten | Hex | Y nghia |
 |---|---|---|
-| `MOUSE_MOVE` | `0x20` | Di chuyen con tro chuot (toa do tuyet doi hoac tuong doi). |
+| `MOUSE_MOVE` | `0x20` | Di chuyển con trỏ đến tọa độ pixel tuyệt đối của frame. |
 | `MOUSE_BUTTON_DOWN` | `0x21` | Nut chuot duoc nhan xuong. |
 | `MOUSE_BUTTON_UP` | `0x22` | Nut chuot duoc tha ra. |
 | `MOUSE_WHEEL` | `0x23` | Cuon banh xe chuot (scroll wheel delta). |
-
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
 
 ---
 
@@ -305,8 +319,6 @@ ADMIN hiện nhận được byte TCP/RDTP đã chuyển tiếp, nhưng chưa c�
 |---|---|---|
 | `KEY_PRESS` | `0x30` | Phim ban phim duoc nhan xuong. |
 | `KEY_RELEASE` | `0x31` | Phim ban phim duoc tha ra. |
-
-> **Payload:** Chua duoc dinh nghia/implement o Phase hien tai.
 
 ---
 

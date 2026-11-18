@@ -25,7 +25,7 @@ class RelayAllocationControllerTest {
         var objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
         var mvc = MockMvcBuilders.standaloneSetup(new RelayAllocationController(dispatch, children),
                 new DeviceController(mock(DeviceService.class), auth, dispatch, sseNotifier, objectMapper))
-                .addInterceptors(new JwtInterceptor(jwt, presence))
+                .addInterceptors(new JwtInterceptor(jwt, com.remotecontrol.api.support.SessionTestSupport.auth(presence)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         String id = UUID.randomUUID().toString();
         when(jwt.extractId("child")).thenReturn("2");
@@ -35,6 +35,7 @@ class RelayAllocationControllerTest {
         when(children.existsById(2L)).thenReturn(true);
         when(jwt.extractId("admin")).thenReturn("1");
         when(jwt.extractRole("admin")).thenReturn("ADMIN");
+        when(jwt.extractSessionId("admin")).thenReturn("admin-session");
         var endpoint = new RelayEndpointDto("node", "localhost", 9091, System.currentTimeMillis()+30000);
         when(dispatch.allocate(id)).thenReturn(endpoint);
         when(dispatch.lookup(id)).thenReturn(endpoint);

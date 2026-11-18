@@ -4,6 +4,8 @@
 #include <QWidget>
 #include <QImage>
 class QFrame;
+class QLabel;
+class RemoteScreenWidget;
 
 class SessionsPage : public QWidget
 {
@@ -17,7 +19,8 @@ signals:
     void disconnectRequested();
 private:
     void setupUi();
-    QWidget *m_viewer = nullptr;
+    RemoteScreenWidget *m_viewer = nullptr;
     QFrame *m_sessionCard = nullptr;
+    QLabel *m_emptyLabel = nullptr;
 };
 #endif

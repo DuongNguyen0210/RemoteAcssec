@@ -1,12 +1,53 @@
 #include <QtTest>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QScopeGuard>
 #include "Network/Http/SseClient.h"
 #include "Network/Http/ApiClient.h"
 
 class SseClientTest : public QObject {
     Q_OBJECT
 private slots:
+    void refusesRemoteHttpBeforeSendingCredentials() {
+        auto &api = ApiClient::instance();
+        const auto previous = qgetenv("REMOTE_ALLOW_HTTP");
+        const auto restore = qScopeGuard([previous] {
+            if (previous.isNull()) qunsetenv("REMOTE_ALLOW_HTTP");
+            else qputenv("REMOTE_ALLOW_HTTP", previous);
+        });
+        qunsetenv("REMOTE_ALLOW_HTTP");
+        api.setBaseUrl("http://192.0.2.1");
+        auto *reply = api.post("/api/v1/auth/login", {{"username", "demo"}});
+        QVERIFY(reply);
+        QVERIFY(reply->url().isEmpty());
+        QTRY_VERIFY(reply->isFinished());
+        QCOMPARE(ApiClient::parseReply(reply).errorCode, QStringLiteral("UNSAFE_API_URL"));
+        reply->deleteLater();
+
+        SseClient stream(QStringLiteral("/events"));
+        stream.start();
+        QTRY_VERIFY(!stream.isRunning());
+    }
+
+    void credentialsStayOnConfiguredOrigin() {
+        QTcpServer origin, other;
+        QVERIFY(origin.listen(QHostAddress::LocalHost, 0));
+        QVERIFY(other.listen(QHostAddress::LocalHost, 0));
+        auto &api = ApiClient::instance();
+        api.setBaseUrl(QStringLiteral("http://127.0.0.1:") + QString::number(origin.serverPort()));
+        auto *reply = api.post("/api/v1/auth/login", {{"username", "demo"}});
+        QTRY_VERIFY(origin.hasPendingConnections());
+        auto *peer = origin.nextPendingConnection();
+        QTRY_VERIFY(peer->bytesAvailable() > 0);
+        peer->write("HTTP/1.1 307 Temporary Redirect\r\nLocation: http://127.0.0.1:" +
+            QByteArray::number(other.serverPort()) + "/login\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        peer->disconnectFromHost();
+        QTRY_VERIFY(reply->isFinished() || other.hasPendingConnections());
+        QVERIFY(!other.hasPendingConnections());
+        QVERIFY(reply->error() != QNetworkReply::NoError);
+        reply->deleteLater();
+    }
+
     void oversizedIncompleteEventClosesConnection() {
         QTcpServer server;
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));

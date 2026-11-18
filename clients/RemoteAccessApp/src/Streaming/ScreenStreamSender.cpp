@@ -1,8 +1,8 @@
 #include "ScreenStreamSender.h"
-
-#include "ScreenEncoder.h"
 #include "Network/Relay/ChildSessionController.h"
-#include "Network/Relay/RelayClient.h"
+
+#include "ScreenCapture.h"
+#include "ScreenEncoder.h"
 #include "Network/Protocol/ScreenFramePacketizer.h"
 
 #include <QDebug>
@@ -10,7 +10,7 @@
 ScreenStreamSender::ScreenStreamSender(ChildSessionController *session, QObject *parent)
     : QObject(parent)
     , m_timer(new QTimer(this))
-    , m_relayClient(session->relayClient())
+    , m_session(session)
     , m_frameId(1)
     , m_currentSessionId(0)
 {
@@ -26,20 +26,15 @@ ScreenStreamSender::ScreenStreamSender(ChildSessionController *session, QObject 
     });
 }
 
-ScreenStreamSender::~ScreenStreamSender()
-{
-    m_relayClient->DisconnectFromServer();
-}
+ScreenStreamSender::~ScreenStreamSender() = default;
 
 void ScreenStreamSender::onTick()
 {
     if (m_currentSessionId == 0)
         return;
 
-    const qint64 pending = m_relayClient->pendingBytes();
-    if (pending > MAX_PENDING_BYTES) {
-        qDebug() << "[ScreenStreamSender] Backpressure: skipping frame"
-                 << m_frameId << " pending=" << pending << "bytes";
+    const qint64 pending = m_session->pendingBytes();
+    if (pending >= MAX_PENDING_BYTES) {
         return;
     }
 
@@ -48,24 +43,28 @@ void ScreenStreamSender::onTick()
         qWarning() << "[ScreenStreamSender] Chụp khung hình thất bại.";
         return;
     }
-
-    const QByteArray encoded = ScreenEncoder::encodeJpeg(frame);
-    if (encoded.isEmpty()) {
+    const EncodedScreenFrame encoded = ScreenEncoder::encodeWithinLimit(frame, MAX_ENCODED_FRAME_BYTES);
+    if (encoded.jpeg.isEmpty()) {
         qWarning() << "[ScreenStreamSender] Mã hoá JPEG thất bại.";
         return;
     }
 
     const QList<QByteArray> packets =
-        ScreenFramePacketizer::packetize(encoded, m_frameId, m_currentSessionId);
+        ScreenFramePacketizer::packetize(encoded.jpeg, m_frameId, m_currentSessionId);
     if (packets.isEmpty()) {
         qWarning() << "[ScreenStreamSender] Packetize returned empty, skipping frame.";
         return;
     }
 
+    qint64 frameBytes = 0;
+    for (const QByteArray &packet : packets) frameBytes += packet.size();
+    if (pending + frameBytes > MAX_PENDING_BYTES) return;
+    emit frameCaptured(encoded.size);
+
     for (const QByteArray &pkt : packets) {
-        const qint64 written = m_relayClient->sendRawPacket(pkt);
+        const qint64 written = m_session->sendScreenPacket(pkt);
         if (written < 0) {
-            qWarning() << "[ScreenStreamSender] sendRawPacket failed (not connected?)."
+            qWarning() << "[ScreenStreamSender] Session rejected the screen packet."
                        << "Aborting frame" << m_frameId;
             return;
         }

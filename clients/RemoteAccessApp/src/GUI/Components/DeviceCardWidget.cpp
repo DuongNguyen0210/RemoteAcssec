@@ -47,7 +47,8 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
     QVBoxLayout *NameLayout = new QVBoxLayout();
     NameLayout->setSpacing(2);
     NameLayout->setContentsMargins(0, 0, 0, 0);
-    QLabel *lblName = new QLabel(QString("<b>%1</b>").arg(name.toHtmlEscaped()), this);
+    QLabel *lblName = new QLabel(name, this);
+    lblName->setTextFormat(Qt::PlainText);
     lblName->setObjectName("deviceName");
     QLabel *lblOS = new QLabel(QString(OS), this);
     lblOS->setTextFormat(Qt::PlainText);
@@ -89,6 +90,7 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
     QLabel *lblIp = new QLabel("Địa chỉ IP");
     lblIp->setProperty("role", "metaLabel");
     QLabel *lblIpInfo = new QLabel(ip);
+    lblIpInfo->setTextFormat(Qt::PlainText);
     lblIpInfo->setProperty("role", "strongValue");
     lblIpLayout->addWidget(lblIp);
     lblIpLayout->addStretch();
@@ -118,6 +120,7 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
 
     m_connectButton = new QPushButton("Kết nối", this);
     m_connectButton->setObjectName("connectButton");
+    m_connectButton->setProperty("role", "primaryActionButton");
     m_connectButton->setCursor(Qt::PointingHandCursor);
     m_connectButton->setFixedHeight(40);
     connect(m_connectButton, &QPushButton::clicked, this, [this]() {

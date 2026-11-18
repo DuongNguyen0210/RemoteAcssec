@@ -123,7 +123,7 @@ Relay kiểm tra lại authorization mỗi 10 giây (HTTP timeout 5 giây); khi 
 
 Biến môi trường:
 
-- Qt `REMOTE_API_URL`: API URL; nếu không đặt giữ URL ngrok đang có trong dự án.
+- Qt `REMOTE_API_URL`: API URL; mặc định `http://localhost:9090` cho phát triển cục bộ. Khi dùng máy chủ khác, đặt URL HTTPS qua biến môi trường này.
 - Qt `REMOTE_RELAY_HOST` / `REMOTE_RELAY_PORT`: mặc định localhost / 8080.
 - Relay `MANAGEMENT_API_URL`: mặc định http://localhost:9090; phải trỏ tới cùng management API mà Qt dùng.
 - Relay `RELAY_PORT`: mặc định 8080.

@@ -28,11 +28,16 @@ public class ChildController {
     public ResponseEntity<ApiResponse<ChildDto>> register(
             @RequestAttribute("currentUser") UserPrincipal currentUser,
             @Valid @RequestBody RegisterRequest registerRequest) {
-        ApiResponse<ChildDto> r = childService.register(registerRequest, currentUser);
-        if (r.getSuccess()) {
-            return ResponseEntity.ok(r);
+        ApiResponse<ChildDto> r;
+        try {
+            r = childService.register(registerRequest, currentUser);
+        } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error("CHILD_ALREADY_EXISTS", "Account name already exists"));
         }
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(r);
+        if (r.getSuccess()) return ResponseEntity.ok(r);
+        return ResponseEntity.status("INVALID_INPUT".equals(r.getErrorCode())
+                ? HttpStatus.BAD_REQUEST : HttpStatus.CONFLICT).body(r);
     }
 
     @RequireRole("ADMIN")
@@ -84,6 +89,13 @@ public class ChildController {
     public ApiResponse<Void> logout(@RequestAttribute("currentUser") UserPrincipal principal) {
         childService.logout(principal);
         return ApiResponse.success("Logged out");
+    }
+
+    @RequireRole("CHILD")
+    @PostMapping("/unshare")
+    public ApiResponse<Void> unshare(@RequestAttribute("currentUser") UserPrincipal principal) {
+        childService.unshare(principal);
+        return ApiResponse.success("Sharing disabled");
     }
 
     @RequireRole("CHILD")

@@ -9,6 +9,8 @@ class RelayConfigTest {
     @Test void localDefaultsAndExplicitDiscoveryConfiguration() {
         var local = RelayConfig.fromEnvironment(Map.of());
         assertEquals(8080, local.port());
+        assertEquals("127.0.0.1", local.bindHost());
+        assertEquals("0.0.0.0", RelayConfig.fromEnvironment(Map.of("RELAY_BIND_HOST", "0.0.0.0")).bindHost());
         assertEquals("localhost", local.advertisedHost());
         assertFalse(local.discoveryEnabled());
         var config = RelayConfig.fromEnvironment(Map.of("RELAY_INSTANCE_ID", "node-1", "RELAY_PORT", "8081",
@@ -22,7 +24,12 @@ class RelayConfigTest {
     @Test void rejectsInvalidSettingsBeforeBinding() {
         assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_PORT", "0")));
         assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_PORT", "bad")));
+        assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_BIND_HOST", "")));
         assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_DISCOVERY_ENABLED", "true")));
         assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_HEARTBEAT_SECONDS", "31")));
+        assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_TLS_CERT", "/tmp/cert.pem")));
+        assertThrows(IllegalArgumentException.class, () -> RelayConfig.fromEnvironment(Map.of("RELAY_TLS_KEY", "/tmp/key.pem")));
+        var tls = RelayConfig.fromEnvironment(Map.of("RELAY_TLS_CERT", "/tmp/cert.pem", "RELAY_TLS_KEY", "/tmp/key.pem"));
+        assertTrue(tls.tlsEnabled());
     }
 }

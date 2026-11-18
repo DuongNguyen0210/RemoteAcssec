@@ -1,6 +1,6 @@
 # 09 - Trạng thái triển khai
 
-> Trạng thái hiện tại được đối chiếu với `origin/main` tại `3cfd918`. Các phần giai đoạn bên dưới ghi lại mốc lịch sử. Xem [hợp đồng RDTP v2](11_SESSION_AUTH_V2.md) để triển khai đăng ký và kết nối.
+> Tài liệu đã tích hợp rà soát từ main `3cfd918` và cập nhật theo nhánh `codex/pbl4-reliability-ux`. Các phần giai đoạn bên dưới ghi lại mốc lịch sử. Xem [hợp đồng RDTP v2](11_SESSION_AUTH_V2.md) để triển khai đăng ký và kết nối.
 > Xem thêm: [README.md](README.md)
 
 ---
@@ -312,9 +312,9 @@ vào đến channel ADMIN qua `ProtocolEncoder`. Relay không ghép khung trư�
 `frameId`, `chunkIndex`, `chunkCount`, `totalFrameSize` hoặc `sequenceNumber`.
 Mỗi chunk gốc được chuyển tiếp độc lập.
 
-`ScreenFrameHandler` và `ScreenFrameReassembler` phía Relay vẫn có thể chạy sau
-lệnh chuyển tiếp để ghi thông tin chẩn đoán. Chúng không phải điều kiện hoặc cơ
-chế định tuyến.
+Relay không ghép ảnh; ADMIN dùng `Protocol::ScreenFrameReassembler` để ghép
+chunk sau khi nhận. Hai lớp chẩn đoán phía Relay không nằm trong pipeline và đã
+được xóa để tránh duy trì một bộ ghép ảnh thứ hai không sử dụng.
 
 #### Trạng thái ADMIN
 
@@ -382,7 +382,7 @@ CHILD SCREEN_FRAME chunks
 
 ---
 
-## Trạng thái trên main
+## Trạng thái hiện tại
 
 | Hạng mục | Trạng thái |
 | --- | --- |
@@ -390,11 +390,12 @@ CHILD SCREEN_FRAME chunks
 | Hiển thị màn hình | ADMIN ghép các chunk JPEG, giải mã và hiển thị trong `RemoteDesktopWindow`. |
 | Kết thúc phiên | ADMIN và CHILD xử lý `DISCONNECT`. Relay dọn phiên khi mất kết nối TCP và áp dụng timeout cho phiên đang chờ. |
 | Khám phá thiết bị | CHILD gửi heartbeat tới Management API. ADMIN tải danh sách thiết bị và nhận cập nhật presence qua SSE. |
-| Điều khiển từ xa | Luồng thu sự kiện chuột/bàn phím ở ADMIN và áp dụng ở CHILD chưa hoàn thiện. |
+| Điều khiển từ xa | ADMIN thu chuột/bàn phím; CHILD áp dụng qua Windows SendInput hoặc X11 XTest. Nghiệm thu Linux host/VM và native Windows 100%/200% đã đạt. |
+
+Bằng chứng thực thi hiện tại: [nghiệm thu UI](../testing/FULL_UI_ACCEPTANCE.md) và [kiểm toán](../review/COMPLETION_AUDIT.md). CHILD tự đăng ký lại trên relay còn hoạt động sau mất node; ADMIN mở phiên mới. Chưa có di chuyển liên tục phiên đang chạy.
 
 ## Chưa triển khai
 
-- Điều khiển chuột và bàn phím từ ADMIN đến CHILD.
 - Phục hồi phiên điều khiển đang chạy sau khi mất TCP.
 - Lưu phiên bền vững.
 - Triển khai qua Internet từ xa.
@@ -420,7 +421,7 @@ CHILD SCREEN_FRAME chunks
 [DONE] SESSION_REQUEST / SESSION_ACCEPT / SESSION_REJECT
 [DONE] Gắn sessionId vào SCREEN_FRAME và chuyển trực tiếp từng chunk đến ADMIN
 [DONE] ADMIN nhận, ghép lại và hiển thị màn hình (Phase 5)
-[ ]    Điều khiển chuột và bàn phím từ ADMIN đến CHILD
+[DONE] Luồng chuột/bàn phím ADMIN đến CHILD; nghiệm thu Linux và native Windows 100%/200% đã đạt
 [DONE] Luồng kết thúc phiên DISCONNECT tường minh
 [DONE] Xác thực JWT trên Relay theo RDTP v2
 ```

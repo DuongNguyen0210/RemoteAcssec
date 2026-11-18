@@ -53,20 +53,8 @@ void SidebarWidget::setupUi()
 
     layout->addWidget(logoContainer);
 
-    QVBoxLayout *ConnLayout = new QVBoxLayout();
-    ConnLayout->setContentsMargins(16, 16, 16, 16);
-    QPushButton *btnNewConn = new QPushButton("Kết nối mới · Sắp có", this);
-    btnNewConn->setIcon(QIcon(":/icons/Resources/icons/add-fill.svg"));
-    btnNewConn->setObjectName("newConnButton");
-    btnNewConn->setCursor(Qt::PointingHandCursor);
-    btnNewConn->setFixedHeight(44);
-    btnNewConn->setEnabled(false);
-    btnNewConn->setToolTip("Sắp có. Chọn thiết bị để kết nối.");
-    ConnLayout->addWidget(btnNewConn);
-    layout->addLayout(ConnLayout);
-
     QVBoxLayout *MenuLayout = new QVBoxLayout();
-    MenuLayout->setContentsMargins(16, 0, 16, 16);
+    MenuLayout->setContentsMargins(16, 16, 16, 16);
     MenuLayout->setSpacing(8);
 
     menuGroup = new QButtonGroup(this);

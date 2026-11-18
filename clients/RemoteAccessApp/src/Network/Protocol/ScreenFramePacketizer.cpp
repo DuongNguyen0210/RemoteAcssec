@@ -72,11 +72,5 @@ QList<QByteArray> ScreenFramePacketizer::packetize(const QByteArray &encodedFram
         packets.append(packet);
     }
 
-    qDebug() << "[ScreenFramePacketizer] frameId=" << frameId
-             << "sessionId=" << sessionId
-             << "frameBytes=" << frameSize
-             << "chunkCount=" << chunkCount
-             << "maxChunkData=" << chunkDataMax;
-
     return packets;
 }

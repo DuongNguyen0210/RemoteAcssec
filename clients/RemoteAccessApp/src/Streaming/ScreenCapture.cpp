@@ -13,12 +13,7 @@ QImage ScreenCapture::capture() const
         return QImage{};
     }
 
-    const QRect geom = screen->geometry();
-    QPixmap pixmap = screen->grabWindow(0, geom.x(), geom.y(), geom.width(), geom.height());
-
-    if (pixmap.isNull()) {
-        pixmap = screen->grabWindow(0);
-    }
+    const QPixmap pixmap = screen->grabWindow(0);
 
     if (pixmap.isNull()) {
         qWarning() << "[ScreenCapture] Chụp màn hình thất bại.";

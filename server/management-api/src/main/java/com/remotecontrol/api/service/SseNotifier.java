@@ -1,95 +1,124 @@
 package com.remotecontrol.api.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.remotecontrol.api.dto.child.DeviceDto;
-import com.remotecontrol.api.dto.common.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import java.util.concurrent.CopyOnWriteArraySet;
 
+/**
+ * Manages Server-Sent Event emitters for ADMIN clients.
+ * <p>
+ * Each ADMIN user (identified by their DB user-id / ownerId) may have
+ * one or more active SSE connections (e.g. multiple browser tabs or
+ * re-connections during the 60-second timeout window).  This service
+ * keeps a thread-safe registry and fans out device-list snapshots to
+ * every live connection belonging to that owner whenever the presence
+ * state changes.
+ * </p>
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SseNotifier {
+
+    /** SSE event name the client should listen for. */
     public static final String EVENT_DEVICE_LIST = "device-list";
 
-    private final DeviceService deviceService;
     private final ObjectMapper objectMapper;
-    private final ConcurrentHashMap<SseEmitter, Subscription> subscriptions = new ConcurrentHashMap<>();
 
-    public void register(Long ownerId, SseEmitter emitter, UserPrincipal principal, List<DeviceDto> snapshot) {
-        subscriptions.put(emitter, new Subscription(emitter, ownerId, principal, deviceStates(snapshot)));
-        Runnable cleanup = () -> subscriptions.remove(emitter);
+    /**
+     * Active emitters keyed by owner (admin) user-id.
+     * CopyOnWriteArraySet allows concurrent iteration while send() is in progress.
+     */
+    private final ConcurrentHashMap<Long, Set<SseEmitter>> registry = new ConcurrentHashMap<>();
+
+    /**
+     * Registers a new SseEmitter for the given owner.
+     * Completion / timeout / error callbacks automatically unregister it.
+     */
+    public synchronized void register(Long ownerId, SseEmitter emitter) {
+        if (connectionCount(ownerId) >= 4 || registry.values().stream().mapToInt(Set::size).sum() >= 256)
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "Too many event streams");
+        Set<SseEmitter> set = registry.computeIfAbsent(ownerId,
+                k -> new CopyOnWriteArraySet<>());
+        set.add(emitter);
+
+        Runnable cleanup = () -> unregister(ownerId, emitter);
         emitter.onCompletion(cleanup);
         emitter.onTimeout(cleanup);
-        emitter.onError(error -> cleanup.run());
+        emitter.onError(ex -> cleanup.run());
+
+        log.debug("[SSE] Registered emitter for ownerId={} totalConnections={}",
+                ownerId, set.size());
     }
 
-    @Scheduled(fixedDelay = 5000)
-    public void reconcile() {
-        var owners = subscriptions.values().stream().collect(Collectors.groupingBy(s -> s.ownerId));
-        for (var entry : owners.entrySet()) {
+    /**
+     * Removes an emitter from the registry (called on completion / timeout / error).
+     */
+    public synchronized void unregister(Long ownerId, SseEmitter emitter) {
+        Set<SseEmitter> set = registry.get(ownerId);
+        if (set != null) {
+            set.remove(emitter);
+            if (set.isEmpty()) {
+                registry.remove(ownerId, set);
+            }
+        }
+        log.debug("[SSE] Unregistered emitter for ownerId={}", ownerId);
+    }
+
+    /**
+     * Pushes the current device-list snapshot to all active SSE connections
+     * owned by {@code ownerId}.  Emitters that fail to send are cleaned up
+     * immediately.
+     */
+    public void notify(Long ownerId, List<DeviceDto> devices) {
+        Set<SseEmitter> set = registry.get(ownerId);
+        if (set == null || set.isEmpty()) return;
+
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(devices);
+        } catch (JsonProcessingException e) {
+            log.error("[SSE] Failed to serialize device list for ownerId={}", ownerId, e);
+            return;
+        }
+
+        SseEmitter.SseEventBuilder event = SseEmitter.event()
+                .name(EVENT_DEVICE_LIST)
+                .data(json);
+
+        for (SseEmitter emitter : set) {
             try {
-                publishChanges(entry.getValue());
-            } catch (IOException | RuntimeException error) {
-                log.warn("[SSE] Could not reconcile devices for ownerId={}", entry.getKey(), error);
+                emitter.send(event);
+            } catch (IOException | IllegalStateException ex) {
+                // Connection is broken – remove it; client will reconnect
+                log.debug("[SSE] Send failed for ownerId={}, removing emitter: {}", ownerId, ex.getMessage());
+                unregister(ownerId, emitter);
+                emitter.completeWithError(ex);
             }
         }
     }
 
-    private void publishChanges(List<Subscription> ownerSubscriptions) throws IOException {
-        List<DeviceDto> devices = deviceService.getDevices(ownerSubscriptions.get(0).principal);
-        List<DeviceState> state = deviceStates(devices);
-        String json = null;
-        for (Subscription subscription : ownerSubscriptions) {
-            if (!subscriptions.containsKey(subscription.emitter) || subscription.lastState.equals(state)) {
-                continue;
-            }
-            if (json == null) {
-                json = objectMapper.writeValueAsString(devices);
-            }
-            try {
-                subscription.emitter.send(SseEmitter.event().name(EVENT_DEVICE_LIST).data(json));
-                subscription.lastState = state;
-            } catch (IOException | IllegalStateException error) {
-                subscriptions.remove(subscription.emitter);
-                log.debug("[SSE] Removed failed emitter for ownerId={}", subscription.ownerId, error);
-            }
-        }
+    public Set<Long> subscribedOwners() { return Set.copyOf(registry.keySet()); }
+
+    public synchronized void closeOwner(Long ownerId) {
+        Set<SseEmitter> emitters = registry.remove(ownerId);
+        if (emitters != null) emitters.forEach(SseEmitter::complete);
     }
 
-    public long connectionCount(Long ownerId) {
-        return subscriptions.values().stream().filter(s -> ownerId.equals(s.ownerId)).count();
+    /** Returns the number of active connections for a given owner (useful for monitoring/tests). */
+    public int connectionCount(Long ownerId) {
+        Set<SseEmitter> set = registry.get(ownerId);
+        return set == null ? 0 : set.size();
     }
-
-    private static List<DeviceState> deviceStates(List<DeviceDto> devices) {
-        return devices.stream().map(d -> new DeviceState(d.getSessionId(), d.getChildId(),
-                d.getUsername(), d.getDeviceName(), d.getOs(), d.getIpAddress())).toList();
-    }
-
-    // Each connection starts with its own initial snapshot. Only the scheduler updates lastState.
-    private static final class Subscription {
-        private final SseEmitter emitter;
-        private final Long ownerId;
-        private final UserPrincipal principal;
-        private List<DeviceState> lastState;
-
-        private Subscription(SseEmitter emitter, Long ownerId, UserPrincipal principal, List<DeviceState> lastState) {
-            this.emitter = emitter;
-            this.ownerId = ownerId;
-            this.principal = principal;
-            this.lastState = lastState;
-        }
-    }
-
-    // Heartbeat timestamps renew the Redis lease without changing the displayed device state.
-    private record DeviceState(String sessionId, Long childId, String username,
-                               String deviceName, String os, String ipAddress) {}
 }

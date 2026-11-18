@@ -3,7 +3,6 @@
 
 #include <QWidget>
 #include <QLineEdit>
-#include <QPushButton>
 #include <QString>
 
 class TopBarWidget : public QWidget
@@ -11,7 +10,9 @@ class TopBarWidget : public QWidget
     Q_OBJECT
 public:
     explicit TopBarWidget(QWidget *parent = nullptr);
-    void setSearchPlaceholder(const QString &placeholder);
+    void clearSearch();
+signals:
+    void searchChanged(const QString &query);
 
 private:
     void setupUi();

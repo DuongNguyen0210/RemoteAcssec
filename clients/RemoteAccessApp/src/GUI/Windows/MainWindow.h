@@ -10,6 +10,7 @@ class DevicesPage;
 class AccountPage;
 class SettingsPage;
 class SessionsPage;
+class LogsPage;
 class QImage;
 
 class MainWindow : public QMainWindow
@@ -22,6 +23,7 @@ public:
     void showRemoteSession();
     void setRemoteFrame(const QImage &image);
     void clearRemoteFrame();
+    void addSessionLog(const QString &event, const QString &detail, bool warning = false);
 
 signals:
     void pageSelected(int pageIndex);
@@ -32,6 +34,7 @@ private:
     TopBarWidget *topbar;
     QStackedWidget *stackedWidget;
     SessionsPage *pageSessions;
+    LogsPage *pageLogs;
 
     void setupUi(DevicesPage *devicesPage, AccountPage *accountPage, SettingsPage *settingsPage);
 };

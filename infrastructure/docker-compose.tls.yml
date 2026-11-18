@@ -1,0 +1,22 @@
+# Load with: docker compose -f docker-compose.yml -f docker-compose.tls.yml up
+# Supply the four absolute certificate/key paths via the environment or .env.
+services:
+  relay-proxy-1:
+    ports: !override
+      - '${RELAY_PUBLIC_BIND:-0.0.0.0}:${RELAY_1_PUBLIC_PORT:-9091}:8080'
+    environment:
+      RELAY_TLS_CERT: /run/relay-tls/cert.pem
+      RELAY_TLS_KEY: /run/relay-tls/key.pem
+    volumes:
+      - ${RELAY_1_TLS_CERT:?Set RELAY_1_TLS_CERT}:/run/relay-tls/cert.pem:ro
+      - ${RELAY_1_TLS_KEY:?Set RELAY_1_TLS_KEY}:/run/relay-tls/key.pem:ro
+
+  relay-proxy-2:
+    ports: !override
+      - '${RELAY_PUBLIC_BIND:-0.0.0.0}:${RELAY_2_PUBLIC_PORT:-9092}:8080'
+    environment:
+      RELAY_TLS_CERT: /run/relay-tls/cert.pem
+      RELAY_TLS_KEY: /run/relay-tls/key.pem
+    volumes:
+      - ${RELAY_2_TLS_CERT:?Set RELAY_2_TLS_CERT}:/run/relay-tls/cert.pem:ro
+      - ${RELAY_2_TLS_KEY:?Set RELAY_2_TLS_KEY}:/run/relay-tls/key.pem:ro
