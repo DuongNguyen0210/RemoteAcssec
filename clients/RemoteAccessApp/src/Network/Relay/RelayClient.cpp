@@ -1,9 +1,16 @@
 #include "RelayClient.h"
 #include <QDebug>
+#include <QHostAddress>
+#include "Network/Http/TlsConfiguration.h"
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
-    m_socket = new QTcpSocket(this);
-    connect(m_socket, &QTcpSocket::connected, this, &RelayClient::onConnected);
+    m_tls = qEnvironmentVariable("REMOTE_RELAY_TLS") == "1";
+    m_socket = new QSslSocket(this);
+    m_socket->setSslConfiguration(remoteTlsConfiguration());
+    if (m_tls)
+        connect(m_socket, &QSslSocket::encrypted, this, &RelayClient::onConnected);
+    else
+        connect(m_socket, &QTcpSocket::connected, this, &RelayClient::onConnected);
     connect(m_socket, &QTcpSocket::disconnected, this, &RelayClient::onDisconnected);
     connect(m_socket, &QTcpSocket::readyRead, this, &RelayClient::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &RelayClient::onErrorOccurred);
@@ -14,6 +21,15 @@ RelayClient::~RelayClient() {
 
 void RelayClient::ConnectToServer(const QString& host, quint16 port)
 {
+    if (m_tls) {
+        m_socket->connectToHostEncrypted(host, port);
+        return;
+    }
+    if (host != "localhost" && !QHostAddress(host).isLoopback()) {
+        emit transportError(QStringLiteral("TLS is required for a remote Relay."),
+                            QAbstractSocket::SocketAccessError);
+        return;
+    }
     m_socket->connectToHost(host, port);
 }
 

@@ -33,6 +33,7 @@ services:
       context: ..
       dockerfile: infrastructure/docker/management-api.Dockerfile
     environment:
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY to a Base64 random key}
       SERVER_PORT: 9090
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/remote_db
       SPRING_DATASOURCE_USERNAME: admin
@@ -60,6 +61,7 @@ services:
     environment: &relay-environment
       RELAY_INSTANCE_ID: relay-proxy-1
       RELAY_PORT: 8080
+      RELAY_ALLOW_PLAINTEXT: "1"
       RELAY_ADVERTISED_HOST: ${RELAY_ADVERTISED_HOST:-localhost}
       RELAY_ADVERTISED_PORT: 9091
       RELAY_CAPACITY: ${RELAY_CAPACITY:-1000}

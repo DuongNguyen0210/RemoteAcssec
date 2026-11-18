@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QHash>
 #include <QSettings>
+#include "TlsConfiguration.h"
 
 ApiClient& ApiClient::instance()
 {
@@ -79,7 +80,7 @@ ApiClient::ApiClient(QObject *parent)
     }
     QSettings settings("DUT_PBL4", "RemoteAccessApp");
     const QString savedUrl = settings.value("server/apiUrl").toString();
-    setBaseUrl(savedUrl.isEmpty() ? QStringLiteral("http://cornball-ibuprofen-polygraph.ngrok-free.dev")
+    setBaseUrl(savedUrl.isEmpty() ? QStringLiteral("https://cornball-ibuprofen-polygraph.ngrok-free.dev")
                                   : savedUrl);
 }
 
@@ -113,7 +114,8 @@ QString ApiClient::getBaseUrl() const
 QNetworkRequest ApiClient::createRequest(const QString &endpoint) const
 {
     QUrl url(m_baseUrl + endpoint);
-    QNetworkRequest request(url);
+    QNetworkRequest request(remoteApiTransportAllowed(url) ? url : QUrl());
+    request.setSslConfiguration(remoteTlsConfiguration());
     request.setTransferTimeout(10000);
     
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");

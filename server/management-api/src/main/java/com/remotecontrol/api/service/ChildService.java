@@ -83,7 +83,7 @@ public class ChildService {
     public Child addChild(String childUsername, String password, User user) {
         Child newChild = Child.builder()
                 .username(user.getUsername() + childUsername)
-                .password(password)
+                .password(com.remotecontrol.api.util.ChildPasswords.encode(password))
                 .owner(user)
                 .build();
         return childRepository.save(newChild);

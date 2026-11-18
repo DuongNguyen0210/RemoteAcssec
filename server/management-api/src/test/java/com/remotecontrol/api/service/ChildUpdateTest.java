@@ -68,7 +68,7 @@ class ChildUpdateTest {
         when(children.findByUsername("adminnew")).thenReturn(Optional.of(child));
         var presence = mock(PresenceService.class);
         var auth = new AuthService(mock(UserRepository.class), children,
-                new com.remotecontrol.api.util.JwtUtil(), presence);
+                new com.remotecontrol.api.util.JwtUtil(java.util.Base64.getEncoder().encodeToString(new byte[32])), presence);
         assertTrue(auth.login(new com.remotecontrol.api.dto.auth.LoginRequest("adminnew", "new-password")).getSuccess());
         assertFalse(auth.login(new com.remotecontrol.api.dto.auth.LoginRequest("adminnew", "old-password")).getSuccess());
         verify(presence).openSession(eq(2L), anyString());

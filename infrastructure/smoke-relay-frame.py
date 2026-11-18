@@ -3,6 +3,8 @@
 import argparse
 import http.client
 import json
+import ssl
+from urllib.parse import urlparse
 import os
 from pathlib import Path
 import subprocess
@@ -14,7 +16,15 @@ def post(port, route, data, *, token=None, expected=200):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+    api_url = os.environ.get("PBL4_SMOKE_API_URL")
+    if api_url:
+        target = urlparse(api_url)
+        if target.scheme != "https" or target.hostname != "127.0.0.1":
+            raise ValueError("TLS smoke requires HTTPS on loopback")
+        context = ssl.create_default_context(cafile=os.environ["REMOTE_CA_FILE"])
+        connection = http.client.HTTPSConnection(target.hostname, target.port, context=context, timeout=10)
+    else:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
     try:
         connection.request("POST", route, json.dumps(data), headers)
         response = connection.getresponse()
@@ -41,7 +51,7 @@ def main():
          token=admin["token"])
     env = dict(os.environ, PBL4_FRAME_SMOKE="1",
                PBL4_SMOKE_ADMIN_USERNAME=name, PBL4_SMOKE_CHILD_USERNAME=name + "-child",
-               PBL4_SMOKE_PASSWORD=password, REMOTE_API_URL=f"http://127.0.0.1:{port}",
+               PBL4_SMOKE_PASSWORD=password, REMOTE_API_URL=os.environ.get("PBL4_SMOKE_API_URL", f"http://127.0.0.1:{port}"),
                QT_QPA_PLATFORM="offscreen")
     with tempfile.TemporaryDirectory(prefix="pbl4-frame-") as directory:
         results = Path(directory) / "test.txt"

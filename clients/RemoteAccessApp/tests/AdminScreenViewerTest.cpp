@@ -1,6 +1,8 @@
 #include <QtTest>
 #include <QTimer>
 #include <QBuffer>
+#include <QTemporaryFile>
+#include "Network/Http/TlsConfiguration.h"
 #include <QUrl>
 #include <QScopeGuard>
 #include <QtEndian>
@@ -76,6 +78,12 @@ class AdminScreenViewerTest : public QObject {
                 && reply->error() == QNetworkReply::NoError;
     }
 private slots:
+    void remoteTransportRequiresEncryption() {
+        QVERIFY(remoteApiTransportAllowed(QUrl("https://example.invalid")));
+        QVERIFY(remoteApiTransportAllowed(QUrl("http://127.0.0.1:9090")));
+        QVERIFY(!remoteApiTransportAllowed(QUrl("http://example.invalid")));
+    }
+
     void childSharingWindowDisablesUntilResumed() {
         ChildSharingWindow window;
         auto *toggle = window.findChild<QPushButton *>("childSharingToggle");
@@ -207,6 +215,20 @@ private slots:
         QVERIFY(host == QStringLiteral("localhost") || host == QStringLiteral("127.0.0.1"));
         const int port = relay.value("port").toInt();
         QVERIFY(port > 0 && port <= 65535);
+        if (qEnvironmentVariable("REMOTE_RELAY_TLS") == "1") {
+            const auto trustedCa = qgetenv("REMOTE_CA_FILE");
+            QTemporaryFile emptyTrust;
+            QVERIFY(emptyTrust.open());
+            qputenv("REMOTE_CA_FILE", emptyTrust.fileName().toUtf8());
+            RelayClient untrusted;
+            QSignalSpy rejected(&untrusted, &RelayClient::transportError);
+            QSignalSpy connected(&untrusted, &RelayClient::connected);
+            untrusted.ConnectToServer(host, port);
+            QTRY_VERIFY_WITH_TIMEOUT(!rejected.isEmpty(), 8000);
+            QCOMPARE(connected.count(), 0);
+            untrusted.DisconnectFromServer();
+            qputenv("REMOTE_CA_FILE", trustedCa);
+        }
         qputenv("REMOTE_RELAY_HOST", "127.0.0.1");
         qputenv("REMOTE_RELAY_PORT", QByteArray::number(port));
         AppCoordinator childApp;

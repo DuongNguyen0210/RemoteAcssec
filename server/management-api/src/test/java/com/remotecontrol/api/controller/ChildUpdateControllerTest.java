@@ -21,7 +21,7 @@ class ChildUpdateControllerTest {
     @Test void endpointValidatesInputRoleAndOwnership() throws Exception {
         var children = mock(ChildRepository.class);
         var presence = mock(PresenceService.class);
-        var jwt = new JwtUtil();
+        var jwt = new JwtUtil(java.util.Base64.getEncoder().encodeToString(new byte[32]));
         var owner = User.builder().id(1L).username("owner").build();
         when(children.findById(12L)).thenReturn(Optional.of(Child.builder()
                 .id(12L).owner(owner).username("ownerchild").password("existing").build()));
