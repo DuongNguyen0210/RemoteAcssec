@@ -1,12 +1,8 @@
 #include "RelayClient.h"
-#include <QDebug>
+#include "../TransportPolicy.h"
 #include <QSslConfiguration>
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
-    const QString mode = qEnvironmentVariable("REMOTE_RELAY_TLS", "off");
-    m_tlsRequired = mode == QStringLiteral("required");
-    m_caCertificatePath = qEnvironmentVariable("REMOTE_RELAY_CA_CERT");
-    m_tlsModeValid = m_tlsRequired || (mode == QStringLiteral("off") && m_caCertificatePath.isEmpty());
     m_socket = new QSslSocket(this);
     connect(m_socket, &QTcpSocket::connected, this, &RelayClient::onConnected);
     connect(m_socket, &QSslSocket::encrypted, this, [this] { emit connected(); });
@@ -20,18 +16,28 @@ RelayClient::~RelayClient() {
 
 void RelayClient::ConnectToServer(const QString& host, quint16 port)
 {
-    if (!m_tlsModeValid) {
-        emit transportError(QStringLiteral("Set REMOTE_RELAY_TLS=required for a CA certificate; otherwise use 'off'."),
+    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
+        emit transportError(QStringLiteral("Kết nối relay đang được thiết lập hoặc đã mở."),
+                            QAbstractSocket::OperationError);
+        return;
+    }
+    const QString caPath = qEnvironmentVariable("REMOTE_RELAY_CA_CERT");
+    const QString defaultMode = TransportPolicy::isLoopback(host) && caPath.isEmpty()
+        ? QStringLiteral("off") : QStringLiteral("required");
+    const QString mode = qEnvironmentVariable("REMOTE_RELAY_TLS", defaultMode);
+    if (mode != QStringLiteral("required") && (mode != QStringLiteral("off") || !caPath.isEmpty())) {
+        emit transportError(QStringLiteral("Kiểm tra REMOTE_RELAY_TLS. Dùng required khi đã cấu hình chứng chỉ CA."),
                             QAbstractSocket::SslHandshakeFailedError);
         return;
     }
+    m_tlsRequired = mode == QStringLiteral("required");
     if (!m_tlsRequired) {
         m_socket->connectToHost(host, port);
         return;
     }
-    QSslConfiguration configuration = m_socket->sslConfiguration();
-    if (!m_caCertificatePath.isEmpty() && !configuration.addCaCertificates(m_caCertificatePath)) {
-        emit transportError(QStringLiteral("Cannot load REMOTE_RELAY_CA_CERT."),
+    QSslConfiguration configuration = QSslConfiguration::defaultConfiguration();
+    if (!caPath.isEmpty() && !configuration.addCaCertificates(caPath)) {
+        emit transportError(QStringLiteral("Không đọc được chứng chỉ trong REMOTE_RELAY_CA_CERT."),
                             QAbstractSocket::SslHandshakeFailedError);
         return;
     }
@@ -61,7 +67,6 @@ void RelayClient::onReadyRead() {
 
 void RelayClient::onErrorOccurred(QAbstractSocket::SocketError socketError)
 {
-    Q_UNUSED(socketError);
     emit transportError(m_socket->errorString(), socketError);
 }
 

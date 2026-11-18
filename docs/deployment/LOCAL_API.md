@@ -13,7 +13,10 @@ From the repository root, run:
 
 The script starts local PostgreSQL and Redis, waits for them, reads
 `JWT_SECRET` from the ignored `infrastructure/.env` (or accepts one already in
-the environment), and launches the API on port 9090. It does not change the
+the environment), and launches the API on loopback port 9090. For an isolated LAN lab, set
+`SERVER_ADDRESS` to the private interface. On a Qt client reaching that
+interface via HTTP, set `REMOTE_ALLOW_HTTP=1`; a plaintext lab relay also
+requires `REMOTE_RELAY_TLS=off`. It does not change the
 full relay stack's database. A successful startup responds to
 `curl http://localhost:9090/health` with `ok`.
 

@@ -34,7 +34,7 @@ public record RelayConfig(String instanceId, String bootId, int port, String bin
     public static RelayConfig fromEnvironment(Map<String, String> env) {
         int port = integer(env, "RELAY_PORT", 8080);
         return new RelayConfig(env.getOrDefault("RELAY_INSTANCE_ID", "relay-local"), UUID.randomUUID().toString(),
-                port, env.getOrDefault("RELAY_BIND_HOST", "0.0.0.0"),
+                port, env.getOrDefault("RELAY_BIND_HOST", "127.0.0.1"),
                 env.getOrDefault("RELAY_ADVERTISED_HOST", "localhost"),
                 integer(env, "RELAY_ADVERTISED_PORT", port),
                 env.getOrDefault("MANAGEMENT_API_URL", "http://localhost:9090"),

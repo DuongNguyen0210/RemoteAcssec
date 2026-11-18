@@ -2,7 +2,7 @@
 #include <QJsonDocument>
 #include <QUrl>
 #include <QNetworkRequest>
-#include <QDebug>
+#include "../TransportPolicy.h"
 #include <QHash>
 
 ApiClient& ApiClient::instance()
@@ -16,6 +16,13 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
     ApiParsedResponse result;
     result.httpStatusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
+    if (reply->url().isEmpty()) {
+        result.success = false;
+        result.errorCode = QStringLiteral("UNSAFE_API_URL");
+        result.message = QStringLiteral("Kiểm tra REMOTE_API_URL. Kết nối tới máy khác cần dùng HTTPS.");
+        return result;
+    }
+
     if (reply->error() != QNetworkReply::NoError && result.httpStatusCode == 0) {
         result.success = false;
         result.message = reply->error() == QNetworkReply::TimeoutError
@@ -28,17 +35,19 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
     QByteArray body = reply->readAll();
     QJsonDocument doc = QJsonDocument::fromJson(body);
 
+    const bool httpSuccess = reply->error() == QNetworkReply::NoError
+        && result.httpStatusCode >= 200 && result.httpStatusCode < 300;
     if (doc.isObject())
     {
         QJsonObject root = doc.object();
-        result.success = root.value(QStringLiteral("success")).toBool(result.httpStatusCode >= 200 && result.httpStatusCode < 300);
+        result.success = httpSuccess && root.value(QStringLiteral("success")).toBool(true);
         result.message = root.value(QStringLiteral("message")).toString();
         result.errorCode = root.value(QStringLiteral("errorCode")).toString();
         result.data = root.value(QStringLiteral("data"));
     }
     else
     {
-        result.success = (result.httpStatusCode >= 200 && result.httpStatusCode < 300);
+        result.success = httpSuccess;
         result.message = result.success ? QStringLiteral("OK") : QString::fromUtf8(body);
     }
 
@@ -72,7 +81,7 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
 ApiClient::ApiClient(QObject *parent) 
     : QObject(parent), m_networkManager(new QNetworkAccessManager(this))
 {
-    m_baseUrl = qEnvironmentVariable("REMOTE_API_URL", "http://localhost:9090");
+    setBaseUrl(qEnvironmentVariable("REMOTE_API_URL", "http://localhost:9090"));
 }
 
 ApiClient::~ApiClient()
@@ -104,8 +113,16 @@ QString ApiClient::getBaseUrl() const
 
 QNetworkRequest ApiClient::createRequest(const QString &endpoint) const
 {
-    QUrl url(m_baseUrl + endpoint);
+    const QUrl url(m_baseUrl + endpoint, QUrl::StrictMode);
+    const bool allowHttp = url.scheme() == QStringLiteral("http")
+        && (TransportPolicy::isLoopback(url.host()) || qgetenv("REMOTE_ALLOW_HTTP") == "1");
+    if (!url.isValid() || url.host().isEmpty() || !url.userInfo().isEmpty()
+        || (!allowHttp && url.scheme() != QStringLiteral("https"))) {
+        // An empty URL produces a local, asynchronous QNetworkReply error for every verb.
+        return QNetworkRequest();
+    }
     QNetworkRequest request(url);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::SameOriginRedirectPolicy);
     request.setTransferTimeout(10000);
     
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -140,4 +157,13 @@ QNetworkReply* ApiClient::deleteResource(const QString &endpoint)
 QNetworkReply* ApiClient::put(const QString &endpoint, const QJsonObject &data)
 {
     return m_networkManager->put(createRequest(endpoint), QJsonDocument(data).toJson());
+}
+
+QNetworkReply* ApiClient::openEventStream(const QString &endpoint)
+{
+    auto request = createRequest(endpoint);
+    request.setRawHeader("Accept", "text/event-stream");
+    request.setRawHeader("Cache-Control", "no-cache");
+    request.setTransferTimeout(45000);
+    return m_networkManager->get(request);
 }

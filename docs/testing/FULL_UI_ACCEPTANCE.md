@@ -16,7 +16,7 @@ from host and guest, and published ports must match the advertised ports.
 
 The verified stack used API `127.0.0.1:18089` on host and `10.0.2.2:18089` in
 the guest, two API instances behind Nginx, and relay ports 19091/19092 on the
-host's LAN interface. Test containers had restart disabled. The VM's NAT
+host's LAN interface (set `RELAY_PUBLIC_BIND` to that private IP for the base Compose file). Test containers had restart disabled. The VM's NAT
 loopback access is configured as described in `ISOLATED_VM.md`.
 
 ```sh
@@ -89,3 +89,21 @@ The separate ordinary stop/re-enable run also passed: two distinct sessions on t
 ## Single-login policy update (2026-11-16)
 
 Rebuild the desktop fixture on both machines before rerunning this harness. Setup now logs out before the ADMIN UI logs in; failover observations reuse the actual UI session via a mode-0600 file inside a private temporary directory, instead of opening another login. The UI releases its session on teardown, so cleanup logs in again. Password-reset checks allow the 30-second relay drain before fresh login. These harness adaptations compile/pass syntax checks; a full two-desktop rerun is still pending. API concurrency, TTL and real offscreen Qt login/renew/logout were verified separately; see [SINGLE_LOGIN.md](../security/SINGLE_LOGIN.md).
+
+## HTTPS and relay TLS together on one Linux host
+
+On 2026-11-18, the two roles of `FullUiDesktopAcceptance` ran against a new
+PostgreSQL database, a disposable Redis instance, two API processes behind
+Nginx and two distinct TLS-enabled Java relay processes. Nginx terminated
+HTTPS on loopback and forwarded SSE. Both clients used dynamic allocation,
+`REMOTE_RELAY_TLS=required`, the test relay CA and an isolated system trust
+directory for the HTTPS certificate. CHILD ran on a private Xvfb display and
+ADMIN used Qt offscreen.
+
+Both clients completed their first session and the native marker confirmed
+screen, click and keyboard delivery. Stopping the assigned relay ended that
+session. The recovered CHILD lookup returned the other instance ID. ADMIN
+opened a fresh session, repeated the native interaction and observed CHILD's
+local stop. Both UI test processes exited successfully. This run exercised
+encrypted client connections and process failover on a single host. The VM
+results above were collected in separate runs.

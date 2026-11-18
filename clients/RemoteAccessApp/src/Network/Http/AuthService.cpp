@@ -1,9 +1,6 @@
 #include "AuthService.h"
 #include "ApiClient.h"
 #include <QJsonObject>
-#include <QJsonDocument>
-
-#include <QDebug>
 
 AuthService::AuthService(QObject *parent) : QObject(parent) {}
 
@@ -30,34 +27,17 @@ void AuthService::onLoginReply(QNetworkReply *reply, const QString &username)
 
     ApiParsedResponse res = ApiClient::parseReply(reply);
 
-    if (res.success)
-    {
-        QJsonObject dataObj = res.data.toObject();
-        QString role = dataObj.contains("role") ? dataObj["role"].toString() : QString();
-        QString token = dataObj.contains("token") ? dataObj["token"].toString() : QString();
-
-        if (!token.isEmpty())
-            ApiClient::instance().setToken(token);
-
-        emit loginResult(true, role, res.message, username);
+    if (!res.success) {
+        emit loginResult(false, {}, res.message, username);
+        return;
     }
-    else
-    {
-        QString msg = res.message.isEmpty() ? QStringLiteral("Đăng nhập thất bại") : res.message;
-        emit loginResult(false, "", msg, username);
+    const auto data = res.data.toObject();
+    const auto role = data.value("role").toString();
+    const auto token = data.value("token").toString();
+    if ((role != "ADMIN" && role != "CHILD") || token.isEmpty()) {
+        emit loginResult(false, {}, QStringLiteral("Phản hồi đăng nhập không hợp lệ."), username);
+        return;
     }
+    ApiClient::instance().setToken(token);
+    emit loginResult(true, role, res.message, username);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

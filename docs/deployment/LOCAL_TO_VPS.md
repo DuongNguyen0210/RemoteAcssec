@@ -38,6 +38,8 @@ Cả ADMIN và CHILD chủ động kết nối ra server; bình thường không
 
 `localhost` luôn là chính máy/container đang chạy tiến trình đó. `10.0.2.2` là địa chỉ đặc biệt của host trong NAT VirtualBox, không phải địa chỉ VPS. `relay.example.com` là ví dụ cần thay bằng tên miền thật.
 
+Client mặc định yêu cầu HTTPS cho API và TLS cho relay ngoài loopback. Khi thử HTTP/TCP trong mạng VM cô lập, đặt `REMOTE_ALLOW_HTTP=1` và `REMOTE_RELAY_TLS=off` trong tiến trình Qt. Compose mặc định chỉ mở cổng trên loopback. Nếu VM đi qua card mạng riêng, đặt `MANAGEMENT_PUBLIC_BIND` và `RELAY_PUBLIC_BIND` thành IP của card đó. Khi nạp overlay TLS, hai relay mặc định lắng nghe trên mọi card của host và xác thực bằng chứng chỉ.
+
 ## 3. `.env` hoạt động thế nào trong dự án?
 
 Trên server, Compose đọc file bạn chọn bằng `--env-file`, thay `${TEN_BIEN}` trong YAML, rồi mục `environment:` chuyển giá trị vào container:

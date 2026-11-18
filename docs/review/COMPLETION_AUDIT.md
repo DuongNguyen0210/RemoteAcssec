@@ -1,5 +1,23 @@
 # PBL4 completion audit
 
+## Nghiệm thu giao diện, truyền tin và cân bằng tải · 18/11/2026
+
+| Hạng mục | Kết quả kiểm tra |
+|---|---|
+| Giao diện Qt | Đã dựng và xem ảnh năm trang quản trị, đăng nhập, cửa sổ điều khiển, trạng thái chia sẻ CHILD, hộp thoại tạo, sửa và xác nhận. Các nút và ô nhập dùng góc bo 8 px, thẻ dùng 12 px. Ứng dụng và test giao diện nạp cùng tài nguyên QSS. |
+| HTTPS và TLS | REST và SSE cùng áp dụng chính sách HTTPS ngoài loopback, chuyển hướng cùng nguồn và xác minh chứng chỉ của Qt. Relay xác minh chứng chỉ và tên máy trước khi gửi RDTP. Test đã kiểm tra từ chối HTTP ngoài loopback, chuyển hướng đăng nhập sang cổng khác, bắt tay đúng tên và sai tên relay. |
+| Demo phân tán trên Linux | Hai tiến trình Qt, hai API qua Nginx, hai relay TLS, PostgreSQL và Redis chạy riêng trên cùng một máy. Hai client đăng nhập qua HTTPS với CA thử nghiệm chỉ được tin trong tiến trình kiểm thử. Ở cả hai phiên, ADMIN nhận hình, click và gõ phím trên màn hình X11 cô lập của CHILD. Khi dừng relay đang phục vụ, CHILD đăng ký lại qua relay thứ hai. ADMIN mở phiên mới. CHILD dừng chia sẻ và cửa sổ điều khiển đóng. |
+| Cấp tải và ràng buộc phiên | Kiểm thử tích hợp Redis cấp 20 yêu cầu đồng thời cho hai node có sức chứa 10 mỗi node. Kết quả 10/10, giữ đúng node khi tra cứu lại, từ chối cấp thêm khi đầy và từ chối heartbeat mang định danh khởi động cũ. |
+| Hồi quy | Tám nhóm CTest Qt, 26 test Management API, 31 test relay và sáu test tích hợp Redis đạt. Kiểm thử native X11 đạt ở tỉ lệ 100% và 200%. Đã kiểm tra cấu hình cổng của Compose cơ bản và overlay TLS. |
+
+**Phạm vi bảo mật.** Nginx kết thúc HTTPS và mỗi relay kết thúc TLS của client. Người vận hành relay vẫn có thể đọc ảnh và sự kiện điều khiển. API, Redis và PostgreSQL cần nằm trong mạng backend tin cậy. Chế độ lab ngoài loopback dùng `REMOTE_ALLOW_HTTP=1` và `REMOTE_RELAY_TLS=off` khi chủ động thử giao thức thuần. Các bước cấu hình triển khai nằm trong [hướng dẫn local và VPS](../deployment/LOCAL_TO_VPS.md).
+
+**Phương án mật khẩu ADMIN chờ duyệt.** Hiện `AuthService.registerAdmin` ghi mật khẩu trực tiếp, `AuthService.login` và `UserService.changePassword` so sánh giá trị đang lưu. CHILD mới đã dùng PBKDF2-HMAC-SHA256 với salt riêng. Đề xuất dùng chung bộ băm cho ADMIN. Bước đầu bổ sung định dạng lưu có phiên bản và triển khai khả năng đọc cả hai định dạng ở cả hai API. Sau đó bật băm khi tạo, đổi mật khẩu và nâng cấp tài khoản cũ sau lần đăng nhập hợp lệ. Khi chuyển đổi, chỉ cập nhật nếu giá trị đọc lúc xác thực vẫn còn hiệu lực, rồi cấp phiên theo giá trị đã lưu. Giữ tài khoản đang có phiên cho đến lần đăng nhập kế tiếp. Kiểm thử hai API đăng nhập đồng thời, đổi mật khẩu trong lúc nâng cấp, thu hồi token cũ và giữ giới hạn một phiên. Chốt thời điểm yêu cầu đổi mật khẩu cho tài khoản chưa quay lại trước khi bỏ hỗ trợ bản cũ. Đợt nghiệm thu này chưa chuyển đổi dữ liệu mật khẩu.
+
+**Đề xuất cho buổi bảo vệ.** Chạy cùng kịch bản trên hai máy ở hai mạng, ghi phân bố phiên từng relay, độ trễ p95 và thời gian từ mất node đến khi phiên mới nhận được hình. Số liệu trong bảng trên đo trong lab cùng host. Chat, clipboard và chuyển tệp có thể để ngoài phạm vi để dành thời gian cho phần minh chứng cân bằng tải và phục hồi.
+
+## Các lần nghiệm thu trước
+
 This audit covers the original improvement request and the later Git/CodeGraph/Antigravity additions. Implementation and acceptance are complete within the student PBL4 scope, including the additional reviewed session, input and presence fixes. See `PBL4_IMPROVEMENT.md` for the change history, `docs/testing/FULL_UI_ACCEPTANCE.md` for Linux host/VM transport/UI evidence and `docs/testing/WINDOWS_VM.md` for native Windows 100%/200% and CTest results. Physical-host WAN performance and production deployment are outside the evidence collected here. Antigravity's independent review and the verified fixes are recorded separately below.
 
 | Requested outcome | Current evidence | Acceptance status |

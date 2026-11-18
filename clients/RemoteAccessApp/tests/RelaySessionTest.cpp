@@ -79,7 +79,7 @@ private slots:
         if (portText.isEmpty() || certPath.isEmpty()) QSKIP("Set TEST_TLS_RELAY_PORT and TEST_TLS_RELAY_CERT for TLS integration test");
         const QByteArray oldMode = qgetenv("REMOTE_RELAY_TLS");
         const QByteArray oldCa = qgetenv("REMOTE_RELAY_CA_CERT");
-        qputenv("REMOTE_RELAY_TLS", "required");
+        qunsetenv("REMOTE_RELAY_TLS"); // A configured CA enables TLS even on loopback.
         qputenv("REMOTE_RELAY_CA_CERT", certPath);
         const quint16 port = portText.toUShort();
         QVERIFY(port != 0);

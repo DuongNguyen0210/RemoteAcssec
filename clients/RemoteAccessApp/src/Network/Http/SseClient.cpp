@@ -59,33 +59,7 @@ void SseClient::openConnection()
     abortReply();
     m_buffer.clear();
 
-    QString token = ApiClient::instance().getToken();
-    QUrl url(ApiClient::instance().getBaseUrl() + m_endpoint);
-
-    QNetworkRequest request(url);
-    request.setRawHeader("Accept", "text/event-stream");
-    request.setRawHeader("Cache-Control", "no-cache");
-    request.setRawHeader("ngrok-skip-browser-warning", "true");
-    if (!token.isEmpty()) {
-        request.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
-    }
-    // Reconnect if the server stops sending snapshots/keepalives.
-    request.setTransferTimeout(45000);
-
-    auto *manager = ApiClient::instance().getManager();
-    if (!manager) {
-        qWarning() << "[SseClient] No QNetworkAccessManager available";
-        scheduleReconnect();
-        return;
-    }
-
-    m_reply = manager->get(request);
-    if (!m_reply) {
-        qWarning() << "[SseClient] Failed to send GET request to" << m_endpoint;
-        scheduleReconnect();
-        return;
-    }
-
+    m_reply = ApiClient::instance().openEventStream(m_endpoint);
     m_reply->setReadBufferSize(MAX_BUFFER_BYTES);
     m_hasEmittedConnected = false;
     connect(m_reply.data(), &QNetworkReply::readyRead, this, &SseClient::onReadyRead);
@@ -131,10 +105,12 @@ void SseClient::onFinished()
 
     const int status = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     QNetworkReply::NetworkError err = m_reply->error();
+    if (m_reply->url().isEmpty() || err == QNetworkReply::InsecureRedirectError
+        || status == 401 || status == 403)
+        m_running = false;
     m_reply->deleteLater();
     m_reply = nullptr;
 
-    if (status == 401 || status == 403) m_running = false;
     m_hasEmittedConnected = false;
     emit disconnected();
 

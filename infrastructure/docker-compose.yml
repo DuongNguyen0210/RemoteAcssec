@@ -33,6 +33,7 @@ services:
       context: ..
       dockerfile: infrastructure/docker/management-api.Dockerfile
     environment:
+      SERVER_ADDRESS: 0.0.0.0
       SERVER_PORT: 9090
       SPRING_DATASOURCE_URL: ${DATABASE_JDBC_URL:?Set DATABASE_JDBC_URL in infrastructure/.env}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
@@ -63,6 +64,7 @@ services:
       dockerfile: infrastructure/docker/relay-proxy.Dockerfile
     environment: &relay-environment
       RELAY_INSTANCE_ID: relay-proxy-1
+      RELAY_BIND_HOST: 0.0.0.0
       RELAY_PORT: 8080
       RELAY_ADVERTISED_HOST: ${RELAY_1_ADVERTISED_HOST:-localhost}
       RELAY_ADVERTISED_PORT: ${RELAY_1_PUBLIC_PORT:-9091}
@@ -71,7 +73,7 @@ services:
       RELAY_NODE_TOKEN: ${RELAY_NODE_TOKEN:?Set RELAY_NODE_TOKEN in infrastructure/.env}
       MANAGEMENT_API_URL: ${RELAY_MANAGEMENT_URL:-http://nginx:9090}
     ports:
-      - '${RELAY_1_PUBLIC_PORT:-9091}:8080'
+      - '${RELAY_PUBLIC_BIND:-127.0.0.1}:${RELAY_1_PUBLIC_PORT:-9091}:8080'
     depends_on:
       nginx:
         condition: service_started
@@ -87,7 +89,7 @@ services:
       RELAY_ADVERTISED_HOST: ${RELAY_2_ADVERTISED_HOST:-localhost}
       RELAY_ADVERTISED_PORT: ${RELAY_2_PUBLIC_PORT:-9092}
     ports:
-      - '${RELAY_2_PUBLIC_PORT:-9092}:8080'
+      - '${RELAY_PUBLIC_BIND:-127.0.0.1}:${RELAY_2_PUBLIC_PORT:-9092}:8080'
     depends_on:
       nginx:
         condition: service_started
@@ -102,7 +104,7 @@ services:
       NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx
       NGINX_ENVSUBST_FILTER: '^API_'
     ports:
-      - '${MANAGEMENT_PUBLIC_BIND:-0.0.0.0}:${MANAGEMENT_PUBLIC_PORT:-80}:80'
+      - '${MANAGEMENT_PUBLIC_BIND:-127.0.0.1}:${MANAGEMENT_PUBLIC_PORT:-80}:80'
     volumes:
       - ./nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
     depends_on:

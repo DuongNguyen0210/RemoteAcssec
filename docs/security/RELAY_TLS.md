@@ -9,9 +9,9 @@ by that process. The relay fails at startup if only one is set or the key and
 certificate cannot initialize TLS. Use a certificate whose DNS name or IP SAN
 matches the `host` returned in the relay endpoint. Configure each relay node
 separately; do not commit its private key.
-`RELAY_BIND_HOST` defaults to `0.0.0.0`; set it to `127.0.0.1` for a relay
-that must accept only local connections. The local transport benchmark uses
-this loopback binding.
+A standalone relay binds to `127.0.0.1` by default. Set `RELAY_BIND_HOST` to
+the private interface for a two-host lab. Compose binds the process to the
+container interfaces and controls host access with its published ports.
 
 For the two-node Compose setup, load
 `infrastructure/docker-compose.tls.yml` after the base Compose file and set
@@ -29,9 +29,19 @@ trusted CA needs no extra CA path. Handshake or verification failure closes the
 connection; the client never ignores SSL errors. If a CA path is set while TLS
 is `off`, the client refuses to connect instead of silently using plaintext.
 
-Local plaintext tests can use `REMOTE_RELAY_TLS=off` (the current compatibility
-default) with neither relay TLS variable set. Do not use that mode across an
-untrusted network. For local TLS testing, a temporary certificate with
+With no client TLS mode set, the desktop requires TLS for any relay outside
+loopback. A configured CA also requires TLS on loopback. For a disposable
+plaintext LAN lab, explicitly set `REMOTE_RELAY_TLS=off` with no CA configured.
+For the Management API, REST and SSE require HTTPS outside loopback unless
+`REMOTE_ALLOW_HTTP=1` is set for that lab. Both restrict redirects to the
+configured origin. Use system-trusted certificates for the HTTPS API.
+TLS terminates at each relay, which can read frames and input.
+
+The base Compose file publishes HTTP and both relay ports on loopback by
+default. The TLS overlay publishes the two encrypted relays on all interfaces.
+Set `RELAY_PUBLIC_BIND` to select a specific host interface. For a plaintext
+VM lab that needs host LAN access, explicitly set the relay and HTTP bind
+addresses to the private interface reachable by the guests. For local TLS testing, a temporary certificate with
 `subjectAltName=DNS:localhost` can be used, with the certificate itself passed
 as `REMOTE_RELAY_CA_CERT` and relay endpoint host `localhost`. The regular
 `RelaySessionTest` also accepts `TEST_TLS_RELAY_PORT` and

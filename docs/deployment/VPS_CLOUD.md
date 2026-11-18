@@ -22,12 +22,12 @@ environment variables. The default upstreams are Docker service names.
    ingress connects directly, bind to the appropriate private interface and
    restrict access at the firewall. Point Qt `REMOTE_API_URL` at the HTTPS URL
    and set `REMOTE_RELAY_MODE=dynamic`.
-5. Validate and start:
+5. Configure both relay certificate/key pairs in the environment file. Validate and start the TLS overlay:
 
    ```sh
-   docker compose -f infrastructure/docker-compose.yml --env-file infrastructure/.env config --quiet
-   docker compose -f infrastructure/docker-compose.yml --env-file infrastructure/.env up --build -d
-   docker compose -f infrastructure/docker-compose.yml --env-file infrastructure/.env ps
+   docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.tls.yml --env-file infrastructure/.env config --quiet
+   docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.tls.yml --env-file infrastructure/.env up --build -d
+   docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.tls.yml --env-file infrastructure/.env ps
    ```
 
 The sample binds Management HTTP to loopback on port 8080. HTTPS termination

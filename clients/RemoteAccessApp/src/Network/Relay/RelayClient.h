@@ -12,8 +12,6 @@ class RelayClient : public QObject
 private:
     QSslSocket* m_socket;
     bool m_tlsRequired = false;
-    bool m_tlsModeValid = true;
-    QString m_caCertificatePath;
 
 public:
     explicit RelayClient(QObject *parent = nullptr);

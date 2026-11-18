@@ -58,7 +58,7 @@ child = None
 try:
     remote = shlex.join(["env", "PBL4_DESKTOP_ROLE=child", f"PBL4_UI_USERNAME={owner}child",
                          "PBL4_UI_FAILOVER=" + ("1" if args.failover_project else "0"),
-                         f"PBL4_UI_PASSWORD={password}", f"REMOTE_API_URL={args.guest_api_url}",
+                         f"PBL4_UI_PASSWORD={password}", f"REMOTE_API_URL={args.guest_api_url}", "REMOTE_ALLOW_HTTP=1",
                          "REMOTE_RELAY_MODE=dynamic", "REMOTE_RELAY_TLS=off", "REMOTE_RELAY_CA_CERT=",
                          f"XDG_CONFIG_HOME={remote_config}", "python3",
                          "/home/pbl4/source/clients/RemoteAccessApp/tests/run_x11_integration.py",
