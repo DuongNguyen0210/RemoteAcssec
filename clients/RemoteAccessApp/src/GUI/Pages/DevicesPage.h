@@ -20,6 +20,8 @@ public:
     void updateDeviceList(const QList<DeviceInfo> &devices);
     void setSearchQuery(const QString &query);
     void showError(const QString &message);
+    void setLiveUpdatesAvailable(bool available);
+    void finishConnectionRequest(const QString &error = {});
     void showSuccess(const QString &message);
     void showSessionStatus(const QString &message);
 
@@ -41,6 +43,9 @@ private:
     class QLabel *m_sessionStatus;
     QList<DeviceInfo> m_allDevices;
     QString m_searchQuery;
+    QLabel *m_liveStatus;
+    QLabel *m_connectionStatus;
+    QString m_pendingSessionId;
 };
 
 #endif

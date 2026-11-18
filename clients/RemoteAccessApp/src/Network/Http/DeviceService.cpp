@@ -38,6 +38,9 @@ DeviceService::DeviceService(QObject *parent)
     : QObject(parent)
     , m_sseClient(new SseClient(QStringLiteral("/api/v1/devices/events"), this))
 {
+    connect(m_sseClient, &SseClient::disconnected, this, [this] {
+        emit liveUpdatesAvailable(false);
+    });
     // Listen to generic SSE events and parse only "device-list" payloads
     connect(m_sseClient, &SseClient::eventReceived, this, [this](const QString &event, const QByteArray &data) {
         if (event == QLatin1String("device-list")) {
@@ -49,7 +52,9 @@ DeviceService::DeviceService(QObject *parent)
             }
             QList<DeviceInfo> devices = parseDeviceListFromJson(doc.array());
             qDebug() << "[DeviceService] Received SSE device list update:" << devices.size() << "devices";
+            ++m_liveSnapshotRevision;
             emit devicesResult(true, devices, QStringLiteral("SSE update"));
+            emit liveUpdatesAvailable(true);
         }
     });
 }
@@ -73,10 +78,14 @@ void DeviceService::fetchDevices()
         return;
     }
     m_loading = true;
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    const auto liveRevisionAtFetch = m_liveSnapshotRevision;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, liveRevisionAtFetch] {
         m_loading = false;
-        auto response = ApiClient::parseReply(reply);
         reply->deleteLater();
+        // A live snapshot received while the request was pending supersedes its result.
+        if (liveRevisionAtFetch != m_liveSnapshotRevision)
+            return;
+        const auto response = ApiClient::parseReply(reply);
         if (!response.success || !response.data.isArray()) {
             emit devicesResult(false, {}, response.message.isEmpty()
                     ? QStringLiteral("Không thể cập nhật danh sách thiết bị") : response.message);

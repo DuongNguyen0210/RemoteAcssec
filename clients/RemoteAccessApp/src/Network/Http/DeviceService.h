@@ -25,6 +25,8 @@ public:
     void fetchRelayEndpoint(const QString &agentSessionId, RelayEndpointProvider::Callback callback);
 
 signals:
+    void liveUpdatesAvailable(bool available);
+
     /**
      * Emitted both by fetchDevices() and by the SSE stream.
      * Connect to DeviceStore::replaceDevices (via DevicesController).
@@ -35,5 +37,6 @@ private:
     void receiveEndpoint(QNetworkReply *reply, RelayEndpointProvider::Callback callback);
 
     bool m_loading = false;
+    quint64 m_liveSnapshotRevision = 0;
     SseClient *m_sseClient = nullptr;
 };

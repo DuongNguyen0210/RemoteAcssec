@@ -51,9 +51,24 @@ void DevicesPage::setupUi()
     m_sessionStatus = new QLabel(this);
     m_sessionStatus->setObjectName("deviceSessionStatus");
     m_sessionStatus->setProperty("role", "pageSubtitle");
+    m_sessionStatus->setTextFormat(Qt::PlainText);
     m_sessionStatus->setWordWrap(true);
     m_sessionStatus->hide();
     mainLayout->addWidget(m_sessionStatus);
+
+    m_liveStatus = new QLabel(QStringLiteral("Đang chờ cập nhật trực tiếp…"), this);
+    m_liveStatus->setObjectName("deviceLiveStatus");
+    m_liveStatus->setProperty("role", "metaLabel");
+    m_liveStatus->setWordWrap(true);
+    mainLayout->addWidget(m_liveStatus);
+
+    m_connectionStatus = new QLabel(this);
+    m_connectionStatus->setObjectName("connectionStatus");
+    m_connectionStatus->setProperty("role", "pageSubtitle");
+    m_connectionStatus->setTextFormat(Qt::PlainText);
+    m_connectionStatus->setWordWrap(true);
+    m_connectionStatus->hide();
+    mainLayout->addWidget(m_connectionStatus);
 
     QScrollArea *scrollArea = new QScrollArea(this);
     m_scrollArea = scrollArea;
@@ -98,9 +113,9 @@ void DevicesPage::renderDevices()
     if (!m_flowLayout) return;
 
     while (QLayoutItem *item = m_flowLayout->takeAt(0)) {
-        if (item->widget()) {
-            item->widget()->hide();
-            item->widget()->deleteLater();
+        if (auto *widget = item->widget()) {
+            widget->hide();
+            widget->deleteLater();
         }
         delete item;
     }
@@ -123,8 +138,17 @@ void DevicesPage::renderDevices()
                 && !device.os.contains(m_searchQuery, Qt::CaseInsensitive)
                 && !device.ipAddress.contains(m_searchQuery, Qt::CaseInsensitive)) continue;
         DeviceCardWidget *card = new DeviceCardWidget(device, m_scrollContent);
-        connect(card, &DeviceCardWidget::connectRequested,
-                this, &DevicesPage::connectRequested);
+        card->setPendingConnection(m_pendingSessionId);
+        connect(card, &DeviceCardWidget::connectRequested, this, [this, name = device.deviceName](const QString &id) {
+            if (!m_pendingSessionId.isEmpty() || id.isEmpty())
+                return;
+            m_pendingSessionId = id;
+            for (auto *deviceCard : m_scrollContent->findChildren<DeviceCardWidget *>())
+                deviceCard->setPendingConnection(id);
+            m_connectionStatus->setText(QStringLiteral("Đang kết nối tới %1…").arg(name));
+            m_connectionStatus->show();
+            emit connectRequested(id);
+        });
         m_flowLayout->addWidget(card);
         ++matches;
     }
@@ -137,6 +161,22 @@ void DevicesPage::renderDevices()
     m_scrollArea->setVisible(matches != 0);
 
     qDebug() << "[DevicesPage] Rendered" << matches << "of" << m_allDevices.size() << "devices.";
+}
+
+void DevicesPage::setLiveUpdatesAvailable(bool available)
+{
+    m_liveStatus->setText(available
+        ? QStringLiteral("Đang cập nhật trực tiếp.")
+        : QStringLiteral("Mất cập nhật trực tiếp. Bạn có thể bấm Làm mới để kiểm tra danh sách."));
+}
+
+void DevicesPage::finishConnectionRequest(const QString &error)
+{
+    m_pendingSessionId.clear();
+    for (auto *card : m_scrollContent->findChildren<DeviceCardWidget *>())
+        card->setPendingConnection({});
+    m_connectionStatus->setText(error);
+    m_connectionStatus->setVisible(!error.isEmpty());
 }
 
 void DevicesPage::showError(const QString &message)

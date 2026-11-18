@@ -65,6 +65,10 @@ void AdminSessionController::requestSession(const QString &targetAgentSessionId)
     m_requestPending = true;
 
     const auto generation = ++m_lookupGeneration;
+    QTimer::singleShot(12000, this, [this, generation] {
+        if (m_requestPending && m_lookupGeneration == generation)
+            handleFatalRelayTermination(QStringLiteral("Hết thời gian chờ kết nối Relay."));
+    });
     QPointer<AdminSessionController> self(this);
     m_provider->lookup(targetAgentSessionId, [self, generation, targetAgentSessionId](const RelayEndpoint &endpoint, const QString &error) {
         if (!self || generation != self->m_lookupGeneration || !self->m_requestPending
