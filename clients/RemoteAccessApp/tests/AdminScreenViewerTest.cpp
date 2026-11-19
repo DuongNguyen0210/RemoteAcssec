@@ -206,7 +206,7 @@ private slots:
         const auto childUsername = qEnvironmentVariable("PBL4_SMOKE_CHILD_USERNAME");
         const auto password = qEnvironmentVariable("PBL4_SMOKE_PASSWORD");
         const QUrl apiUrl(qEnvironmentVariable("REMOTE_API_URL"));
-        QCOMPARE(apiUrl.host(), QStringLiteral("127.0.0.1"));
+        QVERIFY(apiUrl.host() == QStringLiteral("127.0.0.1") || apiUrl.host() == QStringLiteral("localhost"));
         QVERIFY(!adminUsername.isEmpty() && !childUsername.isEmpty() && !password.isEmpty());
 
         auto &api = ApiClient::instance();

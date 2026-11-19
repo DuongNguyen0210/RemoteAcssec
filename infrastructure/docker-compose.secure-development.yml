@@ -1,0 +1,10 @@
+# Use after docker-compose.yml and docker-compose.tls.yml.
+# Private database/Redis volumes are scoped by the unique Compose project name.
+services:
+  nginx:
+    ports: !override
+      - '127.0.0.1:${MANAGEMENT_PUBLIC_PORT:-19490}:443'
+    volumes: !override
+      - ${REMOTE_TLS_DIR:?Set REMOTE_TLS_DIR}/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+      - ${REMOTE_TLS_DIR}/server.crt:/run/tls/server.crt:ro
+      - ${REMOTE_TLS_DIR}/server.key:/run/tls/server.key:ro

@@ -33,32 +33,47 @@ public class AuthService {
 
         Optional<User> admin = userRepository.findByUsername(username);
         Optional<Child> child = childRepository.findByUsername(username);
-        if (admin.isPresent() && Objects.equals(admin.get().getPassword(), password)) {
-            return openLogin(username, "ADMIN", admin.get().getId(), admin.get().getPassword());
+        if (admin.isPresent() && ChildPasswords.matches(password, admin.get().getPassword())) {
+            return openLogin(username, "ADMIN", admin.get().getId(), admin.get().getPassword(), password);
         }
         if (child.isPresent() && ChildPasswords.matches(password, child.get().getPassword())) {
-            return openLogin(username, "CHILD", child.get().getId(), child.get().getPassword());
+            return openLogin(username, "CHILD", child.get().getId(), child.get().getPassword(), password);
         }
         return ApiResponse.error("AUTH_FAILED", "Wrong Username or Password");
     }
 
-    private ApiResponse<LoginData> openLogin(String username, String role, Long accountId, String credential) {
+    private ApiResponse<LoginData> openLogin(String username, String role, Long accountId,
+                                             String credential, String suppliedPassword) {
         String id = accountId.toString();
         String sessionId = UUID.randomUUID().toString();
+        // Claim before migration: a rejected second login must not invalidate the first.
         if (!loginLeases.claim(role, id, sessionId, credential))
             return ApiResponse.error("ACCOUNT_IN_USE", "Account is already signed in");
-        if ("CHILD".equals(role)) {
-            try {
-                presenceService.openSession(accountId, sessionId, credential);
-            } catch (RuntimeException error) {
-                loginLeases.release(role, id, sessionId, credential);
-                throw error;
+        boolean issued = false;
+        try {
+            String boundCredential = credential;
+            if (ChildPasswords.needsUpgrade(credential)) {
+                String replacement = ChildPasswords.encode(suppliedPassword);
+                int updated = "ADMIN".equals(role)
+                        ? userRepository.upgradePassword(accountId, credential, replacement)
+                        : childRepository.upgradePassword(accountId, credential, replacement);
+                if (updated != 1 || !loginLeases.rebindCredential(role, id, sessionId, credential, replacement))
+                    return ApiResponse.error("AUTH_RETRY", "Credentials changed; please sign in again");
+                boundCredential = replacement;
             }
+            // A reset/delete racing the verified snapshot must not issue a usable login.
+            if (!Objects.equals(boundCredential, credential(role, id)))
+                return ApiResponse.error("AUTH_RETRY", "Credentials changed; please sign in again");
+            if ("CHILD".equals(role)) presenceService.openSession(accountId, sessionId, boundCredential);
+            String token = jwtUtil.generateToken(username, role, id, sessionId);
+            LoginData data = LoginData.builder()
+                    .token(token).role(role).sessionId(sessionId).username(username).userId(id).build();
+            issued = true;
+            return ApiResponse.success("Account Login Successful", data);
+        } finally {
+            // Compare by the unique owner even if migration already changed its fingerprint.
+            if (!issued) loginLeases.releaseSession(role, id, sessionId);
         }
-        String token = jwtUtil.generateToken(username, role, id, sessionId);
-        LoginData data = LoginData.builder()
-                .token(token).role(role).sessionId(sessionId).username(username).userId(id).build();
-        return ApiResponse.success("Account Login Successful", data);
     }
 
     private String credential(String role, String id) {
@@ -92,7 +107,7 @@ public class AuthService {
 
         User user = User.builder()
                 .username(request.getUsername())
-                .password(request.getPassword())
+                .password(ChildPasswords.encode(request.getPassword()))
                 .maxChildren(5)
                 .build();
         userRepository.save(user);

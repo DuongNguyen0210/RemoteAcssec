@@ -2,7 +2,7 @@
 #include <QJsonDocument>
 #include <QUrl>
 #include <QNetworkRequest>
-#include "../TransportPolicy.h"
+#include "TlsConfiguration.h"
 #include <QHash>
 
 ApiClient& ApiClient::instance()
@@ -55,6 +55,8 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
         result.message = QStringLiteral("Đã thực hiện");
     } else {
         static const QHash<QString, QString> messages = {
+            {"AUTH_RETRY", "Thông tin đăng nhập vừa thay đổi. Hãy thử đăng nhập lại."},
+            {"PASSWORD_CHANGED", "Mật khẩu vừa được đổi ở nơi khác. Hãy đăng nhập lại."},
             {"AUTH_FAILED", "Sai tên đăng nhập hoặc mật khẩu."},
             {"ACCOUNT_IN_USE", "Tài khoản đang đăng nhập ở nơi khác. Hãy đóng ứng dụng ở máy đó rồi thử lại."},
             {"CHILD_ALREADY_EXISTS", "Tên tài khoản đã tồn tại."},
@@ -114,14 +116,16 @@ QString ApiClient::getBaseUrl() const
 QNetworkRequest ApiClient::createRequest(const QString &endpoint) const
 {
     const QUrl url(m_baseUrl + endpoint, QUrl::StrictMode);
-    const bool allowHttp = url.scheme() == QStringLiteral("http")
-        && (TransportPolicy::isLoopback(url.host()) || qgetenv("REMOTE_ALLOW_HTTP") == "1");
     if (!url.isValid() || url.host().isEmpty() || !url.userInfo().isEmpty()
-        || (!allowHttp && url.scheme() != QStringLiteral("https"))) {
+        || !remoteApiTransportAllowed(url)) {
         // An empty URL produces a local, asynchronous QNetworkReply error for every verb.
         return QNetworkRequest();
     }
     QNetworkRequest request(url);
+    const auto configuration = remoteTlsConfiguration("REMOTE_API_CA_CERT");
+    if (!remoteCaFile("REMOTE_API_CA_CERT").isEmpty() && configuration.caCertificates().isEmpty())
+        return QNetworkRequest(); // Explicit, unusable trust must fail closed.
+    request.setSslConfiguration(configuration);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::SameOriginRedirectPolicy);
     request.setTransferTimeout(10000);
     
