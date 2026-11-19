@@ -10,6 +10,7 @@ add_library(Network STATIC ${NETWORK_SOURCES})
 
 target_link_libraries(Network PUBLIC
     Domain
+    Utils
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Gui

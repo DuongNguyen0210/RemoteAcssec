@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.remotecontrol.api.dto.child.DeviceDto;
 import com.remotecontrol.api.dto.child.HeartbeatRequest;
+import com.remotecontrol.api.dto.child.TelemetrySnapshot;
 import com.remotecontrol.api.dto.common.InfoPrincipal;
 import com.remotecontrol.api.dto.common.UserPrincipal;
 import com.remotecontrol.api.entity.Child;
@@ -31,6 +32,10 @@ public class PresenceService {
             "if redis.call('GET',KEYS[1]) ~= ARGV[1] then return 0 end " +
             "local login=redis.call('GET',KEYS[3]); if not login or string.sub(login,1,string.len(ARGV[4])) ~= ARGV[4] then return 0 end " +
             "if redis.call('PTTL',KEYS[3]) <= tonumber(ARGV[5]) then return 0 end " +
+            "local incoming=cjson.decode(ARGV[2]); local old=redis.call('GET',KEYS[2]); " +
+            "if old then local previous=cjson.decode(old); " +
+            "if incoming.telemetry and incoming.telemetry ~= cjson.null and previous.telemetry and previous.telemetry ~= cjson.null " +
+            "and incoming.telemetry.sequence <= previous.telemetry.sequence then return 1 end end " +
             "redis.call('SET',KEYS[2],ARGV[2],'EX',ARGV[3]); return 1", Long.class);
 
     private String binding(String childId, String credential) {
@@ -72,13 +77,16 @@ public class PresenceService {
         String name = request.getHostname();
         if (name == null || name.isBlank()) name = request.getName();
         if (name == null || name.isBlank()) name = "Unknown device";
+        long receivedAt = System.currentTimeMillis();
         DeviceDto snapshot = DeviceDto.builder()
                 .sessionId(principal.getSessionId())
                 .childId(Long.valueOf(principal.getId()))
                 .username(principal.getUsername())
                 .deviceName(name).os(request.getOs())
                 .ipAddress(info == null ? null : info.getIp())
-                .lastHeartbeatAt(System.currentTimeMillis()).build();
+                .lastHeartbeatAt(receivedAt)
+                .telemetry(TelemetrySnapshot.from(request.getTelemetry(), receivedAt))
+                .telemetryAgeMs(request.getTelemetry() == null ? null : 0L).build();
         try {
             boolean updated = Long.valueOf(1).equals(redisTemplate.execute(
                     HEARTBEAT,
@@ -145,7 +153,12 @@ public class PresenceService {
     }
 
     private DeviceDto decode(String json) {
-        try { return objectMapper.readValue(json, DeviceDto.class); }
+        try {
+            var device = objectMapper.readValue(json, DeviceDto.class);
+            device.setTelemetryAgeMs(device.getTelemetry() == null ? null
+                    : Math.max(0, System.currentTimeMillis() - device.getTelemetry().receivedAt()));
+            return device;
+        }
         catch (JsonProcessingException e) { throw new IllegalStateException("Invalid device presence", e); }
     }
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <QString>
+#include "TelemetryInfo.h"
 
 // One currently heartbeating login session; no persistent device inventory.
 struct DeviceInfo {
@@ -10,4 +11,5 @@ struct DeviceInfo {
     QString os;
     QString ipAddress;
     qint64 lastHeartbeatAt = 0;
+    std::optional<TelemetryInfo> telemetry;
 };

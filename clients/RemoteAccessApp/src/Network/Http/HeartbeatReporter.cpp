@@ -1,5 +1,6 @@
 #include "HeartbeatReporter.h"
 #include "ApiClient.h"
+#include "TelemetryJson.h"
 
 #include <QHostInfo>
 #include <QSysInfo>
@@ -24,6 +25,8 @@ HeartbeatReporter::~HeartbeatReporter()
 
 void HeartbeatReporter::start()
 {
+    if (m_timer->isActive()) return;
+    m_telemetry.reset();
     m_deviceName = QHostInfo::localHostName();
     m_timer->start();
     sendHeartbeat();
@@ -49,6 +52,7 @@ void HeartbeatReporter::sendHeartbeat()
     QJsonObject body;
     body[QStringLiteral("hostname")] = m_deviceName;
     body[QStringLiteral("os")] = QSysInfo::prettyProductName();
+    body[QStringLiteral("telemetry")] = TelemetryJson::encode(m_telemetry.sample(), ++m_sampleSequence);
 
     QNetworkReply *reply = ApiClient::instance().post("/api/v1/child/heartbeat", body);
     if (!reply) {

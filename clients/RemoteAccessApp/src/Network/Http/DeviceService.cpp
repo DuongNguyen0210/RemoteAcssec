@@ -1,6 +1,7 @@
 #include "DeviceService.h"
 #include "ApiClient.h"
 #include "SseClient.h"
+#include "TelemetryJson.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -26,6 +27,7 @@ namespace {
             device.os = obj.value("os").toString();
             device.ipAddress = obj.value("ipAddress").toString();
             device.lastHeartbeatAt = obj.value("lastHeartbeatAt").toVariant().toLongLong();
+            device.telemetry = TelemetryJson::decode(obj.value("telemetry"), obj.value("telemetryAgeMs"));
             if (!device.sessionId.isEmpty()) {
                 devices.append(device);
             }

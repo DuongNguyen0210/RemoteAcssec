@@ -5,6 +5,7 @@
 #include <QFrame>
 #include <QIcon>
 #include <QPixmap>
+#include <QTimer>
 
 DeviceCardWidget::DeviceCardWidget(const DeviceInfo &info, QWidget *parent)
     : DeviceCardWidget(
@@ -16,6 +17,9 @@ DeviceCardWidget::DeviceCardWidget(const DeviceInfo &info, QWidget *parent)
         info.username,
         parent)
 {
+    m_telemetry = info.telemetry;
+    m_telemetryElapsed.restart();
+    refreshTelemetry();
 }
 
 DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString &name,
@@ -118,6 +122,35 @@ DeviceCardWidget::DeviceCardWidget(const QString &agentSessionId, const QString 
 
     layout->addLayout(infoLayout);
 
+    const auto metric = [this, layout](const QString &caption, const QString &objectName) {
+        auto *row = new QHBoxLayout;
+        auto *name = new QLabel(caption, this);
+        name->setProperty("role", "metaLabel");
+        auto *value = new QLabel(QStringLiteral("—"), this);
+        value->setObjectName(objectName);
+        value->setTextFormat(Qt::PlainText);
+        value->setProperty("role", "strongValue");
+        row->addWidget(name); row->addStretch(); row->addWidget(value);
+        layout->addLayout(row);
+        return value;
+    };
+    m_cpuValue = metric(QStringLiteral("CPU"), QStringLiteral("telemetryCpu"));
+    m_memoryValue = metric(QStringLiteral("RAM"), QStringLiteral("telemetryMemory"));
+    m_rxValue = metric(QStringLiteral("Mạng ↓ Nhận"), QStringLiteral("telemetryRx"));
+    m_txValue = metric(QStringLiteral("Mạng ↑ Gửi"), QStringLiteral("telemetryTx"));
+    m_telemetryState = new QLabel(this);
+    m_telemetryState->setObjectName(QStringLiteral("telemetryState"));
+    m_telemetryState->setProperty("role", "metaLabel");
+    m_telemetryState->setWordWrap(true);
+    m_telemetryState->setToolTip(QStringLiteral("Số liệu của máy CHILD. Mạng tính theo byte/giây, ưu tiên card mạng vật lý đang hoạt động; không tính loopback. Không phải kiểm tra tốc độ Internet."));
+    layout->addWidget(m_telemetryState);
+    m_telemetryElapsed.start();
+    auto *ageTimer = new QTimer(this);
+    ageTimer->setInterval(1000);
+    connect(ageTimer, &QTimer::timeout, this, &DeviceCardWidget::refreshTelemetry);
+    ageTimer->start();
+    refreshTelemetry();
+
     m_connectButton = new QPushButton("Kết nối", this);
     m_connectButton->setObjectName("connectButton");
     m_connectButton->setProperty("role", "primaryActionButton");
@@ -137,4 +170,38 @@ void DeviceCardWidget::setPendingConnection(const QString &targetSessionId)
     m_connectButton->setEnabled(!pending);
     m_connectButton->setText(pending && m_agentSessionId == targetSessionId
         ? QStringLiteral("Đang kết nối…") : QStringLiteral("Kết nối"));
+}
+
+void DeviceCardWidget::refreshTelemetry()
+{
+    const auto missing = QStringLiteral("—");
+    m_cpuValue->setText(missing); m_memoryValue->setText(missing);
+    m_rxValue->setText(missing); m_txValue->setText(missing);
+    if (!m_telemetry) {
+        m_telemetryState->setText(QStringLiteral("Chưa có số liệu"));
+        return;
+    }
+    const auto &s = *m_telemetry;
+    if (s.ageMs + m_telemetryElapsed.elapsed() >= TelemetryInfo::STALE_AFTER_MS) {
+        m_telemetryState->setText(QStringLiteral("Mất cập nhật số liệu"));
+        return;
+    }
+    if (s.cpuPercent) m_cpuValue->setText(QString::number(*s.cpuPercent, 'f', 1) + QStringLiteral(" %"));
+    if (s.memoryUsedBytes && s.memoryTotalBytes) {
+        constexpr double GiB = 1024.0 * 1024 * 1024;
+        m_memoryValue->setText(QStringLiteral("%1 / %2 GiB (%3 %)")
+                .arg(double(*s.memoryUsedBytes) / GiB, 0, 'f', 1)
+                .arg(double(*s.memoryTotalBytes) / GiB, 0, 'f', 1)
+                .arg(100.0 * double(*s.memoryUsedBytes) / double(*s.memoryTotalBytes), 0, 'f', 1));
+    }
+    const auto rate = [](double bytes) {
+        const char *units[] = {"B/s", "KiB/s", "MiB/s", "GiB/s"};
+        int unit = 0;
+        while (bytes >= 1024 && unit < 3) { bytes /= 1024; ++unit; }
+        return QString::number(bytes, 'f', 1) + ' ' + QLatin1String(units[unit]);
+    };
+    if (s.networkRxBytesPerSecond) m_rxValue->setText(rate(*s.networkRxBytesPerSecond));
+    if (s.networkTxBytesPerSecond) m_txValue->setText(rate(*s.networkTxBytesPerSecond));
+    const bool complete = s.cpuPercent && s.memoryTotalBytes && s.networkRxBytesPerSecond;
+    m_telemetryState->setText(complete ? QStringLiteral("Đang cập nhật số liệu") : QStringLiteral("Đang lấy mẫu / một số chỉ số chưa có"));
 }
