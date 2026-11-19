@@ -49,6 +49,10 @@ public final class ChildPasswords {
         }
     }
 
+    public static boolean needsUpgrade(String stored) {
+        return stored != null && !stored.startsWith(PREFIX);
+    }
+
     private static byte[] derive(String password, byte[] salt) {
         PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, ITERATIONS, 256);
         try {

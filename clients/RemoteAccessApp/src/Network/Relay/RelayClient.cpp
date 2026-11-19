@@ -1,6 +1,6 @@
 #include "RelayClient.h"
 #include "../TransportPolicy.h"
-#include <QSslConfiguration>
+#include "Network/Http/TlsConfiguration.h"
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
     m_socket = new QSslSocket(this);
@@ -21,7 +21,7 @@ void RelayClient::ConnectToServer(const QString& host, quint16 port)
                             QAbstractSocket::OperationError);
         return;
     }
-    const QString caPath = qEnvironmentVariable("REMOTE_RELAY_CA_CERT");
+    const QString caPath = remoteCaFile("REMOTE_RELAY_CA_CERT");
     const QString defaultMode = TransportPolicy::isLoopback(host) && caPath.isEmpty()
         ? QStringLiteral("off") : QStringLiteral("required");
     const QString mode = qEnvironmentVariable("REMOTE_RELAY_TLS", defaultMode);
@@ -35,8 +35,8 @@ void RelayClient::ConnectToServer(const QString& host, quint16 port)
         m_socket->connectToHost(host, port);
         return;
     }
-    QSslConfiguration configuration = QSslConfiguration::defaultConfiguration();
-    if (!caPath.isEmpty() && !configuration.addCaCertificates(caPath)) {
+    const auto configuration = remoteTlsConfiguration("REMOTE_RELAY_CA_CERT");
+    if (!caPath.isEmpty() && configuration.caCertificates().isEmpty()) {
         emit transportError(QStringLiteral("Không đọc được chứng chỉ trong REMOTE_RELAY_CA_CERT."),
                             QAbstractSocket::SslHandshakeFailedError);
         return;

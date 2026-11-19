@@ -65,6 +65,17 @@ public class LoginLeaseService {
         return value != null && Long.valueOf(1).equals(redis.execute(CHECK, List.of(key(role, id)),
                 value, Integer.toString(DRAIN_SECONDS * 1000)));
     }
+    // Upgrade only this login's binding, preserving its remaining active/drain deadline.
+    private static final DefaultRedisScript<Long> REBIND = new DefaultRedisScript<>(
+            "if redis.call('GET',KEYS[1]) ~= ARGV[1] then return 0 end " +
+            "local ttl=redis.call('PTTL',KEYS[1]); if ttl <= tonumber(ARGV[3]) then return 0 end " +
+            "redis.call('SET',KEYS[1],ARGV[2],'PX',ttl); return 1", Long.class);
+    public boolean rebindCredential(String role, String id, String session, String previous, String replacement) {
+        String oldValue = value(session, previous), newValue = value(session, replacement);
+        return oldValue != null && newValue != null && Long.valueOf(1).equals(redis.execute(REBIND,
+                List.of(key(role, id)), oldValue, newValue, Integer.toString(DRAIN_SECONDS * 1000)));
+    }
+
     public boolean renew(String role, String id, String session, String credential) {
         String value = value(session, credential);
         return value != null && Long.valueOf(1).equals(redis.execute(RENEW, List.of(key(role, id)),
