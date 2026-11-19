@@ -189,13 +189,13 @@ void AppCoordinator::handlePageSelected(int pageIndex)
     if (pageIndex == 4 && m_accountController) m_accountController->fetchAccounts();
 }
 
-void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString &agentSessionId)
+void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString &targetName)
 {
     if (m_mainWindow) {
         m_mainWindow->showRemoteSession();
-        m_mainWindow->addSessionLog(QStringLiteral("Bắt đầu phiên điều khiển"), agentSessionId);
+        m_mainWindow->addSessionLog(QStringLiteral("Bắt đầu phiên điều khiển"), targetName);
     }
-    qDebug() << "[AppCoordinator] Remote session started for" << agentSessionId
+    qDebug() << "[AppCoordinator] Remote session started for" << targetName
              << "sessionId=" << sessionId;
 
     if (m_remoteDesktopWindow) {
@@ -203,7 +203,7 @@ void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString
         m_remoteDesktopWindow->deleteLater();
     }
     m_remoteSessionId = sessionId;
-    m_remoteDesktopWindow = new RemoteDesktopWindow(sessionId, agentSessionId);
+    m_remoteDesktopWindow = new RemoteDesktopWindow(sessionId, targetName);
     connect(m_remoteDesktopWindow, &RemoteDesktopWindow::remoteInput, this,
             [this, sessionId](Protocol::MessageType type, const QByteArray &payload) {
                 if (m_remoteSessionId == sessionId && m_devicesController)

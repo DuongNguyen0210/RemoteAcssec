@@ -114,8 +114,9 @@ void DevicesController::onConnectRequested(const QString &agentSessionId)
 
 void DevicesController::handleSessionEstablished(quint64 remoteSessionId, const QString &agentSessionId)
 {
+    const QString targetName = m_view ? m_view->pendingDeviceName(agentSessionId) : QString();
     if (m_view) m_view->finishConnectionRequest();
-    emit remoteSessionStarted(remoteSessionId, agentSessionId);
+    emit remoteSessionStarted(remoteSessionId, targetName);
 }
 
 void DevicesController::handleSessionFailed(const QString &reason)

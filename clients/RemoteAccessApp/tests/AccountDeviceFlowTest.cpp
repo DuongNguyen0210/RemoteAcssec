@@ -40,6 +40,8 @@
 #include "GUI/Components/SidebarWidget.h"
 #include "GUI/Pages/LogsPage.h"
 #include "GUI/Components/DeviceCardWidget.h"
+#include "Controllers/DevicesController.h"
+#include "Network/Http/DeviceService.h"
 #include "Network/Protocol/RelayAuthPayload.h"
 #include "Network/Http/HeartbeatReporter.h"
 #include "Network/Http/ApiClient.h"
@@ -69,6 +71,8 @@ private slots:
         buttons.first()->click();
         buttons.last()->click();
         QCOMPARE(requests.count(), 1);
+        QCOMPARE(page.pendingDeviceName(first.sessionId), first.deviceName);
+        QVERIFY(page.pendingDeviceName(second.sessionId).isEmpty());
         QCOMPARE(buttons.first()->text(), QStringLiteral("Đang kết nối…"));
         QVERIFY(!buttons.last()->isEnabled());
 
@@ -78,16 +82,43 @@ private slots:
         QCOMPARE(buttons.size(), 2);
         QVERIFY(!buttons.first()->isEnabled());
         QCOMPARE(buttons.last()->text(), QStringLiteral("Đang kết nối…"));
+        QCOMPARE(page.pendingDeviceName(first.sessionId), first.deviceName);
         page.finishConnectionRequest(QStringLiteral("Relay không khả dụng."));
+        QVERIFY(page.pendingDeviceName(first.sessionId).isEmpty());
         auto *status = page.findChild<QLabel *>("connectionStatus");
         QVERIFY(status);
         QCOMPARE(status->text(), QStringLiteral("Relay không khả dụng."));
         buttons.last()->click();
         QCOMPARE(requests.count(), 2);
         QCOMPARE(requests.last().first().toString(), first.sessionId);
+        QCOMPARE(page.pendingDeviceName(first.sessionId), first.deviceName);
         page.finishConnectionRequest();
+        QVERIFY(page.pendingDeviceName(first.sessionId).isEmpty());
         QVERIFY(status->isHidden());
         QVERIFY(buttons.first()->isEnabled());
+    }
+
+    void establishedSessionUsesSelectedDeviceNameAfterListChanges() {
+        DeviceStore store;
+        DeviceService service;
+        DevicesController controller(&store, &service);
+        auto *page = controller.getView();
+        DeviceInfo child;
+        child.sessionId = QStringLiteral("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+        child.deviceName = QStringLiteral("LAPTOP-M85BHB55");
+        page->updateDeviceList({child});
+        QObject::disconnect(page, nullptr, &controller, nullptr);
+        QSignalSpy started(&controller, &DevicesController::remoteSessionStarted);
+        auto *button = page->findChild<QPushButton *>("connectButton");
+        QVERIFY(button);
+        button->click();
+        page->updateDeviceList({});
+        QVERIFY(QMetaObject::invokeMethod(&controller, "handleSessionEstablished", Qt::DirectConnection,
+                Q_ARG(quint64, 42), Q_ARG(QString, child.sessionId)));
+        QCOMPARE(started.count(), 1);
+        QCOMPARE(started.first().at(1).toString(), child.deviceName);
+        QVERIFY(page->pendingDeviceName(child.sessionId).isEmpty());
+        delete page;
     }
 
     void dialogsAndLoginUseTheApplicationTheme() {

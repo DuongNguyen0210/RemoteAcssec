@@ -139,10 +139,12 @@ void DevicesPage::renderDevices()
                 && !device.ipAddress.contains(m_searchQuery, Qt::CaseInsensitive)) continue;
         DeviceCardWidget *card = new DeviceCardWidget(device, m_scrollContent);
         card->setPendingConnection(m_pendingSessionId);
-        connect(card, &DeviceCardWidget::connectRequested, this, [this, name = device.deviceName](const QString &id) {
+        const QString name = device.deviceName.trimmed().isEmpty() ? device.username.trimmed() : device.deviceName.trimmed();
+        connect(card, &DeviceCardWidget::connectRequested, this, [this, name](const QString &id) {
             if (!m_pendingSessionId.isEmpty() || id.isEmpty())
                 return;
             m_pendingSessionId = id;
+            m_pendingDeviceName = name;
             for (auto *deviceCard : m_scrollContent->findChildren<DeviceCardWidget *>())
                 deviceCard->setPendingConnection(id);
             m_connectionStatus->setText(QStringLiteral("Đang kết nối tới %1…").arg(name));
@@ -170,9 +172,15 @@ void DevicesPage::setLiveUpdatesAvailable(bool available)
         : QStringLiteral("Mất cập nhật trực tiếp. Bạn có thể bấm Làm mới để kiểm tra danh sách."));
 }
 
+QString DevicesPage::pendingDeviceName(const QString &sessionId) const
+{
+    return sessionId == m_pendingSessionId ? m_pendingDeviceName : QString();
+}
+
 void DevicesPage::finishConnectionRequest(const QString &error)
 {
     m_pendingSessionId.clear();
+    m_pendingDeviceName.clear();
     for (auto *card : m_scrollContent->findChildren<DeviceCardWidget *>())
         card->setPendingConnection({});
     m_connectionStatus->setText(error);

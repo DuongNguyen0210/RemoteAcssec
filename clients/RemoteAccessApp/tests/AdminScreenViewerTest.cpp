@@ -309,14 +309,26 @@ private slots:
     }
     void coordinatorRendersOnlyCurrentSessionAndClosesOnEnd() {
         AppCoordinator coordinator;
+        const QString deviceName = QStringLiteral("LAPTOP-M85BHB55");
         QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleRemoteSessionStarted", Qt::DirectConnection,
-                Q_ARG(quint64, 42), Q_ARG(QString, QStringLiteral("child"))));
+                Q_ARG(quint64, 42), Q_ARG(QString, deviceName)));
         RemoteDesktopWindow *window = nullptr;
         for (auto *widget : QApplication::topLevelWidgets()) {
             auto *candidate = qobject_cast<RemoteDesktopWindow *>(widget);
             if (candidate && candidate->isVisible()) window = candidate;
         }
         QVERIFY(window);
+        QVERIFY(window->windowTitle().contains(deviceName));
+        QVERIFY(!window->windowTitle().contains(QStringLiteral("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")));
+        auto *name = window->findChild<QLabel *>("remoteDeviceName");
+        auto *fullscreen = window->findChild<QPushButton *>("remoteFullScreenButton");
+        QVERIFY(name && fullscreen);
+        QVERIFY(name->text().contains(deviceName));
+        fullscreen->click();
+        QVERIFY(window->isFullScreen());
+        QVERIFY(name->text().contains(deviceName));
+        fullscreen->click();
+        QVERIFY(!window->isFullScreen());
         auto *screen = window->findChild<RemoteScreenWidget *>(); QVERIFY(screen);
         QImage frame(32,24,QImage::Format_RGB32); frame.fill(Qt::red);
         QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleFrameReady", Qt::DirectConnection,
@@ -333,6 +345,17 @@ private slots:
                 Q_ARG(quint64, 42), Q_ARG(QString, QString()), Q_ARG(QString, QString())));
         QVERIFY(!window->isVisible());
         QCOMPARE(requested.count(), 0);
+        QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleRemoteSessionStarted", Qt::DirectConnection,
+                Q_ARG(quint64, 43), Q_ARG(QString, deviceName)));
+        RemoteDesktopWindow *reconnected = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *candidate = qobject_cast<RemoteDesktopWindow *>(widget);
+            if (candidate && candidate->isVisible()) reconnected = candidate;
+        }
+        QVERIFY(reconnected);
+        QVERIFY(reconnected->windowTitle().contains(deviceName));
+        QVERIFY(QMetaObject::invokeMethod(&coordinator, "handleSessionEnded", Qt::DirectConnection,
+                Q_ARG(quint64, 43), Q_ARG(QString, QString()), Q_ARG(QString, QString())));
     }
     void childSessionSignalsStartAndStopStreaming() {
         ChildSessionController child(nullptr);

@@ -3,9 +3,10 @@
 ## Integration scope
 
 This change ports the useful security pieces of PR #40 (6197387) onto main ce82f54
-(PR #41 already merged). PR #37–#39 are not merged or replayed. Main already
-contains the required opt-in sharing/session framework. Existing UI/input work
-outside main is deliberately left in its frozen worktree.
+(PR #41 already merged). PR #37–#39 are not merged as full branches. Main
+already contains the required opt-in sharing/session framework; the previously
+accepted viewer device-name fix from #37 is adapted separately on the integration
+branch. Other UI/input work outside main remains in its frozen worktree.
 
 Retained from main: mandatory private JWT_SECRET with sessionId claims,
 credential-bound single-login leases, CHILD presence binding, account quota lock,
