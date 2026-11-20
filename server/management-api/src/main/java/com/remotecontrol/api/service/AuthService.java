@@ -30,7 +30,12 @@ public class AuthService {
         Optional<User> u = userRepository.findByUsername(username);
         Optional<Child> c = childRepository.findByUsername(username);
 
-        if (u.isPresent() && Objects.equals(u.get().getPassword(), password)) {
+        if (u.isPresent() && com.remotecontrol.api.util.ChildPasswords.matches(password, u.get().getPassword())) {
+            if (com.remotecontrol.api.util.ChildPasswords.needsUpgrade(u.get().getPassword())) {
+                if (userRepository.upgradePassword(u.get().getId(), u.get().getPassword(),
+                        com.remotecontrol.api.util.ChildPasswords.encode(password)) != 1)
+                    return ApiResponse.error("AUTH_RETRY", "Credentials changed; please sign in again");
+            }
             String token = jwtUtil.generateToken(username, "ADMIN", String.valueOf(u.get().getId()));
             LoginData data = LoginData.builder()
                     .token(token)
@@ -41,6 +46,11 @@ public class AuthService {
             return ApiResponse.success("Account Login Successful", data);
         }
         else if (c.isPresent() && com.remotecontrol.api.util.ChildPasswords.matches(password, c.get().getPassword())) {
+            if (com.remotecontrol.api.util.ChildPasswords.needsUpgrade(c.get().getPassword())) {
+                if (childRepository.upgradePassword(c.get().getId(), c.get().getPassword(),
+                        com.remotecontrol.api.util.ChildPasswords.encode(password)) != 1)
+                    return ApiResponse.error("AUTH_RETRY", "Credentials changed; please sign in again");
+            }
             String sessionId = java.util.UUID.randomUUID().toString();
             presenceService.openSession(c.get().getId(), sessionId);
             String token = jwtUtil.generateToken(username, "CHILD", String.valueOf(c.get().getId()), sessionId);
@@ -63,7 +73,7 @@ public class AuthService {
 
         User user = User.builder()
                 .username(request.getUsername())
-                .password(request.getPassword())
+                .password(com.remotecontrol.api.util.ChildPasswords.encode(request.getPassword()))
                 .maxChildren(5)
                 .build();
         userRepository.save(user);

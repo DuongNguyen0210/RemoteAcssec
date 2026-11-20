@@ -19,8 +19,9 @@ public class RelayServer {
 
     public RelayServer(com.remotecontrol.relay.config.RelayConfig config) { this.config = config; }
 
-    public void start() throws InterruptedException {
+    public void start() throws InterruptedException, javax.net.ssl.SSLException {
 
+        var tls = tlsContext();
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         RelayRegistry relayRegistry = new RelayRegistry(RelayServerHandler::notifyPendingTimeout);
@@ -36,6 +37,7 @@ public class RelayServer {
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  protected void initChannel(SocketChannel ch) {
+                     if (tls != null) ch.pipeline().addLast(tls.newHandler(ch.alloc()));
                      ch.pipeline().addLast(new ProtocolDecoder());
                      ch.pipeline().addLast(new ProtocolEncoder());
                      ch.pipeline().addLast(new RelayServerHandler(relayRegistry, authorizer));
@@ -56,6 +58,20 @@ public class RelayServer {
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
         }
+    }
+
+    private static io.netty.handler.ssl.SslContext tlsContext() throws javax.net.ssl.SSLException {
+        String certificate = System.getenv("RELAY_TLS_CERT");
+        String key = System.getenv("RELAY_TLS_KEY");
+        if (certificate == null && key == null) {
+            if ("1".equals(System.getenv("RELAY_ALLOW_PLAINTEXT"))) return null;
+            throw new IllegalArgumentException("Relay TLS credentials are required; plaintext is development-only");
+        }
+        if (certificate == null || key == null)
+            throw new IllegalArgumentException("Both RELAY_TLS_CERT and RELAY_TLS_KEY are required");
+        return io.netty.handler.ssl.SslContextBuilder.forServer(new java.io.File(certificate),
+                new java.io.File(key)).sslProvider(io.netty.handler.ssl.SslProvider.JDK)
+                .protocols("TLSv1.3", "TLSv1.2").build();
     }
 
     public static void main(String[] args) throws Exception {

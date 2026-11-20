@@ -1,0 +1,30 @@
+services:
+  nginx:
+    ports: !override
+      - '127.0.0.1:19290:443'
+    volumes: !override
+      - ${REMOTE_TLS_DIR:?Run start-secure-development.ps1}/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${REMOTE_TLS_DIR}/server.crt:/run/tls/server.crt:ro
+      - ${REMOTE_TLS_DIR}/server.key:/run/tls/server.key:ro
+  relay-proxy-1:
+    environment:
+      RELAY_ALLOW_PLAINTEXT: "0"
+      RELAY_TLS_CERT: /run/tls/server.crt
+      RELAY_TLS_KEY: /run/tls/server.key
+      RELAY_ADVERTISED_PORT: 19291
+    ports: !override
+      - '127.0.0.1:19291:8080'
+    volumes:
+      - ${REMOTE_TLS_DIR}/server.crt:/run/tls/server.crt:ro
+      - ${REMOTE_TLS_DIR}/server.key:/run/tls/server.key:ro
+  relay-proxy-2:
+    environment:
+      RELAY_ALLOW_PLAINTEXT: "0"
+      RELAY_TLS_CERT: /run/tls/server.crt
+      RELAY_TLS_KEY: /run/tls/server.key
+      RELAY_ADVERTISED_PORT: 19292
+    ports: !override
+      - '127.0.0.1:19292:8080'
+    volumes:
+      - ${REMOTE_TLS_DIR}/server.crt:/run/tls/server.crt:ro
+      - ${REMOTE_TLS_DIR}/server.key:/run/tls/server.key:ro

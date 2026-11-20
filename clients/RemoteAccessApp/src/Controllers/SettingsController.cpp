@@ -5,6 +5,7 @@
 
 #include <QSettings>
 #include <QUrl>
+#include "Network/Http/TlsConfiguration.h"
 #include <QDebug>
 
 SettingsController::SettingsController(SettingsPage *view, UserService *userService, QObject *parent)
@@ -53,9 +54,9 @@ void SettingsController::handleSaveServerConfig(const QString &apiUrl)
 {
     QString trimmed = apiUrl.trimmed();
     QUrl url(trimmed);
-    if (!url.isValid() || (url.scheme() != "http" && url.scheme() != "https")) {
+    if (!url.isValid() || (!remoteApiTransportAllowed(url) || url.host().isEmpty())) {
         if (m_view) {
-            m_view->showFeedback(QStringLiteral("URL máy chủ không hợp lệ (phải bắt đầu bằng http:// hoặc https://)"), true);
+            m_view->showFeedback(QStringLiteral("Máy chủ từ xa cần HTTPS. HTTP chỉ dùng cho máy cục bộ."), true);
         }
         return;
     }
@@ -75,7 +76,7 @@ void SettingsController::handleResetServerConfig()
     QSettings settings("DUT_PBL4", "RemoteAccessApp");
     settings.remove("server/apiUrl");
 
-    QString defaultUrl = qEnvironmentVariable("REMOTE_API_URL", "http://cornball-ibuprofen-polygraph.ngrok-free.dev");
+    QString defaultUrl = qEnvironmentVariable("REMOTE_API_URL", "https://cornball-ibuprofen-polygraph.ngrok-free.dev");
     ApiClient::instance().setBaseUrl(defaultUrl);
 
     if (m_view) {

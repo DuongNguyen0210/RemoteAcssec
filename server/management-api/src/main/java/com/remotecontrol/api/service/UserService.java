@@ -39,11 +39,12 @@ public class UserService {
             return ApiResponse.error("USER_NOT_FOUND", "User not found");
         }
         User user = userOpt.get();
-        if (!Objects.equals(user.getPassword(), request.getOldPassword())) {
+        if (!com.remotecontrol.api.util.ChildPasswords.matches(request.getOldPassword(), user.getPassword())) {
             return ApiResponse.error("INVALID_OLD_PASSWORD", "Old password does not match");
         }
-        user.setPassword(request.getNewPassword());
-        userRepository.save(user);
+        if (userRepository.upgradePassword(user.getId(), user.getPassword(),
+                com.remotecontrol.api.util.ChildPasswords.encode(request.getNewPassword())) != 1)
+            return ApiResponse.error("PASSWORD_CHANGED", "Credentials changed; please sign in again");
         return ApiResponse.success("Password changed successfully");
     }
 }

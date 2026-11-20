@@ -14,8 +14,19 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
-    private static final String SECRET_STRING = "Anh_Nhunglucsayemhaythuongnghi_Neungayxuaay_AnhDen";
-    private final Key SECRET_KEY = Keys.hmacShaKeyFor(SECRET_STRING.getBytes());
+    private final Key SECRET_KEY;
+
+    public JwtUtil(@org.springframework.beans.factory.annotation.Value("${JWT_SIGNING_KEY}") String encodedKey) {
+        byte[] key;
+        try {
+            key = java.util.Base64.getDecoder().decode(encodedKey);
+        } catch (IllegalArgumentException error) {
+            throw new IllegalArgumentException("JWT_SIGNING_KEY must be Base64", error);
+        }
+        if (key.length < 32)
+            throw new IllegalArgumentException("JWT_SIGNING_KEY must contain at least 32 random bytes");
+        SECRET_KEY = Keys.hmacShaKeyFor(key);
+    }
     private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 10;
 
     public String generateToken(String username, String role, String id) {

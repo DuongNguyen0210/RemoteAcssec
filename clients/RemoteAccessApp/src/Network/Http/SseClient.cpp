@@ -1,5 +1,6 @@
 #include "SseClient.h"
 #include "ApiClient.h"
+#include "TlsConfiguration.h"
 
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -62,7 +63,8 @@ void SseClient::openConnection()
     QString token = ApiClient::instance().getToken();
     QUrl url(ApiClient::instance().getBaseUrl() + m_endpoint);
 
-    QNetworkRequest request(url);
+    QNetworkRequest request(remoteApiTransportAllowed(url) ? url : QUrl());
+    request.setSslConfiguration(remoteTlsConfiguration());
     request.setRawHeader("Accept", "text/event-stream");
     request.setRawHeader("Cache-Control", "no-cache");
     request.setRawHeader("ngrok-skip-browser-warning", "true");

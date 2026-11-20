@@ -22,7 +22,7 @@ class DeviceAuthorizationTest {
         var users = mock(UserRepository.class);
         var children = mock(ChildRepository.class);
         var presence = mock(PresenceService.class);
-        var jwt = new JwtUtil();
+        var jwt = new JwtUtil(java.util.Base64.getEncoder().encodeToString(new byte[32]));
         var owner = User.builder().id(1L).username("owner").build();
         when(users.findById(1L)).thenReturn(Optional.of(owner));
         when(children.findByOwner(owner)).thenReturn(List.of(Child.builder().id(12L).owner(owner).build()));
@@ -51,7 +51,7 @@ class DeviceAuthorizationTest {
     @Test void relayAuthorizesOnlyOwnedLiveSessionsAndRejectsOldChildTokens() throws Exception {
         var children = mock(ChildRepository.class);
         var presence = mock(PresenceService.class);
-        var jwt = new JwtUtil();
+        var jwt = new JwtUtil(java.util.Base64.getEncoder().encodeToString(new byte[32]));
         String sid = UUID.randomUUID().toString();
         var owner = User.builder().id(1L).build();
         when(presence.getDevice(1L, sid)).thenReturn(DeviceDto.builder().childId(12L).sessionId(sid).build());
