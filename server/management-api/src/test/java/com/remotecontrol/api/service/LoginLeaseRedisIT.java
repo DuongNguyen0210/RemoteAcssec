@@ -79,4 +79,28 @@ class LoginLeaseRedisIT {
             assertTrue(redis.getExpire(key, TimeUnit.MILLISECONDS) <= remaining);
         } finally { redis.delete(key); factory.destroy(); }
     }
+    @Test void migrationRebindPreservesDeadlineAndCannotStealOrReviveLease() {
+        var factory = new LettuceConnectionFactory("127.0.0.1", Integer.getInteger("test.redis.port", 18379));
+        factory.afterPropertiesSet();
+        var redis = new StringRedisTemplate(factory);
+        var leases = new LoginLeaseService(redis);
+        String id = UUID.randomUUID().toString();
+        String key = "auth:login:ADMIN:" + id;
+        try {
+            assertTrue(leases.claim("ADMIN", id, "owner", "legacy"));
+            long before = redis.getExpire(key, TimeUnit.MILLISECONDS);
+            assertFalse(leases.rebindCredential("ADMIN", id, "intruder", "legacy", "hash"));
+            assertFalse(leases.rebindCredential("ADMIN", id, "owner", "wrong-credential", "hash"));
+            assertTrue(leases.rebindCredential("ADMIN", id, "owner", "legacy", "hash"));
+            assertTrue(redis.getExpire(key, TimeUnit.MILLISECONDS) <= before);
+            assertFalse(leases.active("ADMIN", id, "owner", "legacy"));
+            assertTrue(leases.active("ADMIN", id, "owner", "hash"));
+            leases.drain("ADMIN", id, "owner");
+            assertFalse(leases.rebindCredential("ADMIN", id, "owner", "hash", "hash2"));
+            leases.releaseSession("ADMIN", id, "owner");
+            assertTrue(leases.claim("ADMIN", id, "next-owner", "hash"));
+            assertFalse(leases.rebindCredential("ADMIN", id, "owner", "hash", "hash2"));
+            assertTrue(leases.active("ADMIN", id, "next-owner", "hash"));
+        } finally { redis.delete(key); factory.destroy(); }
+    }
 }

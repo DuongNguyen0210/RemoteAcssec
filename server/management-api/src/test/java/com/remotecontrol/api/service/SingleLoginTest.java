@@ -27,6 +27,8 @@ class SingleLoginTest {
             assertFalse(result.getSuccess());
             assertEquals("ACCOUNT_IN_USE", result.getErrorCode());
             verifyNoInteractions(jwt, presence);
+            verify(users, never()).upgradePassword(anyLong(), anyString(), anyString());
+            verify(children, never()).upgradePassword(anyLong(), anyString(), anyString());
         }
     }
 
@@ -36,14 +38,17 @@ class SingleLoginTest {
         var leases = mock(LoginLeaseService.class);
         var presence = mock(PresenceService.class);
         var jwt = new JwtUtil("single-login-test-secret-of-at-least-32-bytes");
-        when(users.findByUsername("owner")).thenReturn(Optional.of(User.builder().id(1L).password("password").build()));
-        when(leases.claim(eq("ADMIN"), eq("1"), anyString(), eq("password"))).thenReturn(true);
+        String credential = ChildPasswords.encode("password");
+        var account = User.builder().id(1L).password(credential).build();
+        when(users.findByUsername("owner")).thenReturn(Optional.of(account));
+        when(users.findById(1L)).thenReturn(Optional.of(account));
+        when(leases.claim(eq("ADMIN"), eq("1"), anyString(), eq(credential))).thenReturn(true);
         var result = new AuthService(users, children, jwt, presence, leases).login(new LoginRequest("owner", "password"));
         assertTrue(result.getSuccess());
         var data = result.getData();
         assertNotNull(java.util.UUID.fromString(data.getSessionId()));
         assertEquals(data.getSessionId(), jwt.extractSessionId(data.getToken()));
-        verify(leases).claim("ADMIN", "1", data.getSessionId(), "password");
+        verify(leases).claim("ADMIN", "1", data.getSessionId(), credential);
     }
 
     @Test void failedPresenceWriteReleasesOnlyTheClaimedChildLogin() {
@@ -52,11 +57,15 @@ class SingleLoginTest {
         var leases = mock(LoginLeaseService.class);
         var presence = mock(PresenceService.class);
         String credential = ChildPasswords.encode("password");
-        when(children.findByUsername("child")).thenReturn(Optional.of(Child.builder().id(2L).password(credential).build()));
+        var child = Child.builder().id(2L).password(credential).build();
+        when(children.findByUsername("child")).thenReturn(Optional.of(child));
+        when(children.findById(2L)).thenReturn(Optional.of(child));
         when(leases.claim(eq("CHILD"), eq("2"), anyString(), eq(credential))).thenReturn(true);
         doThrow(new IllegalStateException("storage failed")).when(presence).openSession(eq(2L), anyString(), eq(credential));
         var auth = new AuthService(users, children, mock(JwtUtil.class), presence, leases);
         assertThrows(IllegalStateException.class, () -> auth.login(new LoginRequest("child", "password")));
-        verify(leases).release(eq("CHILD"), eq("2"), anyString(), eq(credential));
+        var owner = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(leases).claim(eq("CHILD"), eq("2"), owner.capture(), eq(credential));
+        verify(leases).releaseSession("CHILD", "2", owner.getValue());
     }
 }

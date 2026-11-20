@@ -8,6 +8,14 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("update User e set e.password = :replacement where e.id = :id and e.password = :previous")
+    int upgradePassword(@org.springframework.data.repository.query.Param("id") Long id,
+            @org.springframework.data.repository.query.Param("previous") String previous,
+            @org.springframework.data.repository.query.Param("replacement") String replacement);
+
+
     Optional<User> findByUsername(String username);
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("select u from User u where u.username = :username")
