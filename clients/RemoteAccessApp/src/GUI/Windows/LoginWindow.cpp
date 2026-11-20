@@ -2,10 +2,23 @@
 #include <QFrame>
 #include <QCheckBox>
 #include <QRegularExpression>
+#include <QScrollArea>
 
 namespace {
 constexpr int authInputHeight = 40;
 constexpr int authButtonHeight = 45;
+constexpr int authCardWidth = 440;
+constexpr int authPadding = 40;
+constexpr int authSpacing = 20;
+
+QVBoxLayout *configureAuthCard(QFrame *card)
+{
+    card->setMaximumWidth(authCardWidth);
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(authPadding, authPadding, authPadding, authPadding);
+    layout->setSpacing(authSpacing);
+    return layout;
+}
 }
 
 LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent)
@@ -28,10 +41,7 @@ void LoginWindow::setupUi()
     QFrame* loginBox = new QFrame(this);
     loginForm = loginBox;
     loginBox->setObjectName("loginBox");
-    loginBox->setMaximumWidth(440);
-    QVBoxLayout* boxLayout = new QVBoxLayout(loginBox);
-    boxLayout->setSpacing(20);
-    boxLayout->setContentsMargins(40, 40, 40, 40);
+    auto *boxLayout = configureAuthCard(loginBox);
 
     QLabel* titleLabel = new QLabel("Đăng nhập", loginBox);
     titleLabel->setObjectName("loginTitle");
@@ -80,7 +90,7 @@ void LoginWindow::setupUi()
     registrationPrompt->addWidget(registrationLink);
 
     boxLayout->addWidget(titleLabel);
-    boxLayout->addSpacing(20);
+    boxLayout->addSpacing(authSpacing);
     boxLayout->addWidget(usernameInput);
     boxLayout->addWidget(passwordInput);
     boxLayout->addWidget(errorLabel);
@@ -90,10 +100,11 @@ void LoginWindow::setupUi()
 
     mainLayout->addWidget(loginBox);
     setupRegistration(mainLayout);
-    connect(registrationLink, &QPushButton::clicked, this, [this] {
+    connect(registrationLink, &QPushButton::clicked, this, [this, mainLayout] {
         registrationName->setText(usernameInput->text().trimmed());
         passwordInput->clear();
         loginForm->hide();
+        mainLayout->setAlignment(Qt::Alignment{});
         registrationForm->show();
         setWindowTitle(QStringLiteral("RemoteAccess — Đăng ký tài khoản"));
         registrationName->setFocus();
@@ -129,18 +140,28 @@ void LoginWindow::onLoginClicked()
 
 void LoginWindow::setupRegistration(QVBoxLayout *layout)
 {
-    auto *box = new QFrame(this);
-    registrationForm = box;
+    auto *scroll = new QScrollArea(this);
+    scroll->setObjectName("registrationScroll");
+    scroll->setProperty("role", "scrollArea");
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    registrationForm = scroll;
+
+    auto *content = new QWidget(scroll);
+    content->setProperty("role", "scrollContent");
+    auto *contentLayout = new QVBoxLayout(content);
+    contentLayout->setAlignment(Qt::AlignCenter);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    auto *box = new QFrame(content);
     box->setObjectName("registrationBox");
-    box->setMaximumWidth(440);
-    auto *form = new QVBoxLayout(box);
-    form->setContentsMargins(40, 32, 40, 32);
-    form->setSpacing(16);
+    auto *form = configureAuthCard(box);
 
     auto *title = new QLabel(QStringLiteral("Đăng ký tài khoản"), box);
     title->setObjectName("loginTitle");
     title->setAlignment(Qt::AlignCenter);
+    title->setWordWrap(true);
     form->addWidget(title);
+    form->addSpacing(authSpacing);
 
     auto addInput = [&](const QString &hint, const char *id, bool password) {
         auto *input = new QLineEdit(box);
@@ -158,7 +179,7 @@ void LoginWindow::setupRegistration(QVBoxLayout *layout)
     registrationPassword = addInput(QStringLiteral("Mật khẩu"), "registrationPassword", true);
     registrationConfirm = addInput(QStringLiteral("Xác nhận mật khẩu"), "registrationConfirm", true);
 
-    showPasswords = new QCheckBox(QStringLiteral("Hiện mật khẩu"), box);
+    showPasswords = new QCheckBox(QStringLiteral("Hiển thị mật khẩu"), box);
     showPasswords->setObjectName("registrationShowPasswords");
     showPasswords->setMinimumHeight(32);
     showPasswords->setCursor(Qt::PointingHandCursor);
@@ -191,8 +212,10 @@ void LoginWindow::setupRegistration(QVBoxLayout *layout)
     form->addWidget(backButton);
     connect(registerButton, &QPushButton::clicked, this, &LoginWindow::submitRegistration);
     connect(backButton, &QPushButton::clicked, this, &LoginWindow::showLoginForm);
-    layout->addWidget(box);
-    box->hide();
+    contentLayout->addWidget(box);
+    scroll->setWidget(content);
+    layout->addWidget(scroll);
+    scroll->hide();
 }
 
 void LoginWindow::submitRegistration()
@@ -233,6 +256,7 @@ void LoginWindow::showLoginForm()
     errorLabel->hide();
     successLabel->hide();
     setWindowTitle(QStringLiteral("RemoteAccess — Đăng nhập"));
+    layout()->setAlignment(Qt::AlignCenter);
     loginForm->show();
     usernameInput->setFocus();
 }

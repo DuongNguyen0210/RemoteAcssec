@@ -20,7 +20,8 @@ QLabel[role="pageTitle"] {
     color: #191c1e;
 }
 
-QLabel[role="pageSubtitle"] {
+QLabel[role="pageSubtitle"],
+#registrationShowPasswords {
     color: #404850;
     font-size: 14px;
     font-weight: 400;
@@ -517,16 +518,7 @@ QLabel[role="strongValue"] {
     color: #191c1e;
 }
 
-#registrationBox #loginTitle,
-#registrationBox QPushButton[role="primaryActionButton"],
-#registrationBox QPushButton[role="secondaryActionButton"] {
-    font-weight: 600;
-}
-
 #registrationShowPasswords {
-    color: #404850;
-    font-size: 14px;
-    font-weight: 400;
     spacing: 8px;
 }
 
