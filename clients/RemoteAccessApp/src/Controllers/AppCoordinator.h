@@ -31,7 +31,7 @@ public:
 
 private slots:
     void handleLoginSuccess(const QString &role, const QString &username);
-    void handleRemoteSessionStarted(quint64 sessionId, const QString &agentSessionId);
+    void handleRemoteSessionStarted(quint64 sessionId, const QString &targetName);
     void handleFrameReady(quint64 sessionId, const QImage &image);
     void handleSessionEnded(quint64 sessionId, const QString &agentSessionId, const QString &reason);
     void handleDisconnectRequested();

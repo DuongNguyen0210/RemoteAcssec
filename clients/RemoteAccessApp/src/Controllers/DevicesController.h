@@ -28,7 +28,7 @@ public:
 signals:
     void remoteFrameReady(quint64 sessionId, const QImage &image);
     void remoteSessionEnded();
-    void remoteSessionStarted(quint64 sessionId, const QString &agentSessionId);
+    void remoteSessionStarted(quint64 sessionId, const QString &targetName);
     void frameReceived(quint32 frameId, const QByteArray &jpegData);
     void sessionEnded(quint64 sessionId, const QString &agentSessionId, const QString &reason);
 

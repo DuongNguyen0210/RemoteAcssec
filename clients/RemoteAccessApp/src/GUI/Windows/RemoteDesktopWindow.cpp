@@ -56,6 +56,7 @@ void RemoteDesktopWindow::setupUi()
     headerLayout->setSpacing(16);
 
     m_lblTitle = new QLabel(headerWidget);
+    m_lblTitle->setObjectName("remoteDeviceName");
     m_lblTitle->setProperty("role", "cardTitle");
     m_lblTitle->setTextFormat(Qt::PlainText);
     m_lblTitle->setText(QStringLiteral("🖥️ %1").arg(m_targetName.isEmpty() ? QStringLiteral("Máy con") : m_targetName));
