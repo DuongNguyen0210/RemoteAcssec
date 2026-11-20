@@ -14,4 +14,6 @@ public class DeviceDto {
     private String os;
     private String ipAddress;
     private long lastHeartbeatAt;
+    private TelemetrySnapshot telemetry;
+    private Long telemetryAgeMs;
 }

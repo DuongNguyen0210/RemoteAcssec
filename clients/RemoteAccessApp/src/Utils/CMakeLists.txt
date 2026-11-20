@@ -13,3 +13,7 @@ add_library(Utils STATIC ${UTILS_SOURCES})
 target_link_libraries(Utils PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 target_include_directories(Utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(Utils PUBLIC Domain)
+if(WIN32)
+    target_link_libraries(Utils PRIVATE iphlpapi)
+endif()

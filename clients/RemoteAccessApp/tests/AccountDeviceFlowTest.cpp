@@ -549,6 +549,10 @@ private slots:
                 if (item->property("role") == "logTime") time = item->text();
             QVERIFY(!time.isEmpty());
             QCOMPARE(button->text(), QStringLiteral("Thông tin"));
+            button->ensurePolished();
+            QCOMPARE(button->font().weight(), QFont::Normal);
+            QCOMPARE(button->font().pixelSize(), 14);
+            QVERIFY(button->sizeHint().height() >= 32);
             QTest::mouseClick(button, Qt::LeftButton);
             auto *dialog = page.findChild<ConfirmDialog *>();
             QVERIFY(dialog && dialog->isVisible());

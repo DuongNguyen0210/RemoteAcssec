@@ -200,6 +200,12 @@ QPushButton[role="secondaryActionButton"] {
     font-weight: 700;
 }
 
+QPushButton#logDetailsButton {
+    font-weight: 400;
+    min-height: 32px;
+    padding: 0px 16px;
+}
+
 QPushButton[role="dangerActionButton"] {
     background-color: #ffffff;
     border: 1px solid #e8aaa4;

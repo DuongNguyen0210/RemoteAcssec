@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HeartbeatRequest {
+    @jakarta.validation.Valid
+    private TelemetrySample telemetry;
     @jakarta.validation.constraints.Size(max = 255)
     private String deviceUid;
     @jakarta.validation.constraints.Size(max = 255)

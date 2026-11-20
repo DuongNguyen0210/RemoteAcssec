@@ -3,9 +3,11 @@
 
 #include <QWidget>
 #include <QString>
+#include <QElapsedTimer>
 #include "Domain/Model/DeviceInfo.h"
 
 class QPushButton;
+class QLabel;
 
 class DeviceCardWidget : public QWidget
 {
@@ -23,6 +25,10 @@ signals:
     void connectRequested(const QString &agentSessionId);
 
 private:
+    void refreshTelemetry();
+    std::optional<TelemetryInfo> m_telemetry;
+    QElapsedTimer m_telemetryElapsed;
+    QLabel *m_cpuValue, *m_memoryValue, *m_rxValue, *m_txValue, *m_telemetryState;
     QString m_agentSessionId;
     QPushButton *m_connectButton;
 };

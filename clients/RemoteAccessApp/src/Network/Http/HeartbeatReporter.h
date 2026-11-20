@@ -5,13 +5,14 @@
 #include <QString>
 #include <QTimer>
 #include <QNetworkReply>
+#include "Utils/SystemTelemetrySampler.h"
 
 class HeartbeatReporter : public QObject
 {
     Q_OBJECT
 
 public:
-    static constexpr int HEARTBEAT_INTERVAL_MS = 5000;
+    static constexpr int HEARTBEAT_INTERVAL_MS = 2000;
 
     explicit HeartbeatReporter(QObject *parent = nullptr);
     ~HeartbeatReporter();
@@ -33,6 +34,8 @@ private:
     QTimer *m_timer;
 
     QString m_deviceName;
+    SystemTelemetrySampler m_telemetry;
+    qint64 m_sampleSequence = 0;
     bool m_inFlight = false;
     bool m_unsharePending = false;
 
