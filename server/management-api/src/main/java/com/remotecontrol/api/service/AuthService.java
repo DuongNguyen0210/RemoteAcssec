@@ -101,13 +101,22 @@ public class AuthService {
                 presenceService.closeSession(child.getOwner().getId(), user.getSessionId()));
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public ApiResponse<Void> registerAdmin(LoginRequest request) {
-        if (userRepository.existsByUsername(request.getUsername()))
+        String username = request.getUsername();
+        String password = request.getPassword();
+        // Leave room for a CHILD suffix in the shared 50-character login namespace.
+        if (username == null || !username.matches("[A-Za-z0-9_.-]{3,48}")
+                || password == null || password.isBlank() || password.length() < 8 || password.length() > 255)
+            return ApiResponse.error("INVALID_INPUT", "Invalid account name or password");
+
+        userRepository.lockAccountName(username);
+        if (userRepository.existsByUsername(username) || childRepository.findByUsername(username).isPresent())
             return ApiResponse.error("USER_ALREADY_EXISTS", "Username already exists");
 
         User user = User.builder()
-                .username(request.getUsername())
-                .password(ChildPasswords.encode(request.getPassword()))
+                .username(username)
+                .password(ChildPasswords.encode(password))
                 .maxChildren(5)
                 .build();
         userRepository.save(user);

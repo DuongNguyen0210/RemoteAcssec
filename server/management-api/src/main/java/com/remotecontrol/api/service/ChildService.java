@@ -48,6 +48,7 @@ public class ChildService {
         }
 
         String fullChildUsername = currentUser.getUsername() + childUsername;
+        userRepository.lockAccountName(fullChildUsername);
         Optional<Child> child = childRepository.findByUsername(fullChildUsername);
         if (child.isPresent() || userRepository.existsByUsername(fullChildUsername)) {
             return ApiResponse.error("CHILD_ALREADY_EXISTS", "Child already exists");
@@ -134,6 +135,7 @@ public class ChildService {
                 || (password != null && !password.isEmpty() && (password.isBlank() || password.length() > 255))) {
             return ApiResponse.error("INVALID_INPUT", "Invalid account name or password");
         }
+        userRepository.lockAccountName(username);
         var duplicate = childRepository.findByUsername(username);
         if ((duplicate.isPresent() && !duplicate.get().getId().equals(id))
                 || userRepository.existsByUsername(username)) {
