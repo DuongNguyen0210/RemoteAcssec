@@ -45,6 +45,7 @@
 #include "Network/Protocol/RelayAuthPayload.h"
 #include "Network/Http/HeartbeatReporter.h"
 #include "Network/Http/ApiClient.h"
+#include "Network/Http/AuthService.h"
 #include "Network/Relay/ChildSessionController.h"
 
 class AccountDeviceFlowTest : public QObject {
@@ -223,6 +224,103 @@ private slots:
         QCOMPARE(name->maxLength(), 45);
         name->setText(" child ");
         QCOMPARE(preview->text(), QString("Tên đăng nhập: ownerchild"));
+    }
+    void registrationValidatesAndReturnsToLogin() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        auto &api = ApiClient::instance();
+        const auto previous = api.getBaseUrl();
+        const auto restore = qScopeGuard([&] { api.setBaseUrl(previous); });
+        api.setBaseUrl(QString("http://127.0.0.1:%1").arg(server.serverPort()));
+        QList<QPointer<QTcpSocket>> requests;
+        connect(&server, &QTcpServer::newConnection, this, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                    const auto bytes = socket->property("buffer").toByteArray() + socket->readAll();
+                    socket->setProperty("buffer", bytes);
+                    const int split = bytes.indexOf("\r\n\r\n");
+                    if (split < 0 || socket->property("handled").toBool()) return;
+                    const auto body = QJsonDocument::fromJson(bytes.mid(split + 4));
+                    if (!body.isObject()) return;
+                    socket->setProperty("handled", true);
+                    QVERIFY(bytes.startsWith("POST /api/v1/auth/register "));
+                    QCOMPARE(body.object(), (QJsonObject{{"username", "new-admin"}, {"password", "example-password"}}));
+                    requests.append(socket);
+                });
+            }
+        });
+        auto respond = [&](int index, const QByteArray &status, const QByteArray &body) {
+            auto socket = requests.at(index);
+            QVERIFY(socket);
+            socket->write("HTTP/1.1 " + status + "\r\nContent-Length: " + QByteArray::number(body.size())
+                + "\r\nConnection: close\r\n\r\n" + body);
+            socket->disconnectFromHost();
+        };
+
+        LoginWindow window;
+        AuthService auth;
+        connect(&window, &LoginWindow::registrationRequested, &auth, &AuthService::registerAdmin);
+        connect(&auth, &AuthService::registrationResult, &window, &LoginWindow::showRegistrationResult);
+        QSignalSpy submissions(&window, &LoginWindow::registrationRequested);
+        window.show();
+        auto *link = window.findChild<QPushButton *>("openRegistrationButton");
+        auto *name = window.findChild<QLineEdit *>("registrationName");
+        auto *password = window.findChild<QLineEdit *>("registrationPassword");
+        auto *confirm = window.findChild<QLineEdit *>("registrationConfirm");
+        auto *start = window.findChild<QPushButton *>("registerButton");
+        auto *back = window.findChild<QPushButton *>("backToLoginButton");
+        QVERIFY(link && name && password && confirm && start && back);
+        link->click();
+        start->click();
+        QCOMPARE(submissions.count(), 0);
+        name->setText("bad name");
+        password->setText("example-password");
+        confirm->setText(password->text());
+        start->click();
+        QCOMPARE(submissions.count(), 0);
+        name->setText("new-admin");
+        confirm->setText("different-password");
+        start->click();
+        QCOMPARE(submissions.count(), 0);
+        confirm->setText(password->text());
+        start->click();
+        start->click();
+        QVERIFY(!start->isEnabled() && !back->isEnabled());
+        QCOMPARE(submissions.count(), 1);
+        QTRY_COMPARE(requests.count(), 1);
+        respond(0, "409 Conflict", R"({"success":false,"errorCode":"USER_ALREADY_EXISTS"})");
+        QTRY_VERIFY(start->isEnabled());
+        auto *error = start->parentWidget()->findChild<QLabel *>("errorLabel");
+        QVERIFY(error && error->isVisible());
+        QCOMPARE(error->text(), QStringLiteral("Tên đăng nhập đã tồn tại."));
+
+        start->click();
+        QTRY_COMPARE(requests.count(), 2);
+        respond(1, "429 Too Many Requests", "");
+        QTRY_VERIFY(start->isEnabled());
+        QVERIFY(error->text().contains(QStringLiteral("quá nhiều")));
+
+        start->click();
+        QTRY_COMPARE(requests.count(), 3);
+        respond(2, "201 Created", R"({"success":true})");
+        auto *success = window.findChild<QLabel *>("registrationSuccess");
+        QVERIFY(success);
+        QTRY_VERIFY(success->isVisible());
+        QCOMPARE(success->text(), QStringLiteral("Đăng ký tài khoản thành công"));
+        QCOMPARE(window.findChild<QLineEdit *>("usernameInput")->text(), QStringLiteral("new-admin"));
+        QVERIFY(window.findChild<QLineEdit *>("passwordInput")->text().isEmpty());
+        QVERIFY(password->text().isEmpty() && confirm->text().isEmpty());
+        QVERIFY(link->isVisible());
+
+        server.close();
+        link->click();
+        password->setText("example-password");
+        confirm->setText(password->text());
+        start->click();
+        QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled() && error->isVisible(), 12000);
+        QVERIFY(error->text().contains(QStringLiteral("kết nối"), Qt::CaseInsensitive));
+        back->click();
+        QVERIFY(link->isVisible());
     }
     void csvCreatesAccountsSequentially() {
         QTcpServer server;

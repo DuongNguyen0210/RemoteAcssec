@@ -19,6 +19,8 @@ void AuthController::start()
 {
     m_loginWindow = new LoginWindow();
     connect(m_loginWindow, &LoginWindow::loginRequested, this, &AuthController::handleLoginRequested);
+    connect(m_loginWindow, &LoginWindow::registrationRequested, m_authService, &AuthService::registerAdmin);
+    connect(m_authService, &AuthService::registrationResult, m_loginWindow, &LoginWindow::showRegistrationResult);
     m_loginWindow->show();
 }
 

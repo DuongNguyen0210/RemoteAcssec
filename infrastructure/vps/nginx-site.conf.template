@@ -1,6 +1,7 @@
 # Install after replacing __DOMAIN__ with the public DNS name. Certbot adds TLS.
 # Docker Compose publishes the management proxy only on 127.0.0.1:8080.
 limit_req_zone $binary_remote_addr zone=remoteaccess_login:10m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=remoteaccess_registration:10m rate=6r/m;
 
 server {
     listen 80;
@@ -8,8 +9,16 @@ server {
     client_max_body_size 1m;
     limit_req_status 429;
 
-    # ADMIN registration is an owner-only bootstrap action over VM loopback.
-    location ^~ /api/v1/auth/register { return 404; }
+    location = /api/v1/auth/register {
+        limit_req zone=remoteaccess_registration burst=4 nodelay;
+        client_max_body_size 4k;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location ^~ /api/v1/auth/register/ { return 404; }
     location ^~ /internal/ { return 404; }
 
     location = /api/v1/auth/login {

@@ -15,5 +15,6 @@ public class LoginRequest {
     private String username;
 
     @NotBlank
+    @lombok.ToString.Exclude
     private String password;
 }

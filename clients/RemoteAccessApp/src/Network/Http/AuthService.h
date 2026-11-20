@@ -11,8 +11,10 @@ class AuthService : public QObject
 public:
     explicit AuthService(QObject *parent = nullptr);
     void login(const QString &username, const QString &password);
+    void registerAdmin(const QString &username, const QString &password);
 
 signals:
+    void registrationResult(bool success, const QString &message, const QString &username);
     void loginResult(bool success, const QString &role, const QString &message,
                      const QString &username);
 

@@ -43,11 +43,18 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody LoginRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        // The public proxy rate-limits this canonical path. Reject MVC path variants.
+        if (!"/api/v1/auth/register".equals(httpRequest.getRequestURI())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("NOT_FOUND", "Route not found"));
+        }
         ApiResponse<Void> response = authService.registerAdmin(request);
         if (response.getSuccess()) {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        HttpStatus status = "USER_ALREADY_EXISTS".equals(response.getErrorCode())
+                ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status).body(response);
     }
 }

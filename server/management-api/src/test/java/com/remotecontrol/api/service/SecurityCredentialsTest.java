@@ -32,6 +32,21 @@ class SecurityCredentialsTest {
         assertFalse(ChildPasswords.matches(stored, stored));
     }
 
+    @Test void registrationRejectsInvalidInputBeforeAccessingTheDatabase() {
+        assertEquals("INVALID_INPUT", auth.registerAdmin(new LoginRequest("bad name", "example-password")).getErrorCode());
+        assertEquals("INVALID_INPUT", auth.registerAdmin(new LoginRequest("x".repeat(49), "example-password")).getErrorCode());
+        assertEquals("INVALID_INPUT", auth.registerAdmin(new LoginRequest("owner", "short")).getErrorCode());
+        assertEquals("INVALID_INPUT", auth.registerAdmin(new LoginRequest("owner", "x".repeat(256))).getErrorCode());
+        verifyNoInteractions(users, children);
+    }
+
+    @Test void registrationCannotClaimAnExistingChildLoginName() {
+        when(children.findByUsername("owner-child")).thenReturn(Optional.of(Child.builder().build()));
+        assertEquals("USER_ALREADY_EXISTS", auth.registerAdmin(new LoginRequest("owner-child", "example-password")).getErrorCode());
+        verify(users).lockAccountName("owner-child");
+        verify(users, never()).save(any());
+    }
+
     private User legacy() {
         var account = User.builder().id(1L).username("owner").password("legacy").build();
         when(users.findByUsername("owner")).thenReturn(Optional.of(account));
