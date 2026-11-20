@@ -1,6 +1,6 @@
 # Đưa RemoteAcssec lên Internet và phát app cho bạn bè
 
-Cập nhật: 20/11/2026. Mốc mã đã kiểm tra: `4b61ed21dd9a7ef0f67c84e7947fd3c0721e7ce7`.
+Cập nhật: 20/11/2026. Mốc mã đã kiểm tra trên Windows VM: `4b61ed21dd9a7ef0f67c84e7947fd3c0721e7ce7`. Khi triển khai, lấy `main` mới nhất và ghi lại commit thực tế.
 
 ## Đích cần đạt
 
@@ -28,7 +28,7 @@ Giá và tồn kho có thể thay đổi khi đặt. Không mua VPS 1 GB để c
 | 4. DNS | Chủ dự án cùng người triển khai | Tạo tên phụ Duck DNS, trỏ A record đến IPv4 của VM. | `dig +short ten-ban.duckdns.org` ra đúng IP. |
 | 5. Nền tảng | Người triển khai | Cài Docker Engine và Compose plugin từ [hướng dẫn chính thức cho Ubuntu](https://docs.docker.com/engine/install/ubuntu/), cùng Nginx/Certbot; clone repo tại commit đã chọn. | `docker compose version`; `git rev-parse HEAD` đúng commit. |
 | 6. Bí mật và TLS | Người triển khai | Tạo ba secret độc lập cho JWT, relay và PostgreSQL trong `infrastructure/.env`; cấp chứng chỉ Let's Encrypt cho DNS, gắn cert/key cho cả hai relay. | `docker compose ... config --quiet` đạt; chứng chỉ có SAN khớp DNS; không có secret trong Git/gói client. |
-| 7. Server | Người triển khai | Chạy Compose với `docker-compose.yml` và `docker-compose.tls.yml`; cấu hình Nginx host chuyển HTTPS 443 tới HTTP loopback 8080 và chặn `/api/v1/auth/register` từ Internet. | 7 container healthy/running; API HTTPS và relay TLS 9091/9092 truy cập được từ ngoài. |
+| 7. Server | Người triển khai | Chạy Compose với `docker-compose.yml` và `docker-compose.tls.yml`; cài [mẫu Nginx công khai](../../infrastructure/vps/nginx-site.conf.template) chuyển HTTPS 443 tới HTTP loopback 8080 và chặn `/api/v1/auth/register` từ Internet. | 7 container healthy/running; API HTTPS và relay TLS 9091/9092 truy cập được từ ngoài. |
 | 8. Tài khoản | Chủ dự án | Tạo ADMIN qua loopback trên VM bằng mật khẩu riêng, sau đó tạo tài khoản CHILD trong app. | ADMIN/CHILD đăng nhập được; bản hiện tại lưu mật khẩu bằng PBKDF2. |
 | 9. Gói Windows | Người triển khai | Build từ cùng commit; chạy `clients/RemoteAccessApp/package_windows.ps1` với tên DNS thật. | ZIP có EXE, DLL Qt, `platforms/qwindows.dll`, `tls/qschannelbackend.dll` và launcher HTTPS/dynamic/TLS. |
 | 10. Nghiệm thu | Chủ dự án cùng bạn bè | Thử hai máy Windows ở hai mạng khác nhau: CHILD bật chia sẻ, ADMIN xem và điều khiển, CHILD dừng chia sẻ, kết nối lại. | Thử thực tế đạt, không lỗi chứng chỉ; sau đó mới gửi ZIP cho người dùng khác. |
@@ -47,7 +47,9 @@ Trên VM, sau khi cài Docker, Nginx và Certbot:
 ```sh
 git clone https://github.com/DuongNguyen0210/RemoteAcssec.git /opt/remoteaccess
 cd /opt/remoteaccess
-git checkout 4b61ed21dd9a7ef0f67c84e7947fd3c0721e7ce7
+git checkout main
+git pull --ff-only
+git rev-parse HEAD # Ghi lại commit đang triển khai để có thể quay lại.
 cp infrastructure/.env.vps.example infrastructure/.env
 chmod 600 infrastructure/.env
 # Điền JWT_SECRET, RELAY_NODE_TOKEN, POSTGRES_PASSWORD bằng ba giá trị
@@ -62,6 +64,8 @@ docker compose --env-file infrastructure/.env \
 ```
 
 **Không chạy khối Compose trước khi hoàn tất TLS và Nginx host.** API trong Compose chỉ mở HTTP loopback; host Nginx phải cấp HTTPS cho người dùng. HTTP-01 của Let's Encrypt cần cổng 80 truy cập được để cấp/gia hạn chứng chỉ. Xem thêm [hướng dẫn cấu hình VPS](LOCAL_TO_VPS.md) và [TLS cho Relay](../security/RELAY_TLS.md). Tuyệt đối không dùng `docker compose down -v` khi có dữ liệu người dùng.
+
+Mẫu `infrastructure/vps/nginx-site.conf.template` dành cho Nginx **trên VM**, không phải Nginx trong Compose. Thay `__DOMAIN__` bằng tên Duck DNS thật, cài nó vào `/etc/nginx/sites-available/`, bật site, chạy `nginx -t` rồi cấp HTTPS bằng Certbot `--nginx --redirect`. Mẫu giữ SSE không bị buffer, giới hạn tốc độ đăng nhập và chặn đăng ký ADMIN cùng `/internal/` từ Internet. Kiểm tra đăng ký công khai trả 404 trước khi tạo ADMIN qua `http://127.0.0.1:8080` ngay trên VM. Sau khi cấp chứng chỉ, chuyển khóa relay sang PKCS#8 cho UID 10001 và thiết lập hook gia hạn trước khi chạy Compose.
 
 ## Đóng gói Windows sau khi có DNS thật
 
@@ -82,4 +86,4 @@ Gửi `RemoteAccess-friends.zip`, không gửi riêng EXE. Launcher trong ZIP đ
 
 | Đã kiểm chứng | Còn thiếu trước khi phát cho bạn bè |
 |---|---|
-| Commit `4b61ed2`; Maven server test đạt; Compose+TLS `config --quiet` đạt với cấu hình thử; client Windows build và 2 bài kiểm thử liên quan đạt; `windeployqt` đã tạo ZIP mẫu 17,5 MB và có backend TLS Windows. Các image nền Docker đều có bản `linux/arm64`. | Tài khoản Oracle/VM Singapore, tên Duck DNS, chứng chỉ thật, stack chạy công khai, bản ZIP cấu hình DNS thật và nghiệm thu từ hai mạng. ZIP mẫu dùng `example.com`, **không phát cho bạn bè**. |
+| Commit `4b61ed2`; Maven server test đạt; Compose+TLS `config --quiet` đạt với cấu hình thử; client Windows build và 2 bài kiểm thử liên quan đạt; `windeployqt` đã tạo ZIP mẫu 17,5 MB và có backend TLS Windows. Các image nền Docker đều có bản `linux/arm64`. Mẫu Nginx host đã qua `nginx -t` và kiểm tra 404 trên container thử. | Tài khoản Oracle/VM Singapore, tên Duck DNS, chứng chỉ thật, stack chạy công khai, bản ZIP cấu hình DNS thật và nghiệm thu từ hai mạng. ZIP mẫu dùng `example.com`, **không phát cho bạn bè**. |
