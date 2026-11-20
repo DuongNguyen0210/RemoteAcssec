@@ -23,12 +23,12 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 
 private:
-    enum class State { Ready, Sharing, Paused, SignedOut };
+    enum class State { Off, Ready, Sharing, Paused, SignedOut };
 
     void stopSharing();
     void updateControls();
 
-    State m_state = State::Ready;
+    State m_state = State::Off;
     QLabel *m_status;
     QPushButton *m_toggle;
 };
