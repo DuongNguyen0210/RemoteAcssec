@@ -91,4 +91,43 @@ class RelayForwardingTest {
             assertFalse(admin.isOpen());
         } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); }
     }
+
+    @Test void dropsScreenFrameUnderAdminBackpressureWithoutClosingSession() {
+        var registry = new RelayRegistry(session -> {});
+        var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        var admin = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        try {
+            admin.config().setWriteBufferWaterMark(new io.netty.channel.WriteBufferWaterMark(32, 64));
+            registry.registerChild("child", child);
+            var session = registry.createPendingSession(admin, child, "child");
+            long id = session.getSessionId();
+            registry.acceptPendingSession(id, child);
+
+            // Simulate an in-flight outbound frame that makes admin temporarily unwritable
+            var holdPromise = admin.newPromise();
+            admin.unsafe().outboundBuffer().addMessage(new byte[128], 128, holdPromise);
+            admin.unsafe().outboundBuffer().addFlush();
+            assertFalse(admin.isWritable());
+
+            var droppedFrame = new Protocol(new ProtocolHeader(ProtocolConstants.PROTOCOL_MAGIC,
+                    ProtocolConstants.PROTOCOL_VERSION, ProtocolConstants.MessageType.SCREEN_FRAME.getValue(),
+                    (short) 0, 16, id, 1), new byte[16]);
+            child.writeInbound(droppedFrame);
+
+            // Session and both channels must stay open; the frame is dropped under backpressure
+            assertTrue(child.isOpen());
+            assertTrue(admin.isOpen());
+            assertEquals(1, registry.activeSessionCount());
+            assertNull(admin.readOutbound());
+
+            // Once the outbound buffer drains, fresh frames are forwarded again
+            admin.unsafe().outboundBuffer().remove();
+            assertTrue(admin.isWritable());
+            var freshFrame = new Protocol(new ProtocolHeader(ProtocolConstants.PROTOCOL_MAGIC,
+                    ProtocolConstants.PROTOCOL_VERSION, ProtocolConstants.MessageType.SCREEN_FRAME.getValue(),
+                    (short) 0, 16, id, 2), new byte[16]);
+            child.writeInbound(freshFrame);
+            assertSame(freshFrame, admin.readOutbound());
+        } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); }
+    }
 }

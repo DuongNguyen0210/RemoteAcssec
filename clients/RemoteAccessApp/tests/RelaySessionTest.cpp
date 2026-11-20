@@ -558,6 +558,48 @@ private slots:
         child.stop();
     }
 
+    void childPreservesActiveSessionOnTransientRenewalFailureWhileLeaseValid() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        const qint64 expiry = QDateTime::currentMSecsSinceEpoch() + 45000;
+        const RelayEndpoint validEndpoint{QStringLiteral("relay-1"), QStringLiteral("127.0.0.1"), server.serverPort(), expiry};
+        CallbackRelayEndpointProvider provider;
+        int allocations = 0;
+        provider.onAllocate = [&](RelayEndpointProvider::Callback callback) {
+            if (++allocations == 1) {
+                callback(validEndpoint, {});
+            } else {
+                callback({}, QStringLiteral("Kết nối quá hạn. Thử lại."));
+            }
+        };
+        ChildSessionController child(&provider);
+        ApiClient::instance().setToken("test-token");
+        QSignalSpy started(&child, &ChildSessionController::sessionStarted);
+        QSignalSpy ended(&child, &ChildSessionController::sessionEnded);
+        QSignalSpy failed(&child, &ChildSessionController::sessionFailed);
+
+        child.start();
+        QTRY_VERIFY(server.hasPendingConnections());
+        auto *peer = server.nextPendingConnection();
+        QVERIFY(peer != nullptr);
+        QTRY_VERIFY(peer->bytesAvailable() >= 24);
+        peer->readAll();
+        peer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
+        peer->write(packet(Protocol::MessageType::SESSION_REQUEST, 99));
+        QTRY_COMPARE(started.count(), 1);
+        QCOMPARE(child.activeSessionId(), quint64(99));
+        QTRY_VERIFY(peer->bytesAvailable() >= 24);
+        peer->readAll();
+
+        // Wait for the 10s renewal tick to fire and return a transient error while the 45s lease is still valid
+        QTRY_COMPARE_WITH_TIMEOUT(allocations, 2, 12000);
+        QCOMPARE(child.activeSessionId(), quint64(99));
+        QCOMPARE(ended.count(), 0);
+        QCOMPARE(failed.count(), 0);
+        QCOMPARE(peer->state(), QAbstractSocket::ConnectedState);
+        child.stop();
+    }
+
     void adminUsesConfiguredEndpointAndReportsActiveDisconnect() {
         QTcpServer server;
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));

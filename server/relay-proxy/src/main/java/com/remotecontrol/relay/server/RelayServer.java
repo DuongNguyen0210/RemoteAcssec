@@ -59,8 +59,10 @@ public class RelayServer {
              })
              .option(ChannelOption.SO_BACKLOG, 128)
              .childOption(ChannelOption.SO_KEEPALIVE, true)
+             .childOption(ChannelOption.TCP_NODELAY, true)
+             .childOption(ChannelOption.SO_SNDBUF, 256 * 1024)
              .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,
-                     new io.netty.channel.WriteBufferWaterMark(1024 * 1024, 2 * 1024 * 1024));
+                     new io.netty.channel.WriteBufferWaterMark(64 * 1024, 256 * 1024));
 
             ChannelFuture f = b.bind(new InetSocketAddress(config.bindHost(), config.port())).sync();
             if (config.discoveryEnabled()) reporter.start();

@@ -92,6 +92,41 @@ private slots:
         QVERIFY(encoded.size.width() < noisy.width());
         QCOMPARE(QImage::fromData(encoded.jpeg, "JPEG").size(), encoded.size);
     }
+    void frameChangeClassifierFiltersIdenticalAndMinorNoiseFromSignificantChanges() {
+        QImage base(1280, 800, QImage::Format_RGB32);
+        base.fill(QColor(30, 35, 40));
+
+        // First frame (no previous image) is always significant
+        QCOMPARE(ScreenStreamSender::classifyFrameChange(base, QImage()),
+                 ScreenStreamSender::FrameChange::Significant);
+
+        // Identical frame is skipped
+        QImage identical = base;
+        QCOMPARE(ScreenStreamSender::classifyFrameChange(identical, base),
+                 ScreenStreamSender::FrameChange::None);
+
+        // 1-2 pixels of imperceptible noise is ignored as None
+        QImage tinyNoise = base;
+        tinyNoise.setPixelColor(100, 100, QColor(200, 200, 200));
+        QCOMPARE(ScreenStreamSender::classifyFrameChange(tinyNoise, base),
+                 ScreenStreamSender::FrameChange::None);
+
+        // Small blinking cursor region (e.g., 8x10 px) is classified as Minor
+        QImage cursorBlink = base;
+        for (int y = 200; y < 210; ++y)
+            for (int x = 200; x < 208; ++x)
+                cursorBlink.setPixelColor(x, y, Qt::white);
+        QCOMPARE(ScreenStreamSender::classifyFrameChange(cursorBlink, base),
+                 ScreenStreamSender::FrameChange::Minor);
+
+        // Real UI change (e.g., minimizing/switching a tab or button, 60x60 px) is Significant
+        QImage tabChanged = base;
+        for (int y = 100; y < 160; ++y)
+            for (int x = 100; x < 160; ++x)
+                tabChanged.setPixelColor(x, y, Qt::cyan);
+        QCOMPARE(ScreenStreamSender::classifyFrameChange(tabChanged, base),
+                 ScreenStreamSender::FrameChange::Significant);
+    }
     void mapsFramePixelsToDesktopCoordinates() {
         const QRect desktop(100, 50, 1920, 1080);
         QCOMPARE(RemoteInputInjector::desktopPosition(1919, 1079, QSize(1920, 1080), desktop),

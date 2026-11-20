@@ -13,10 +13,10 @@ struct EncodedScreenFrame {
 class ScreenEncoder
 {
 public:
-    static QByteArray encodeJpeg(const QImage &image, int quality = 75);
+    static QByteArray encodeJpeg(const QImage &image, int quality = 60);
     static EncodedScreenFrame encodeWithinLimit(const QImage &image, qsizetype maxBytes);
 
-    static constexpr int DEFAULT_QUALITY = 75;
+    static constexpr int DEFAULT_QUALITY = 60;
 };
 
 #endif

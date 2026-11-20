@@ -67,11 +67,14 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
             }
             // Keep header, flags, sequence and payload unchanged. Never decode/reassemble video here.
             if (!target.channel().isWritable()) {
-                ctx.close(); // Bound memory without silently dropping input or frame fragments.
+                if (target.fromChild()) {
+                    return; // Drop stale screen frames under backpressure instead of terminating the session.
+                }
+                ctx.close(); // Bound memory without silently dropping input.
                 return;
             }
             target.channel().writeAndFlush(msg).addListener(future -> {
-                if (!future.isSuccess()) ctx.close();
+                if (!future.isSuccess() && target.channel().isActive()) ctx.close();
             });
         }
     }

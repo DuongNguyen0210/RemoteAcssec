@@ -86,7 +86,7 @@ public class DeviceController {
         } catch (IOException | IllegalStateException e) {
             log.warn("[SSE] Failed to send initial snapshot for ownerId={}: {}", ownerId, e.getMessage());
             sseNotifier.unregister(ownerId, emitter);
-            emitter.completeWithError(e);
+            emitter.complete();
         }
 
         log.info("[SSE] New connection for ownerId={} connections={}",

@@ -4,8 +4,14 @@
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
     m_socket = new QSslSocket(this);
+    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);
     connect(m_socket, &QTcpSocket::connected, this, &RelayClient::onConnected);
-    connect(m_socket, &QSslSocket::encrypted, this, [this] { emit connected(); });
+    connect(m_socket, &QSslSocket::encrypted, this, [this] {
+        m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+        m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);
+        emit connected();
+    });
     connect(m_socket, &QTcpSocket::disconnected, this, &RelayClient::onDisconnected);
     connect(m_socket, &QTcpSocket::readyRead, this, &RelayClient::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &RelayClient::onErrorOccurred);
@@ -52,6 +58,8 @@ void RelayClient::DisconnectFromServer()
 }
 
 void RelayClient::onConnected() {
+    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);
     if (!m_tlsRequired) emit connected();
 }
 

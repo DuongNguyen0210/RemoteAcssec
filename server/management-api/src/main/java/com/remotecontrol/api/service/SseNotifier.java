@@ -55,7 +55,10 @@ public class SseNotifier {
 
         Runnable cleanup = () -> unregister(ownerId, emitter);
         emitter.onCompletion(cleanup);
-        emitter.onTimeout(cleanup);
+        emitter.onTimeout(() -> {
+            cleanup.run();
+            emitter.complete();
+        });
         emitter.onError(ex -> cleanup.run());
 
         log.debug("[SSE] Registered emitter for ownerId={} totalConnections={}",
@@ -104,7 +107,7 @@ public class SseNotifier {
                 // Connection is broken – remove it; client will reconnect
                 log.debug("[SSE] Send failed for ownerId={}, removing emitter: {}", ownerId, ex.getMessage());
                 unregister(ownerId, emitter);
-                emitter.completeWithError(ex);
+                emitter.complete();
             }
         }
     }

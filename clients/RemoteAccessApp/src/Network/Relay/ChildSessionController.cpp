@@ -60,6 +60,9 @@ void ChildSessionController::allocate() {
         if (!self || !self->m_running || self->m_generation != generation) return;
         self->m_allocating = false;
         if (!error.isEmpty() || !endpoint.isValid()) {
+            if (self->m_registered && self->m_endpoint.isValid()) {
+                return;
+            }
             self->fail(error.isEmpty() ? QStringLiteral("Endpoint Relay hết hạn.") : error);
             return;
         }
