@@ -61,7 +61,7 @@ docker compose --env-file infrastructure/.env \
   -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.tls.yml ps
 ```
 
-**Không chạy khối Compose trước khi hoàn tất TLS và Nginx host.** API trong Compose chỉ mở HTTP loopback; host Nginx phải cấp HTTPS cho người dùng. HTTP-01 của Let's Encrypt cần cổng 80 truy cập được để cấp/gia hạn chứng chỉ. Cấu hình Nginx, hook gia hạn cert cho relay và lệnh sao lưu chi tiết nằm trong [bảng VPS hiện có](BAO_CAO_VPS.md), nhưng cần đối chiếu với commit hiện tại trước khi dùng vì bảng đó được viết cho phiên bản cũ. Tuyệt đối không dùng `docker compose down -v` khi có dữ liệu người dùng.
+**Không chạy khối Compose trước khi hoàn tất TLS và Nginx host.** API trong Compose chỉ mở HTTP loopback; host Nginx phải cấp HTTPS cho người dùng. HTTP-01 của Let's Encrypt cần cổng 80 truy cập được để cấp/gia hạn chứng chỉ. Xem thêm [hướng dẫn cấu hình VPS](LOCAL_TO_VPS.md) và [TLS cho Relay](../security/RELAY_TLS.md). Tuyệt đối không dùng `docker compose down -v` khi có dữ liệu người dùng.
 
 ## Đóng gói Windows sau khi có DNS thật
 
