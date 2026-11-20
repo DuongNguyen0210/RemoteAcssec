@@ -23,7 +23,7 @@ public:
     void showRemoteSession();
     void setRemoteFrame(const QImage &image);
     void clearRemoteFrame();
-    void addSessionLog(const QString &event, const QString &detail, bool warning = false);
+    void addSessionLog(const QString &event, const QString &detail, bool warning = false, quint64 sessionId = 0);
 
 signals:
     void pageSelected(int pageIndex);

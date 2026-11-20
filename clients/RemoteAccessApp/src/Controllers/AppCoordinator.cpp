@@ -193,7 +193,7 @@ void AppCoordinator::handleRemoteSessionStarted(quint64 sessionId, const QString
 {
     if (m_mainWindow) {
         m_mainWindow->showRemoteSession();
-        m_mainWindow->addSessionLog(QStringLiteral("Bắt đầu phiên điều khiển"), targetName);
+        m_mainWindow->addSessionLog(QStringLiteral("Bắt đầu phiên điều khiển"), targetName, false, sessionId);
     }
     qDebug() << "[AppCoordinator] Remote session started for" << targetName
              << "sessionId=" << sessionId;
@@ -224,10 +224,9 @@ void AppCoordinator::handleFrameReady(quint64 sessionId, const QImage &image)
 
 void AppCoordinator::handleSessionEnded(quint64 sessionId, const QString &agentSessionId, const QString &reason)
 {
-    Q_UNUSED(agentSessionId);
     if (sessionId != m_remoteSessionId) return;
     if (m_mainWindow) m_mainWindow->addSessionLog(QStringLiteral("Kết thúc phiên điều khiển"),
-            reason.isEmpty() ? agentSessionId : reason);
+            reason.isEmpty() ? agentSessionId : reason, false, sessionId);
     m_remoteSessionId = 0;
     if (m_mainWindow) m_mainWindow->clearRemoteFrame();
     auto *window = m_remoteDesktopWindow.data();

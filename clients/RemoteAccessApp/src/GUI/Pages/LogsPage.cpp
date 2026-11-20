@@ -1,12 +1,13 @@
 #include "LogsPage.h"
+#include "GUI/Dialogs/ConfirmDialog.h"
 
 #include <QFrame>
 #include <QDateTime>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QLineEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QStringList>
 #include <QVBoxLayout>
 
 namespace {
@@ -20,8 +21,8 @@ QLabel *label(const QString &text, const QString &objectName, QWidget *parent)
 }
 
 
-QFrame *logRow(const QString &time, const QString &event, const QString &source,
-               const QString &severity, const QString &state, QWidget *parent)
+QFrame *logRow(const QDateTime &time, const QString &event, const QString &source,
+               bool warning, quint64 sessionId, QWidget *parent)
 {
     QFrame *row = new QFrame(parent);
     row->setProperty("role", "logRow");
@@ -31,7 +32,7 @@ QFrame *logRow(const QString &time, const QString &event, const QString &source,
     layout->setContentsMargins(16, 12, 16, 12);
     layout->setSpacing(16);
 
-    QLabel *timeLabel = label(time, "logTime", row);
+    QLabel *timeLabel = label(time.toString("HH:mm:ss"), "logTime", row);
     timeLabel->setFixedWidth(96);
     layout->addWidget(timeLabel);
 
@@ -41,10 +42,39 @@ QFrame *logRow(const QString &time, const QString &event, const QString &source,
     eventLayout->addWidget(label(source, "cardSubtitle", row));
     layout->addLayout(eventLayout, 1);
 
-    QLabel *chip = label(severity, "stateChip", row);
-    chip->setProperty("state", state);
-    chip->setAlignment(Qt::AlignCenter);
-    layout->addWidget(chip);
+    if (warning) {
+        QLabel *chip = label(QStringLiteral("Cảnh báo"), "stateChip", row);
+        chip->setProperty("state", "warning");
+        chip->setAlignment(Qt::AlignCenter);
+        layout->addWidget(chip);
+    }
+
+    auto *details = new QPushButton(QStringLiteral("Thông tin"), row);
+    details->setObjectName("logDetailsButton");
+    details->setProperty("role", "secondaryActionButton");
+    layout->addWidget(details);
+    QObject::connect(details, &QPushButton::clicked, row,
+                     [parent, time, event, source, warning, sessionId] {
+        QStringList fields{
+            QStringLiteral("Hoạt động: %1").arg(event),
+            QStringLiteral("Thời gian: %1").arg(time.toString("dd/MM/yyyy HH:mm:ss")),
+            QStringLiteral("Mức độ: %1").arg(warning ? QStringLiteral("Cảnh báo")
+                                                     : QStringLiteral("Thông tin"))
+        };
+        if (!source.trimmed().isEmpty())
+            fields.append(QStringLiteral("Nội dung: %1").arg(source));
+        if (sessionId != 0)
+            fields.append(QStringLiteral("Mã phiên: %1").arg(sessionId));
+
+        auto *dialog = new ConfirmDialog(parent);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setDialogType(ConfirmDialog::Type::Info);
+        dialog->setTitleText(QStringLiteral("Chi tiết nhật ký"));
+        dialog->setMessageText(fields.join(QLatin1Char('\n')));
+        dialog->setConfirmButtonText(QStringLiteral("Đóng"));
+        dialog->setCancelButtonVisible(false);
+        dialog->show();
+    });
 
     return row;
 }
@@ -91,15 +121,13 @@ void LogsPage::setupUi()
     mainLayout->addWidget(scrollArea, 1);
 }
 
-void LogsPage::addEntry(const QString &event, const QString &detail, bool warning)
+void LogsPage::addEntry(const QString &event, const QString &detail, bool warning, quint64 sessionId)
 {
     if (m_entryCount == 0) {
         m_empty->hide();
         m_entries->addStretch();
     }
-    m_entries->insertWidget(0, logRow(QDateTime::currentDateTime().toString("HH:mm:ss"),
-            event, detail, warning ? QStringLiteral("Cảnh báo") : QStringLiteral("Thông tin"),
-            warning ? QStringLiteral("warning") : QStringLiteral("active"), this));
+    m_entries->insertWidget(0, logRow(QDateTime::currentDateTime(), event, detail, warning, sessionId, this));
     if (++m_entryCount > 100) {
         auto *oldest = m_entries->itemAt(m_entryCount - 1)->widget();
         m_entries->removeWidget(oldest);
