@@ -435,6 +435,65 @@ private slots:
         for (auto *label : page.findChildren<QLabel *>())
             QVERIFY(!label->text().contains(QStringLiteral("j.doe@company.com")));
     }
+    void logDetailsStayBoundToEachEvent() {
+        LogsPage page;
+        page.show();
+        const QString start = QStringLiteral("Bắt đầu phiên");
+        const QString end = QStringLiteral("Kết thúc phiên");
+        const QString laptop = QStringLiteral("<b>Laptop thử</b>");
+        const QString reason = QStringLiteral("Mất kết nối Relay");
+
+        auto verifyDetails = [&](QPushButton *button, const QString &event,
+                                 const QString &detail, quint64 sessionId) {
+            const auto *row = button->parentWidget();
+            QString time;
+            for (auto *item : row->findChildren<QLabel *>())
+                if (item->property("role") == "logTime") time = item->text();
+            QVERIFY(!time.isEmpty());
+            QCOMPARE(button->text(), QStringLiteral("Thông tin"));
+            QTest::mouseClick(button, Qt::LeftButton);
+            auto *dialog = page.findChild<ConfirmDialog *>();
+            QVERIFY(dialog && dialog->isVisible());
+            auto *message = dialog->findChild<QLabel *>("confirmMessage");
+            QVERIFY(message);
+            QCOMPARE(message->textFormat(), Qt::PlainText);
+            QVERIFY(message->text().contains(QStringLiteral("Hoạt động: %1").arg(event)));
+            QVERIFY(message->text().contains(time));
+            if (detail.isEmpty())
+                QVERIFY(!message->text().contains(QStringLiteral("Nội dung:")));
+            else
+                QVERIFY(message->text().contains(QStringLiteral("Nội dung: %1").arg(detail)));
+            if (sessionId == 0)
+                QVERIFY(!message->text().contains(QStringLiteral("Mã phiên:")));
+            else
+                QVERIFY(message->text().contains(QStringLiteral("Mã phiên: %1").arg(sessionId)));
+            QPushButton *close = nullptr;
+            for (auto *action : dialog->findChildren<QPushButton *>())
+                if (action->text() == QStringLiteral("Đóng")) close = action;
+            QVERIFY(close && close->isVisible());
+            QTest::mouseClick(close, Qt::LeftButton);
+            QTRY_VERIFY(!page.findChild<ConfirmDialog *>());
+        };
+
+        page.addEntry(start, laptop, false, 42);
+        auto *first = page.findChild<QPushButton *>("logDetailsButton");
+        QVERIFY(first);
+        page.addEntry(end, reason, true, 43);
+        auto buttons = page.findChildren<QPushButton *>("logDetailsButton");
+        QCOMPARE(buttons.size(), 2);
+        auto *second = buttons.first() == first ? buttons.last() : buttons.first();
+        verifyDetails(second, end, reason, 43);
+        verifyDetails(first, start, laptop, 42);
+
+        const QString noDetails = QStringLiteral("Phiên không có nội dung bổ sung");
+        page.addEntry(noDetails, {});
+        buttons = page.findChildren<QPushButton *>("logDetailsButton");
+        QCOMPARE(buttons.size(), 3);
+        buttons.removeOne(first);
+        buttons.removeOne(second);
+        verifyDetails(buttons.first(), noDetails, {}, 0);
+        verifyDetails(first, start, laptop, 42);
+    }
     void inputContextMenuIsVietnamese() {
         QLineEdit input;
         input.setText("abc");

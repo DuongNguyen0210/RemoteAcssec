@@ -98,7 +98,7 @@ void MainWindow::showRemoteSession()
 void MainWindow::setRemoteFrame(const QImage &image) { pageSessions->setFrame(image); }
 void MainWindow::clearRemoteFrame() { pageSessions->clearFrame(); }
 
-void MainWindow::addSessionLog(const QString &event, const QString &detail, bool warning)
+void MainWindow::addSessionLog(const QString &event, const QString &detail, bool warning, quint64 sessionId)
 {
-    pageLogs->addEntry(event, detail, warning);
+    pageLogs->addEntry(event, detail, warning, sessionId);
 }
