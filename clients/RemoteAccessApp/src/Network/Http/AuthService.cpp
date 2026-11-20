@@ -19,7 +19,7 @@ void AuthService::registerAdmin(const QString &username, const QString &password
         if (result.httpStatusCode == 429)
             message = QStringLiteral("Đã gửi quá nhiều yêu cầu đăng ký. Vui lòng đợi rồi thử lại.");
         else if (result.httpStatusCode == 404)
-            message = QStringLiteral("Máy chủ chưa hỗ trợ đăng ký tài khoản cha.");
+            message = QStringLiteral("Máy chủ chưa hỗ trợ đăng ký tài khoản.");
         else if (result.httpStatusCode >= 500)
             message = QStringLiteral("Máy chủ tạm không hoạt động. Thử lại sau.");
         emit registrationResult(result.success && result.httpStatusCode == 201, message, username);

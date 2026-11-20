@@ -66,6 +66,7 @@ QScrollArea[role="scrollArea"] QScrollBar::sub-page:vertical {
 
 /* ─── Cards ──────────────────────────────────────────────────────────────── */
 #loginBox,
+#registrationBox,
 #deviceCard,
 QFrame[role="accountCard"],
 QFrame[role="metricCard"],
@@ -514,6 +515,19 @@ QLabel[role="strongValue"] {
     font-size: 28px;
     font-weight: 700;
     color: #191c1e;
+}
+
+#registrationBox #loginTitle,
+#registrationBox QPushButton[role="primaryActionButton"],
+#registrationBox QPushButton[role="secondaryActionButton"] {
+    font-weight: 600;
+}
+
+#registrationShowPasswords {
+    color: #404850;
+    font-size: 14px;
+    font-weight: 400;
+    spacing: 8px;
 }
 
 #errorLabel {

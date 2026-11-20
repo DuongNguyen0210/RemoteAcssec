@@ -3,6 +3,11 @@
 #include <QCheckBox>
 #include <QRegularExpression>
 
+namespace {
+constexpr int authInputHeight = 40;
+constexpr int authButtonHeight = 45;
+}
+
 LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent)
 {
     setObjectName("loginWindow");
@@ -36,19 +41,19 @@ void LoginWindow::setupUi()
     usernameInput->setObjectName("usernameInput");
     usernameInput->setProperty("role", "formInput");
     usernameInput->setPlaceholderText("Tên đăng nhập");
-    usernameInput->setFixedHeight(40);
+    usernameInput->setFixedHeight(authInputHeight);
 
     passwordInput = new QLineEdit(loginBox);
     passwordInput->setObjectName("passwordInput");
     passwordInput->setProperty("role", "formInput");
     passwordInput->setPlaceholderText("Mật khẩu");
     passwordInput->setEchoMode(QLineEdit::Password);
-    passwordInput->setFixedHeight(40);
+    passwordInput->setFixedHeight(authInputHeight);
 
     loginButton = new QPushButton("Đăng nhập", loginBox);
     loginButton->setObjectName("loginButton");
     loginButton->setProperty("role", "primaryActionButton");
-    loginButton->setFixedHeight(45);
+    loginButton->setFixedHeight(authButtonHeight);
     loginButton->setCursor(Qt::PointingHandCursor);
 
     errorLabel = new QLabel("", loginBox);
@@ -66,7 +71,9 @@ void LoginWindow::setupUi()
 
     auto *registrationPrompt = new QHBoxLayout;
     registrationPrompt->setAlignment(Qt::AlignCenter);
-    registrationPrompt->addWidget(new QLabel(QStringLiteral("Chưa có tài khoản?"), loginBox));
+    auto *promptLabel = new QLabel(QStringLiteral("Chưa có tài khoản?"), loginBox);
+    promptLabel->setProperty("role", "pageSubtitle");
+    registrationPrompt->addWidget(promptLabel);
     registrationLink = new QPushButton(QStringLiteral("Đăng ký ngay"), loginBox);
     registrationLink->setObjectName("openRegistrationButton");
     registrationLink->setProperty("role", "secondaryActionButton");
@@ -88,7 +95,7 @@ void LoginWindow::setupUi()
         passwordInput->clear();
         loginForm->hide();
         registrationForm->show();
-        setWindowTitle(QStringLiteral("RemoteAccess — Đăng ký tài khoản cha"));
+        setWindowTitle(QStringLiteral("RemoteAccess — Đăng ký tài khoản"));
         registrationName->setFocus();
     });
 
@@ -124,13 +131,13 @@ void LoginWindow::setupRegistration(QVBoxLayout *layout)
 {
     auto *box = new QFrame(this);
     registrationForm = box;
-    box->setObjectName("loginBox");
+    box->setObjectName("registrationBox");
     box->setMaximumWidth(440);
     auto *form = new QVBoxLayout(box);
     form->setContentsMargins(40, 32, 40, 32);
-    form->setSpacing(12);
+    form->setSpacing(16);
 
-    auto *title = new QLabel(QStringLiteral("Đăng ký tài khoản cha"), box);
+    auto *title = new QLabel(QStringLiteral("Đăng ký tài khoản"), box);
     title->setObjectName("loginTitle");
     title->setAlignment(Qt::AlignCenter);
     form->addWidget(title);
@@ -141,17 +148,20 @@ void LoginWindow::setupRegistration(QVBoxLayout *layout)
         input->setAccessibleName(hint);
         input->setPlaceholderText(hint);
         input->setProperty("role", "formInput");
-        input->setFixedHeight(40);
+        input->setFixedHeight(authInputHeight);
         if (password) input->setEchoMode(QLineEdit::Password);
         form->addWidget(input);
         connect(input, &QLineEdit::returnPressed, this, &LoginWindow::submitRegistration);
         return input;
     };
     registrationName = addInput(QStringLiteral("Tên đăng nhập"), "registrationName", false);
-    registrationPassword = addInput(QStringLiteral("Mật khẩu (ít nhất 8 ký tự)"), "registrationPassword", true);
+    registrationPassword = addInput(QStringLiteral("Mật khẩu"), "registrationPassword", true);
     registrationConfirm = addInput(QStringLiteral("Xác nhận mật khẩu"), "registrationConfirm", true);
 
     showPasswords = new QCheckBox(QStringLiteral("Hiện mật khẩu"), box);
+    showPasswords->setObjectName("registrationShowPasswords");
+    showPasswords->setMinimumHeight(32);
+    showPasswords->setCursor(Qt::PointingHandCursor);
     form->addWidget(showPasswords);
     connect(showPasswords, &QCheckBox::toggled, this, [this](bool shown) {
         const auto mode = shown ? QLineEdit::Normal : QLineEdit::Password;
@@ -162,6 +172,7 @@ void LoginWindow::setupRegistration(QVBoxLayout *layout)
     registrationError = new QLabel(box);
     registrationError->setObjectName("errorLabel");
     registrationError->setTextFormat(Qt::PlainText);
+    registrationError->setAlignment(Qt::AlignCenter);
     registrationError->setWordWrap(true);
     registrationError->hide();
     form->addWidget(registrationError);
@@ -169,10 +180,14 @@ void LoginWindow::setupRegistration(QVBoxLayout *layout)
     registerButton = new QPushButton(QStringLiteral("Đăng ký"), box);
     registerButton->setObjectName("registerButton");
     registerButton->setProperty("role", "primaryActionButton");
+    registerButton->setFixedHeight(authButtonHeight);
+    registerButton->setCursor(Qt::PointingHandCursor);
     form->addWidget(registerButton);
     backButton = new QPushButton(QStringLiteral("Quay lại đăng nhập"), box);
     backButton->setObjectName("backToLoginButton");
     backButton->setProperty("role", "secondaryActionButton");
+    backButton->setFixedHeight(authButtonHeight);
+    backButton->setCursor(Qt::PointingHandCursor);
     form->addWidget(backButton);
     connect(registerButton, &QPushButton::clicked, this, &LoginWindow::submitRegistration);
     connect(backButton, &QPushButton::clicked, this, &LoginWindow::showLoginForm);
