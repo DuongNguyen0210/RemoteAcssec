@@ -81,12 +81,14 @@ void LoginWindow::setupUi()
 
     auto *registrationPrompt = new QHBoxLayout;
     registrationPrompt->setAlignment(Qt::AlignCenter);
+    registrationPrompt->setSpacing(8);
     auto *promptLabel = new QLabel(QStringLiteral("Chưa có tài khoản?"), loginBox);
     promptLabel->setProperty("role", "pageSubtitle");
     registrationPrompt->addWidget(promptLabel);
     registrationLink = new QPushButton(QStringLiteral("Đăng ký ngay"), loginBox);
     registrationLink->setObjectName("openRegistrationButton");
-    registrationLink->setProperty("role", "secondaryActionButton");
+    registrationLink->setFlat(true);
+    registrationLink->setCursor(Qt::PointingHandCursor);
     registrationPrompt->addWidget(registrationLink);
 
     boxLayout->addWidget(titleLabel);

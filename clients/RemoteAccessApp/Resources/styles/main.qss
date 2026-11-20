@@ -21,7 +21,8 @@ QLabel[role="pageTitle"] {
 }
 
 QLabel[role="pageSubtitle"],
-#registrationShowPasswords {
+#registrationShowPasswords,
+QPushButton#openRegistrationButton {
     color: #404850;
     font-size: 14px;
     font-weight: 400;
@@ -520,6 +521,28 @@ QLabel[role="strongValue"] {
 
 #registrationShowPasswords {
     spacing: 8px;
+}
+
+QPushButton#openRegistrationButton {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #005d90;
+}
+
+QPushButton#openRegistrationButton:hover,
+QPushButton#openRegistrationButton:focus {
+    color: #004b74;
+    text-decoration: underline;
+}
+
+QPushButton#openRegistrationButton:disabled {
+    color: #707881;
+    text-decoration: none;
+}
+
+QPushButton#backToLoginButton {
+    font-weight: 400;
 }
 
 #errorLabel {
