@@ -5,6 +5,7 @@
 #include "AccountController.h"
 #include "SettingsController.h"
 #include "GUI/Windows/MainWindow.h"
+#include "GUI/Windows/ChildSharingWindow.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
 #include "GUI/Pages/SettingsPage.h"
 #include "Network/Http/HeartbeatReporter.h"
@@ -19,7 +20,6 @@
 #include "Network/Http/UserService.h"
 
 #include <QDebug>
-#include <QGuiApplication>
 
 AppCoordinator::AppCoordinator(QObject *parent)
     : QObject(parent)
@@ -38,6 +38,7 @@ AppCoordinator::AppCoordinator(QObject *parent)
 AppCoordinator::~AppCoordinator()
 {
     if (m_remoteDesktopWindow) m_remoteDesktopWindow->deleteLater();
+    if (m_childSharingWindow) m_childSharingWindow->deleteLater();
     if (m_authController) m_authController->deleteLater();
     if (m_mainWindow) m_mainWindow->deleteLater();
     if (m_heartbeatReporter) m_heartbeatReporter->deleteLater();
@@ -90,8 +91,6 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
     }
     else
     {
-        QGuiApplication::setQuitOnLastWindowClosed(false);
-
         if (!m_heartbeatReporter)
         {
             m_heartbeatReporter = new HeartbeatReporter(this);
@@ -111,6 +110,21 @@ void AppCoordinator::handleLoginSuccess(const QString &role, const QString &user
                     session, &ChildSessionController::stop);
             connect(session, &ChildSessionController::sessionFailed, this,
                     [](const QString &reason) { qWarning() << "Child Relay:" << reason; });
+            m_childSharingWindow = new ChildSharingWindow;
+            connect(session, &ChildSessionController::sessionStarted,
+                    m_childSharingWindow.data(), &ChildSharingWindow::sessionStarted);
+            connect(session, &ChildSessionController::sessionEnded,
+                    m_childSharingWindow.data(), &ChildSharingWindow::sessionEnded);
+            connect(m_heartbeatReporter, &HeartbeatReporter::authenticationLost,
+                    m_childSharingWindow.data(), &ChildSharingWindow::authenticationLost);
+            connect(m_childSharingWindow.data(), &ChildSharingWindow::sharingEnabledChanged,
+                    session, [session](bool enabled) {
+                if (enabled)
+                    session->start();
+                else
+                    session->stop();
+            });
+            m_childSharingWindow->show();
             session->start();
         }
     }

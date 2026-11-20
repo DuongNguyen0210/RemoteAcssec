@@ -18,6 +18,7 @@
 #include "Controllers/AppCoordinator.h"
 #include "Controllers/AuthController.h"
 #include "GUI/Windows/RemoteDesktopWindow.h"
+#include "GUI/Windows/ChildSharingWindow.h"
 #include "GUI/Components/RemoteScreenWidget.h"
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/ScreenFramePacketizer.h"
@@ -75,6 +76,29 @@ class AdminScreenViewerTest : public QObject {
                 && reply->error() == QNetworkReply::NoError;
     }
 private slots:
+    void childSharingWindowDisablesUntilResumed() {
+        ChildSharingWindow window;
+        auto *toggle = window.findChild<QPushButton *>("childSharingToggle");
+        auto *status = window.findChild<QLabel *>("childSharingStatus");
+        QVERIFY(toggle && status);
+        QSignalSpy availability(&window, &ChildSharingWindow::sharingEnabledChanged);
+
+        window.sessionStarted();
+        QCOMPARE(status->text(), QStringLiteral("Màn hình đang được chia sẻ."));
+        toggle->click();
+        QCOMPARE(availability.count(), 1);
+        QCOMPARE(availability.first().first().toBool(), false);
+        window.sessionEnded();
+        QCOMPARE(status->text(), QStringLiteral("Đã dừng chia sẻ màn hình."));
+        toggle->click();
+        QCOMPARE(availability.count(), 2);
+        QCOMPARE(availability.last().first().toBool(), true);
+        window.sessionStarted();
+        QCOMPARE(status->text(), QStringLiteral("Màn hình đang được chia sẻ."));
+        window.authenticationLost();
+        QVERIFY(!toggle->isEnabled());
+    }
+
     void viewerFullScreenPreservesSessionAndFrame() {
         RemoteDesktopWindow viewer(42, QStringLiteral("CHILD"));
         auto *toggle = viewer.findChild<QPushButton *>("remoteFullScreenButton");
@@ -187,6 +211,8 @@ private slots:
         QSignalSpy childStarted(&child, &ChildSessionController::sessionStarted);
         QSignalSpy childEnded(&child, &ChildSessionController::sessionEnded);
         QSignalSpy adminStarted(&admin, &AdminSessionController::sessionEstablished);
+        QSignalSpy adminEnded(&admin, &AdminSessionController::sessionEnded);
+        QSignalSpy adminFailed(&admin, &AdminSessionController::requestFailed);
         QSignalSpy frames(&admin, &AdminSessionController::frameReady);
         Protocol::RdtpStreamParser registrationParser;
         bool registered = false;
@@ -230,6 +256,30 @@ private slots:
         admin.disconnectSession();
         QTRY_COMPARE(childEnded.count(), 1);
         QCOMPARE(child.activeSessionId(), quint64(0));
+
+        admin.requestSession(agentId);
+        QTRY_COMPARE_WITH_TIMEOUT(adminStarted.count(), 2, 8000);
+        QVERIFY(child.activeSessionId() != 0);
+        child.stop();
+        QCOMPARE(childEnded.count(), 2);
+        QCOMPARE(child.activeSessionId(), quint64(0));
+        QTRY_COMPARE_WITH_TIMEOUT(adminEnded.count(), 2, 8000);
+
+        admin.requestSession(agentId);
+        QTRY_COMPARE_WITH_TIMEOUT(adminFailed.count(), 1, 8000);
+        QCOMPARE(adminStarted.count(), 2);
+
+        const auto adminToken = ApiClient::instance().getToken();
+        ApiClient::instance().setToken(childToken);
+        registered = false;
+        registrationParser = Protocol::RdtpStreamParser{};
+        child.start();
+        QTRY_VERIFY_WITH_TIMEOUT(registered, 8000);
+        ApiClient::instance().setToken(adminToken);
+        admin.requestSession(agentId);
+        QTRY_COMPARE_WITH_TIMEOUT(adminStarted.count(), 3, 8000);
+        admin.disconnectSession();
+        QTRY_COMPARE(childEnded.count(), 3);
         child.stop();
     }
     void remoteDesktopCloseIsIdempotentAndProgrammaticCloseIsSilent() {
