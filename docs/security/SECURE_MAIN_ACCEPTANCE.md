@@ -2,11 +2,12 @@
 
 ## Integration scope
 
-This change ports the useful security pieces of PR #40 (6197387) onto main ce82f54
-(PR #41 already merged). PR #37–#39 are not merged as full branches. Main
-already contains the required opt-in sharing/session framework; the previously
-accepted viewer device-name fix from #37 is adapted separately on the integration
-branch. Other UI/input work outside main remains in its frozen worktree.
+PR #42 ported the useful security pieces of PR #40 (6197387) onto main ce82f54
+and was merged as bfac974. The chained PR #37–#40 were not merged into main as
+full branches; PR #38–#40 were merged only into their parent agent branches.
+Main already contains the required opt-in sharing/session framework. The
+previously accepted viewer device-name fix from #37 is adapted in PR #43.
+Other UI/input work outside main remains in its frozen worktree.
 
 Retained from main: mandatory private JWT_SECRET with sessionId claims,
 credential-bound single-login leases, CHILD presence binding, account quota lock,
