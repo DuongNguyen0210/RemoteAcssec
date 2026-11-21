@@ -50,6 +50,7 @@ private:
     RelayEndpoint m_endpoint;
     quint64 m_generation = 0;
     quint64 m_sessionId = 0;
+    quint64 m_pendingFrameAckSession = 0;
     std::optional<quint32> m_inFlightFrame;
     bool m_screenFrameAcksEnabled = false;
     bool m_running = false;

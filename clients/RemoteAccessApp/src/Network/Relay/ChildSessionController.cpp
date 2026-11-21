@@ -161,12 +161,18 @@ void ChildSessionController::receive(const QByteArray &bytes) {
                 return;
             }
             m_sessionId = h.sessionId;
+            m_screenFrameAcksEnabled = m_pendingFrameAckSession == m_sessionId;
+            m_pendingFrameAckSession = 0;
             emit sessionStarted(m_sessionId);
-        } else if (h.type == T::SCREEN_FRAME_ACK && m_sessionId != 0 && h.sessionId == m_sessionId
+        } else if (h.type == T::SCREEN_FRAME_ACK && m_registered && h.sessionId != 0
                    && message.payload.isEmpty()) {
             if (h.flags == Protocol::SCREEN_FRAME_ACK_CAPABILITY_FLAG && h.sequenceNumber == 0) {
-                m_screenFrameAcksEnabled = true;
-            } else if (h.flags == 0 && m_inFlightFrame && h.sequenceNumber == *m_inFlightFrame) {
+                if (m_sessionId == 0)
+                    m_pendingFrameAckSession = h.sessionId;
+                else if (h.sessionId == m_sessionId)
+                    m_screenFrameAcksEnabled = true;
+            } else if (h.flags == 0 && h.sessionId == m_sessionId
+                       && m_inFlightFrame && h.sequenceNumber == *m_inFlightFrame) {
                 m_inFlightFrame.reset();
                 m_frameAckTimeout.stop();
             }
@@ -187,6 +193,7 @@ void ChildSessionController::clearFrameWindow()
 {
     m_frameAckTimeout.stop();
     m_inFlightFrame.reset();
+    m_pendingFrameAckSession = 0;
     m_screenFrameAcksEnabled = false;
 }
 

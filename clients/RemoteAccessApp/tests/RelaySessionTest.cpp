@@ -236,7 +236,7 @@ private slots:
         QTRY_COMPARE(peer->bytesAvailable(), qint64(registration.size()));
         QCOMPARE(peer->readAll(), registration);
         peer->write(packet(T::REGISTER_ACK, 0, QByteArray(1, '\1'))
-                    + packet(T::SESSION_REQUEST, sessionId) + screenAck(sessionId, 0, 1));
+                    + screenAck(sessionId, 0, 1) + packet(T::SESSION_REQUEST, sessionId));
         QTRY_VERIFY(child.canSendScreenFrame());
         const auto accept = packet(T::SESSION_ACCEPT, sessionId);
         QTRY_COMPARE(peer->bytesAvailable(), qint64(accept.size()));

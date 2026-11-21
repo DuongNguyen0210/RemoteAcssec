@@ -1,5 +1,6 @@
 package com.remotecontrol.relay;
 
+import com.remotecontrol.relay.auth.RelayAuthorizer;
 import com.remotecontrol.relay.handler.RelayServerHandler;
 import com.remotecontrol.relay.protocol.*;
 import com.remotecontrol.relay.registry.RelayRegistry;
@@ -8,11 +9,15 @@ import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.DefaultChannelId;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.embedded.EmbeddedChannel;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RelayForwardingTest {
     private static final byte SCREEN_FRAME_ACK = 0x11;
+    private static final String CHILD_ID = "00000000-0000-0000-0000-000000000001";
 
     @Test void forwardsOnlyActivePeersInAllowedDirectionWithoutChangingPackets() {
         var registry = new RelayRegistry(session -> {});
@@ -139,24 +144,30 @@ class RelayForwardingTest {
     @Test void forwardsAcknowledgementsOnlyFromTheNegotiatedActiveAdmin() {
         var registry = new RelayRegistry();
         var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
-        var admin = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        var admin = authorizedAdmin(registry);
         var stranger = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
         try {
             var advertise = packet(SCREEN_FRAME_ACK, 1, 0, 0, new byte[0]);
             child.writeInbound(advertise);
             admin.writeInbound(advertise);
-            assertTrue(registry.registerChild("child", child));
-            var session = registry.createPendingSession(admin, child, "child");
-            long id = session.getSessionId();
+            assertTrue(registry.registerChild(CHILD_ID, child));
+            admin.writeInbound(connectRequest());
+            Protocol capability = child.readOutbound();
+            Protocol request = child.readOutbound();
+            assertNotNull(request, "The Child must receive its capability before SESSION_REQUEST");
+            assertEquals(ProtocolConstants.MessageType.SESSION_REQUEST.getValue(), request.getHeader().getType());
+            long id = request.getHeader().getSessionId();
+            assertCapability(capability, id);
             var ack = packet(SCREEN_FRAME_ACK, 0, id, 0x80000000, new byte[0]);
             admin.writeInbound(ack);
             assertNull(child.readOutbound());
+            assertNull(admin.readOutbound());
 
             child.writeInbound(packet(ProtocolConstants.MessageType.SESSION_ACCEPT.getValue(), 0, id, 0, new byte[0]));
             Protocol result = admin.readOutbound();
             assertEquals(ProtocolConstants.MessageType.CONNECT_RESULT.getValue(), result.getHeader().getType());
             assertCapability(admin.readOutbound(), id);
-            assertCapability(child.readOutbound(), id);
+            assertNull(child.readOutbound());
 
             child.writeInbound(ack);
             stranger.writeInbound(ack);
@@ -173,12 +184,15 @@ class RelayForwardingTest {
     @Test void aLegacyPeerKeepsTheOriginalSessionHandshake() {
         var registry = new RelayRegistry();
         var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
-        var admin = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        var admin = authorizedAdmin(registry);
         try {
             admin.writeInbound(packet(SCREEN_FRAME_ACK, 1, 0, 0, new byte[0]));
-            assertTrue(registry.registerChild("child", child));
-            var session = registry.createPendingSession(admin, child, "child");
-            long id = session.getSessionId();
+            assertTrue(registry.registerChild(CHILD_ID, child));
+            admin.writeInbound(connectRequest());
+            Protocol request = child.readOutbound();
+            assertEquals(ProtocolConstants.MessageType.SESSION_REQUEST.getValue(), request.getHeader().getType());
+            assertNull(child.readOutbound());
+            long id = request.getHeader().getSessionId();
             child.writeInbound(packet(ProtocolConstants.MessageType.SESSION_ACCEPT.getValue(), 0, id, 0, new byte[0]));
             Protocol result = admin.readOutbound();
             assertEquals(ProtocolConstants.MessageType.CONNECT_RESULT.getValue(), result.getHeader().getType());
@@ -238,7 +252,6 @@ class RelayForwardingTest {
             child.writeInbound(packet(ProtocolConstants.MessageType.SESSION_ACCEPT.getValue(), 0, id, 0, new byte[0]));
             admin.readOutbound();
             assertCapability(admin.readOutbound(), id);
-            assertCapability(child.readOutbound(), id);
 
             byte[] pending = new byte[128];
             admin.unsafe().outboundBuffer().addMessage(pending, pending.length, admin.newPromise());
@@ -265,6 +278,22 @@ class RelayForwardingTest {
     private static Protocol packet(byte type, int flags, long session, int sequence, byte[] payload) {
         return new Protocol(new ProtocolHeader(ProtocolConstants.PROTOCOL_MAGIC, ProtocolConstants.PROTOCOL_VERSION,
                 type, (short) flags, payload.length, session, sequence), payload);
+    }
+
+    private static EmbeddedChannel authorizedAdmin(RelayRegistry registry) {
+        var authorizer = new RelayAuthorizer() {
+            @Override public CompletableFuture<String> authorize(String token, String target) {
+                return CompletableFuture.completedFuture(target);
+            }
+        };
+        return new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry, authorizer));
+    }
+
+    private static Protocol connectRequest() {
+        byte[] target = CHILD_ID.getBytes(StandardCharsets.UTF_8);
+        byte[] payload = ByteBuffer.allocate(5 + target.length)
+                .putShort((short) 1).put((byte) 'x').putShort((short) target.length).put(target).array();
+        return packet(ProtocolConstants.MessageType.CONNECT_REQUEST.getValue(), 0, 0, 0, payload);
     }
 
     private static void assertCapability(Protocol capability, long session) {

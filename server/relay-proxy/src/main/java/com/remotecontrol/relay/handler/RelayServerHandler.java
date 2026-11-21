@@ -198,6 +198,10 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
                 return;
             }
             startLease(ctx, credentials, agentId);
+            if (screenAcknowledgementsEnabled(ctx.channel(), child)) {
+                // The CHILD must know to pace its first frame before it sees SESSION_REQUEST.
+                sendScreenAcknowledgementCapability(child, session.getSessionId());
+            }
             sendSessionRequest(child, session.getSessionId());
         }));
     }
@@ -249,7 +253,6 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
         sendConnectResult(session.getAdminChannel(), true, session.getSessionId());
         if (screenAcknowledgementsEnabled(session.getAdminChannel(), session.getChildChannel())) {
             sendScreenAcknowledgementCapability(session.getAdminChannel(), session.getSessionId());
-            sendScreenAcknowledgementCapability(session.getChildChannel(), session.getSessionId());
         }
         System.out.println("[RelayServer] Session ACTIVE sessionId=" + session.getSessionId());
     }
