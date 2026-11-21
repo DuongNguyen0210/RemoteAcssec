@@ -12,8 +12,10 @@ target_link_libraries(Streaming PUBLIC
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Concurrent
     Network
     Domain
+    Utils
 )
 
 target_include_directories(Streaming PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

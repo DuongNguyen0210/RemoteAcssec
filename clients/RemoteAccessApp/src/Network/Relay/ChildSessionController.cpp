@@ -30,11 +30,23 @@ ChildSessionController::ChildSessionController(RelayEndpointProvider *provider, 
     m_timeout.setInterval(30000);
     m_frameAckTimeout.setSingleShot(true);
     m_frameAckTimeout.setInterval(30000);
+    bool stallValid = false;
+    const int envStallMs = qEnvironmentVariableIntValue("REMOTE_ACK_STALL_MS", &stallValid);
+    m_frameAckStallTimer.setSingleShot(false);
+    m_frameAckStallTimer.setInterval(stallValid ? qBound(100, envStallMs, 29000) : DEFAULT_ACK_STALL_INTERVAL_MS);
     connect(&m_retry, &QTimer::timeout, this, &ChildSessionController::allocate);
     connect(&m_renew, &QTimer::timeout, this, &ChildSessionController::allocate);
     connect(&m_timeout, &QTimer::timeout, this, [this] { fail(QStringLiteral("Relay không phản hồi.")); });
     connect(&m_frameAckTimeout, &QTimer::timeout, this, [this] {
         fail(QStringLiteral("ADMIN không xác nhận khung hình."));
+    });
+    connect(&m_frameAckStallTimer, &QTimer::timeout, this, [this] {
+        if (m_sessionId != 0 && m_inFlightFrame) {
+            const qint64 elapsed = m_inFlightTimer.isValid()
+                    ? qMax<qint64>(1, m_inFlightTimer.elapsed())
+                    : static_cast<qint64>(m_frameAckStallTimer.interval());
+            emit screenFrameAckStalled(*m_inFlightFrame, elapsed);
+        }
     });
     connect(m_client, &RelayClient::connected, this, &ChildSessionController::connected);
     connect(m_client, &RelayClient::bytesReceived, this, &ChildSessionController::receive);
@@ -173,8 +185,17 @@ void ChildSessionController::receive(const QByteArray &bytes) {
                     m_screenFrameAcksEnabled = true;
             } else if (h.flags == 0 && h.sessionId == m_sessionId
                        && m_inFlightFrame && h.sequenceNumber == *m_inFlightFrame) {
+                const quint32 ackedFrameId = *m_inFlightFrame;
+                const qint64 rttMs = m_inFlightTimer.isValid()
+                        ? qMax<qint64>(1, m_inFlightTimer.elapsed())
+                        : 1;
+                const qsizetype wireBytes = m_inFlightWireBytes;
                 m_inFlightFrame.reset();
+                m_inFlightWireBytes = 0;
+                m_inFlightTimer.invalidate();
                 m_frameAckTimeout.stop();
+                m_frameAckStallTimer.stop();
+                emit screenFrameAcknowledged(ackedFrameId, rttMs, wireBytes);
             }
         } else if (h.type == T::DISCONNECT) {
             if (m_sessionId != 0 && h.sessionId == m_sessionId && h.flags == 0
@@ -192,7 +213,10 @@ void ChildSessionController::receive(const QByteArray &bytes) {
 void ChildSessionController::clearFrameWindow()
 {
     m_frameAckTimeout.stop();
+    m_frameAckStallTimer.stop();
     m_inFlightFrame.reset();
+    m_inFlightWireBytes = 0;
+    m_inFlightTimer.invalidate();
     m_pendingFrameAckSession = 0;
     m_screenFrameAcksEnabled = false;
 }
@@ -236,18 +260,28 @@ bool ChildSessionController::sendScreenFrame(quint32 frameId, const QList<QByteA
     if (packets.isEmpty() || !canSendScreenFrame())
         return false;
     const auto generation = m_generation;
+    qsizetype totalWireBytes = 0;
     for (const auto &packet : packets) {
         if (sendScreenPacket(packet) != packet.size()) {
             if (generation == m_generation)
                 fail(QStringLiteral("Không gửi được khung hình qua Relay."));
             return false;
         }
+        totalWireBytes += packet.size();
     }
     if (m_screenFrameAcksEnabled) {
         m_inFlightFrame = frameId;
+        m_inFlightWireBytes = totalWireBytes;
+        m_inFlightTimer.start();
         m_frameAckTimeout.start();
+        m_frameAckStallTimer.start();
     }
     return true;
+}
+
+void ChildSessionController::setAckStallIntervalMs(int intervalMs)
+{
+    m_frameAckStallTimer.setInterval(qBound(50, intervalMs, 29000));
 }
 
 qint64 ChildSessionController::sendScreenPacket(const QByteArray &packet) {

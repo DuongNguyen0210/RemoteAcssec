@@ -1,5 +1,6 @@
 #pragma once
 #include <QObject>
+#include <QElapsedTimer>
 #include <QList>
 #include <QPointer>
 #include <QTimer>
@@ -12,6 +13,8 @@ class RelayClient;
 class ChildSessionController : public QObject {
     Q_OBJECT
 public:
+    static constexpr int DEFAULT_ACK_STALL_INTERVAL_MS = 1500;
+
     explicit ChildSessionController(RelayEndpointProvider *provider, QObject *parent = nullptr);
     void start();
     void stop();
@@ -19,6 +22,9 @@ public:
     bool sendScreenFrame(quint32 frameId, const QList<QByteArray> &packets);
     qint64 sendScreenPacket(const QByteArray &packet);
     qint64 pendingBytes() const;
+    bool isScreenFrameAcksEnabled() const { return m_screenFrameAcksEnabled; }
+    void setAckStallIntervalMs(int intervalMs);
+    int ackStallIntervalMs() const { return m_frameAckStallTimer.interval(); }
     // Compatibility seam for the unchanged ScreenStreamSender capture loop.
     RelayClient *relayClient() const { return m_client; }
     quint64 activeSessionId() const { return m_sessionId; }
@@ -29,6 +35,8 @@ signals:
     void sessionEnded(const QString &reason);
     void inputReceived(const Protocol::ProtocolHeader &header, const QByteArray &payload);
     void sessionFailed(const QString &reason);
+    void screenFrameAcknowledged(quint32 frameId, qint64 rttMs, qsizetype wireBytes);
+    void screenFrameAckStalled(quint32 frameId, qint64 elapsedMs);
 private:
     void allocate();
     void connected();
@@ -46,6 +54,9 @@ private:
     QTimer m_renew;
     QTimer m_timeout;
     QTimer m_frameAckTimeout;
+    QTimer m_frameAckStallTimer;
+    QElapsedTimer m_inFlightTimer;
+    qsizetype m_inFlightWireBytes = 0;
     Protocol::RdtpStreamParser m_parser;
     RelayEndpoint m_endpoint;
     quint64 m_generation = 0;

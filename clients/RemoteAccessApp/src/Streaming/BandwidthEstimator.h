@@ -43,6 +43,7 @@ public:
     static double initialBandwidthFromEnvironment(double fallbackBps = 125000.0);
 
     void reset();
+    void setConfig(const Config &config);
 
     void onFrameSent(quint32 frameId,
                      qsizetype wireBytes,

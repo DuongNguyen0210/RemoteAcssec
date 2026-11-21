@@ -183,15 +183,7 @@ double StreamOptimizer::extractBaseRttMs(const OptimizerContext &ctx) const
     if (ctx.priorWireBytes > 0 && smoothed > 0.0 && bwForTx > 0.0)
     {
         const double priorTxMs = (static_cast<double>(ctx.priorWireBytes) * 1000.0) / bwForTx;
-        if (priorTxMs < smoothed)
-        {
-            return smoothed - priorTxMs;
-        }
-        if (minRtt > 0.0)
-        {
-            return std::min(smoothed, minRtt);
-        }
-        return 0.0;
+        return std::max(0.0, smoothed - priorTxMs);
     }
 
     if (minRtt > 0.0)

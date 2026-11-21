@@ -187,4 +187,18 @@ if(BUILD_TESTING)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/CMakeLists.txt")
         add_subdirectory(tests/e2e)
     endif()
+
+    add_executable(AdaptiveStreamingPipelineTest tests/AdaptiveStreamingPipelineTest.cpp)
+    target_link_libraries(AdaptiveStreamingPipelineTest PRIVATE
+        E2eTestHarness
+    )
+    add_test(NAME adaptive_streaming_pipeline COMMAND AdaptiveStreamingPipelineTest)
+    set_tests_properties(adaptive_streaming_pipeline PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(AdaptiveBenchmarkTest tests/AdaptiveBenchmarkTest.cpp)
+    target_link_libraries(AdaptiveBenchmarkTest PRIVATE
+        E2eTestHarness
+    )
+    add_test(NAME adaptive_benchmark_13_scenarios COMMAND AdaptiveBenchmarkTest)
+    set_tests_properties(adaptive_benchmark_13_scenarios PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

@@ -94,6 +94,15 @@ void BandwidthEstimator::reset()
     m_rttWindow.clear();
 }
 
+void BandwidthEstimator::setConfig(const Config &config)
+{
+    {
+        QMutexLocker locker(&m_mutex);
+        m_config = sanitizeConfig(config);
+    }
+    reset();
+}
+
 void BandwidthEstimator::pruneInFlightLocked(qint64 nowMs)
 {
     auto it = m_inFlight.begin();

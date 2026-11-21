@@ -186,8 +186,13 @@ QString AdaptiveStreamController::evaluateSlowLoopTriggerLocked(const FrameInput
     outCpuOverloaded = false;
     outMotionTrigger = false;
 
+    const bool cpuHigh = input.cpuUsagePercent.has_value()
+        && std::isfinite(*input.cpuUsagePercent)
+        && (*input.cpuUsagePercent >= m_config.cpuOverloadPercent);
+
     if (!m_hasActiveConfig)
     {
+        outCpuOverloaded = cpuHigh;
         return QStringLiteral("init");
     }
 
@@ -195,9 +200,6 @@ QString AdaptiveStreamController::evaluateSlowLoopTriggerLocked(const FrameInput
     const bool allowEvent = (m_lastSlowLoopMs < 0) || (elapsedSinceSlow >= m_config.minEventSlowLoopIntervalMs);
 
     const double activeIntervalMs = 1000.0 / static_cast<double>(std::max(1, m_activeConfig.fps));
-    const bool cpuHigh = input.cpuUsagePercent.has_value()
-        && std::isfinite(*input.cpuUsagePercent)
-        && (*input.cpuUsagePercent >= m_config.cpuOverloadPercent);
     const bool encodeSlow = m_hasEncodeSample
         && (m_smoothedEncodeTimeMs > activeIntervalMs * m_config.maxEncodeTimeFraction);
     outCpuOverloaded = cpuHigh || encodeSlow;
@@ -548,8 +550,8 @@ AdaptiveStreamController::FrameDecision AdaptiveStreamController::processFrame(c
                     || (cand.quality < priorActive.quality - cfgSnapshot.qualityHysteresisStep)
                     || isEmergency;
                 const bool isPureMotionTradeoff = motionTrigger
-                    && (cand.scale < priorActive.scale - 1e-6)
-                    && (cand.fps > priorActive.fps);
+                    && (cand.fps > priorActive.fps)
+                    && (cand.scale <= priorActive.scale + 1e-6);
                 const bool isUpgrade = !isDowngrade && !isPureMotionTradeoff
                     && ((cand.scale > priorActive.scale + 1e-6)
                         || (cand.fps > priorActive.fps)
