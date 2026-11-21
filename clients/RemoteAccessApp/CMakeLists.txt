@@ -173,6 +173,17 @@ if(BUILD_TESTING)
     add_test(NAME adaptive_core_modules COMMAND AdaptiveCoreModulesTest)
     set_tests_properties(adaptive_core_modules PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+    add_executable(AdaptiveOptimizerControllerTest tests/AdaptiveOptimizerControllerTest.cpp)
+    target_link_libraries(AdaptiveOptimizerControllerTest PRIVATE
+        Streaming
+        Network
+        Qt${QT_VERSION_MAJOR}::Test
+        Qt${QT_VERSION_MAJOR}::Gui
+        Qt${QT_VERSION_MAJOR}::Core
+    )
+    add_test(NAME adaptive_optimizer_controller COMMAND AdaptiveOptimizerControllerTest)
+    set_tests_properties(adaptive_optimizer_controller PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/CMakeLists.txt")
         add_subdirectory(tests/e2e)
     endif()
