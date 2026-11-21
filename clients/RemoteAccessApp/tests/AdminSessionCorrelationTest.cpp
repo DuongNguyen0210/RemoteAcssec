@@ -9,6 +9,19 @@
 #include "Network/Relay/AdminSessionController.h"
 #include "Network/Relay/RelayEndpointProvider.h"
 
+namespace {
+QByteArray initialAdminRequest(const QString &token, const QString &agentId)
+{
+    Protocol::ProtocolHeader capability(static_cast<Protocol::MessageType>(0x11));
+    capability.flags = 1;
+    const auto authPayload = Protocol::relayAuthPayload(token, agentId);
+    Protocol::ProtocolHeader request(Protocol::MessageType::CONNECT_REQUEST);
+    request.payloadLength = quint32(authPayload.size());
+    return Protocol::ProtocolSerializer::serializeHeader(capability)
+           + Protocol::ProtocolSerializer::serializeHeader(request) + authPayload;
+}
+}
+
 class AssignedProvider final : public RelayEndpointProvider {
 public:
     QHash<QString, quint16> ports;
@@ -53,10 +66,7 @@ void AdminSessionCorrelationTest::adminLooksUpEachAssignedRelay()
     QTRY_VERIFY(second.hasPendingConnections());
     auto *secondSocket = second.nextPendingConnection();
     QVERIFY(secondSocket);
-    const auto authPayload = Protocol::relayAuthPayload("test-token", agentB);
-    Protocol::ProtocolHeader request(Protocol::MessageType::CONNECT_REQUEST);
-    request.payloadLength = quint32(authPayload.size());
-    const auto expectedRequest = Protocol::ProtocolSerializer::serializeHeader(request) + authPayload;
+    const auto expectedRequest = initialAdminRequest("test-token", agentB);
     QTRY_VERIFY(secondSocket->bytesAvailable() >= expectedRequest.size());
     QCOMPARE(secondSocket->read(expectedRequest.size()), expectedRequest);
     Protocol::ProtocolHeader accepted(Protocol::MessageType::CONNECT_RESULT);
@@ -100,11 +110,7 @@ void AdminSessionCorrelationTest::pendingARejectsBThenASuccessRetainsA()
     QTcpSocket *relaySocket = fakeRelay.nextPendingConnection();
     QVERIFY(relaySocket != nullptr);
 
-    const QByteArray authPayload = Protocol::relayAuthPayload(token, agentA);
-    Protocol::ProtocolHeader requestHeader(Protocol::MessageType::CONNECT_REQUEST);
-    requestHeader.payloadLength = static_cast<uint32_t>(authPayload.size());
-    const QByteArray expectedRequest =
-        Protocol::ProtocolSerializer::serializeHeader(requestHeader) + authPayload;
+    const QByteArray expectedRequest = initialAdminRequest(token, agentA);
     QTRY_VERIFY_WITH_TIMEOUT(relaySocket->bytesAvailable() >= expectedRequest.size(), 5000);
     QCOMPARE(relaySocket->read(expectedRequest.size()), expectedRequest);
 

@@ -5,6 +5,7 @@ public class ProtocolConstants {
     public static final byte PROTOCOL_VERSION = 2;
     public static final int HEADER_SIZE = 24;
     public static final int MAX_PAYLOAD_LENGTH = 524288;
+    public static final short SCREEN_ACK_CAPABILITY_FLAG = 1;
 
     public enum MessageType {
         REGISTER_HOST(0x01),
@@ -16,6 +17,7 @@ public class ProtocolConstants {
         CONNECT_RESULT(0x07),
 
         SCREEN_FRAME(0x10),
+        SCREEN_FRAME_ACK(0x11),
 
         MOUSE_MOVE(0x20),
         MOUSE_BUTTON_DOWN(0x21),

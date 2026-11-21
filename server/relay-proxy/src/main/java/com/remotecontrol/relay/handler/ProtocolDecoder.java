@@ -39,6 +39,9 @@ public class ProtocolDecoder extends ByteToMessageDecoder {
             reject(ctx, in, "Payload length exceeds maximum: " + payloadLength);
         }
         byte messageType = in.getByte(readerIndex + 5);
+        if (messageType == ProtocolConstants.MessageType.SCREEN_FRAME_ACK.getValue() && payloadLength != 0) {
+            reject(ctx, in, "Screen acknowledgement must have an empty payload");
+        }
         int inputLength = RelayForwardingPolicy.expectedInputLength(messageType);
         if (inputLength > 0 && !RelayForwardingPolicy.validInputLength(messageType, payloadLength)) {
             reject(ctx, in, "Invalid input payload length: " + payloadLength);

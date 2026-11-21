@@ -1,4 +1,6 @@
 #include <QtTest>
+#include <QBuffer>
+#include <QDataStream>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include "Network/Relay/ChildSessionController.h"
@@ -12,6 +14,8 @@
 #include "Network/Http/ApiClient.h"
 #include "Network/Protocol/ProtocolSerializer.h"
 #include "Network/Protocol/RelayAuthPayload.h"
+#include "Network/Protocol/RemoteInputPacket.h"
+#include "Network/Protocol/ScreenFramePacketizer.h"
 #include <utility>
 
 class CallbackRelayEndpointProvider final : public RelayEndpointProvider {
@@ -30,12 +34,28 @@ class RelaySessionTest : public QObject {
     QTcpServer m_api;
     QStringList m_paths;
     qint64 m_expiresAt = 0;
-    static QByteArray packet(Protocol::MessageType type, quint64 id, QByteArray payload = {}, quint32 sequence = 0) {
+    static QByteArray packet(Protocol::MessageType type, quint64 id, QByteArray payload = {},
+                             quint32 sequence = 0, quint16 flags = 0) {
         Protocol::ProtocolHeader header(type);
         header.sessionId = id;
         header.sequenceNumber = sequence;
+        header.flags = flags;
         header.payloadLength = payload.size();
         return Protocol::ProtocolSerializer::serializeHeader(header) + payload;
+    }
+    static QByteArray screenAck(quint64 sessionId, quint32 frameId, quint16 flags = 0) {
+        return packet(static_cast<Protocol::MessageType>(0x11), sessionId, {}, frameId, flags);
+    }
+
+    static QByteArray childRegistration() {
+        return screenAck(0, 0, 1) + packet(Protocol::MessageType::REGISTER_HOST, 0,
+                                           Protocol::relayAuthPayload(ApiClient::instance().getToken()));
+    }
+
+    static QByteArray adminRequest(const QString &token, const QString &agent, bool firstRequest = true) {
+        const auto request = packet(Protocol::MessageType::CONNECT_REQUEST, 0,
+                                    Protocol::relayAuthPayload(token, agent));
+        return firstRequest ? screenAck(0, 0, 1) + request : request;
     }
 private slots:
     void tlsDoesNotExposeProtocolBeforeHandshake() {
@@ -169,10 +189,9 @@ private slots:
         child.start();
         QTRY_VERIFY(server.hasPendingConnections());
         auto *peer = server.nextPendingConnection();
-        QTRY_VERIFY(peer->bytesAvailable() >= 24);
-        auto registration = peer->readAll();
-        QCOMPARE(Protocol::ProtocolSerializer::deserializeHeader(registration.left(24))->type,
-                 Protocol::MessageType::REGISTER_HOST);
+        const auto registration = childRegistration();
+        QTRY_VERIFY(peer->bytesAvailable() >= registration.size());
+        QCOMPARE(peer->readAll(), registration);
         peer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
         peer->write(packet(Protocol::MessageType::SESSION_REQUEST, 7));
         QTRY_COMPARE(registered.count(), 1);
@@ -196,6 +215,118 @@ private slots:
         QCOMPARE(child.activeSessionId(), quint64(0));
         child.stop();
         QCOMPARE(child.sendScreenPacket(frame), qint64(-1));
+    }
+
+    void childKeepsOneFrameInFlightWhileReceivingInput() {
+        using T = Protocol::MessageType;
+        constexpr quint64 sessionId = 71;
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        StaticRelayEndpointProvider provider("127.0.0.1", server.serverPort());
+        ChildSessionController child(&provider);
+        ApiClient::instance().setToken("test-token");
+        QByteArray input;
+        connect(&child, &ChildSessionController::inputReceived, this,
+                [&input](const auto &, const QByteArray &payload) { input = payload; });
+
+        child.start();
+        QTRY_VERIFY(server.hasPendingConnections());
+        auto *peer = server.nextPendingConnection();
+        const auto registration = childRegistration();
+        QTRY_COMPARE(peer->bytesAvailable(), qint64(registration.size()));
+        QCOMPARE(peer->readAll(), registration);
+        peer->write(packet(T::REGISTER_ACK, 0, QByteArray(1, '\1'))
+                    + packet(T::SESSION_REQUEST, sessionId) + screenAck(sessionId, 0, 1));
+        QTRY_VERIFY(child.canSendScreenFrame());
+        const auto accept = packet(T::SESSION_ACCEPT, sessionId);
+        QTRY_COMPARE(peer->bytesAvailable(), qint64(accept.size()));
+        QCOMPARE(peer->readAll(), accept);
+
+        const auto first = ScreenFramePacketizer::packetize("first frame", 1, sessionId);
+        QVERIFY(child.sendScreenFrame(1, first));
+        QTRY_COMPARE(peer->bytesAvailable(), qint64(first.constFirst().size()));
+        QCOMPARE(peer->readAll(), first.constFirst());
+        QTRY_COMPARE(child.pendingBytes(), qint64(0));
+        const auto stale = ScreenFramePacketizer::packetize("stale frame", 2, sessionId);
+        QVERIFY(!child.sendScreenFrame(2, stale));
+
+        const auto key = RemoteInputPacket::key(Qt::Key_A);
+        peer->write(screenAck(sessionId + 1, 1) + screenAck(sessionId, 2)
+                    + packet(T::KEY_PRESS, sessionId, key));
+        QTRY_COMPARE_WITH_TIMEOUT(input, key, 1500);
+        QVERIFY(!child.canSendScreenFrame());
+        QCOMPARE(peer->bytesAvailable(), qint64(0));
+
+        const auto ack = screenAck(sessionId, 1);
+        QSignalSpy received(child.relayClient(), &RelayClient::bytesReceived);
+        peer->write(ack.left(11));
+        QTRY_VERIFY(!received.isEmpty());
+        QVERIFY(!child.canSendScreenFrame());
+        peer->write(ack.mid(11));
+        QTRY_VERIFY(child.canSendScreenFrame());
+        const auto latest = ScreenFramePacketizer::packetize("latest frame", 3, sessionId);
+        QVERIFY(child.sendScreenFrame(3, latest));
+        QTRY_COMPARE(peer->bytesAvailable(), qint64(latest.constFirst().size()));
+        QCOMPARE(peer->readAll(), latest.constFirst());
+        child.stop();
+    }
+
+    void adminAcknowledgesOnlyCompletedNegotiatedFrames_data() {
+        QTest::addColumn<bool>("acknowledgmentsEnabled");
+        QTest::newRow("legacy relay") << false;
+        QTest::newRow("negotiated relay") << true;
+    }
+
+    void adminAcknowledgesOnlyCompletedNegotiatedFrames() {
+        QFETCH(bool, acknowledgmentsEnabled);
+        using T = Protocol::MessageType;
+        constexpr quint64 sessionId = 42;
+        constexpr quint32 frameId = 23;
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+        auto *provider = new StaticRelayEndpointProvider("127.0.0.1", server.serverPort());
+        AdminSessionController admin(provider, nullptr);
+        const QString token = "test-token";
+        const QString agent = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        ApiClient::instance().setToken(token);
+        QSignalSpy ready(&admin, &AdminSessionController::frameReady);
+        admin.requestSession(agent);
+        QTRY_VERIFY(server.hasPendingConnections());
+        auto *peer = server.nextPendingConnection();
+        const auto request = adminRequest(token, agent);
+        QTRY_COMPARE(peer->bytesAvailable(), qint64(request.size()));
+        QCOMPARE(peer->readAll(), request);
+
+        QImage image(8, 8, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QByteArray jpeg;
+        QBuffer buffer(&jpeg);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&buffer, "JPEG"));
+        const auto chunk = [&](quint32 index, const QByteArray &bytes) {
+            QByteArray payload;
+            QDataStream fields(&payload, QIODevice::WriteOnly);
+            fields << frameId << index << quint32(2) << quint32(jpeg.size());
+            return packet(T::SCREEN_FRAME, sessionId, payload + bytes, index);
+        };
+        const auto established = packet(T::CONNECT_RESULT, sessionId, QByteArray(1, '\1'));
+        const auto enable = acknowledgmentsEnabled ? screenAck(sessionId, 0, 1) : QByteArray();
+        QSignalSpy outbound(peer, &QTcpSocket::readyRead);
+        peer->write(established + enable + chunk(0, jpeg.left(jpeg.size() / 2)));
+        QVERIFY(!outbound.wait(350));
+        QCOMPARE(ready.count(), 0);
+        peer->write(chunk(1, jpeg.mid(jpeg.size() / 2)));
+        QTRY_COMPARE(ready.count(), 1);
+        QCOMPARE(ready.at(0).at(0).toULongLong(), sessionId);
+        QCOMPARE(qvariant_cast<QImage>(ready.at(0).at(1)).size(), image.size());
+        if (acknowledgmentsEnabled) {
+            const auto expectedAck = screenAck(sessionId, frameId);
+            QTRY_COMPARE(peer->bytesAvailable(), qint64(expectedAck.size()));
+            QCOMPARE(peer->readAll(), expectedAck);
+        } else {
+            QVERIFY(!outbound.wait(350));
+            QCOMPARE(peer->bytesAvailable(), qint64(0));
+        }
     }
 
     void childBacksOffRepeatedAllocationFailures() {
@@ -230,10 +361,9 @@ private slots:
         QTRY_COMPARE(connections.count(), 1);
         auto *firstPeer = server.nextPendingConnection();
         QVERIFY(firstPeer != nullptr);
-        QTRY_VERIFY(firstPeer->bytesAvailable() >= 24);
-        const auto firstRegistration = Protocol::ProtocolSerializer::deserializeHeader(firstPeer->readAll().left(24));
-        QVERIFY(firstRegistration.has_value());
-        QCOMPARE(firstRegistration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto firstRegistration = childRegistration();
+        QTRY_VERIFY(firstPeer->bytesAvailable() >= firstRegistration.size());
+        QCOMPARE(firstPeer->readAll(), firstRegistration);
         firstPeer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
         firstPeer->write(packet(Protocol::MessageType::SESSION_REQUEST, 70));
         QTRY_COMPARE(started.count(), 1);
@@ -252,12 +382,9 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(connections.count(), 2, 4000);
         auto *reconnectedPeer = server.nextPendingConnection();
         QVERIFY(reconnectedPeer != nullptr);
-        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= 24);
-        const auto registrationBytes = reconnectedPeer->readAll();
-        const auto newRegistration = Protocol::ProtocolSerializer::deserializeHeader(registrationBytes.left(24));
-        QVERIFY(newRegistration.has_value());
-        QCOMPARE(newRegistration->type, Protocol::MessageType::REGISTER_HOST);
-        QCOMPARE(registrationBytes.size(), int(Protocol::HEADER_SIZE + newRegistration->payloadLength));
+        const auto newRegistration = childRegistration();
+        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= newRegistration.size());
+        QCOMPARE(reconnectedPeer->readAll(), newRegistration);
         QVERIFY(!connections.wait(1700));
         QCOMPARE(connections.count(), 2);
         QCOMPARE(reconnectedPeer->bytesAvailable(), qint64(0));
@@ -288,10 +415,9 @@ private slots:
         QTRY_VERIFY(server.hasPendingConnections());
         auto *peer = server.nextPendingConnection();
         QVERIFY(peer != nullptr);
-        QTRY_VERIFY(peer->bytesAvailable() >= 24);
-        const auto registration = Protocol::ProtocolSerializer::deserializeHeader(peer->readAll().left(24));
-        QVERIFY(registration.has_value());
-        QCOMPARE(registration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto registration = childRegistration();
+        QTRY_VERIFY(peer->bytesAvailable() >= registration.size());
+        QCOMPARE(peer->readAll(), registration);
         QCOMPARE(child.activeSessionId(), quint64(0));
         QCOMPARE(started.count(), 0);
 
@@ -307,10 +433,9 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(server.hasPendingConnections(), 4000);
         auto *reconnectedPeer = server.nextPendingConnection();
         QVERIFY(reconnectedPeer != nullptr);
-        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= 24);
-        const auto newRegistration = Protocol::ProtocolSerializer::deserializeHeader(reconnectedPeer->readAll().left(24));
-        QVERIFY(newRegistration.has_value());
-        QCOMPARE(newRegistration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto newRegistration = childRegistration();
+        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= newRegistration.size());
+        QCOMPARE(reconnectedPeer->readAll(), newRegistration);
         QCOMPARE(started.count(), 0);
         QCOMPARE(child.activeSessionId(), quint64(0));
         QCOMPARE(failed.count(), 1);
@@ -331,10 +456,9 @@ private slots:
         QTRY_VERIFY(server.hasPendingConnections());
         auto *peer = server.nextPendingConnection();
         QVERIFY(peer != nullptr);
-        QTRY_VERIFY(peer->bytesAvailable() >= 24);
-        const auto registration = Protocol::ProtocolSerializer::deserializeHeader(peer->readAll().left(24));
-        QVERIFY(registration.has_value());
-        QCOMPARE(registration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto registration = childRegistration();
+        QTRY_VERIFY(peer->bytesAvailable() >= registration.size());
+        QCOMPARE(peer->readAll(), registration);
         peer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
         peer->write(packet(Protocol::MessageType::SESSION_REQUEST, 7));
         QTRY_COMPARE(started.count(), 1);
@@ -354,10 +478,9 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(server.hasPendingConnections(), 4000);
         auto *reconnectedPeer = server.nextPendingConnection();
         QVERIFY(reconnectedPeer != nullptr);
-        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= 24);
-        const auto newRegistration = Protocol::ProtocolSerializer::deserializeHeader(reconnectedPeer->readAll().left(24));
-        QVERIFY(newRegistration.has_value());
-        QCOMPARE(newRegistration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto newRegistration = childRegistration();
+        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= newRegistration.size());
+        QCOMPARE(reconnectedPeer->readAll(), newRegistration);
         QCOMPARE(child.activeSessionId(), quint64(0));
         QCOMPARE(started.count(), 1);
         QCOMPARE(ended.count(), 1);
@@ -387,10 +510,9 @@ private slots:
         QTRY_VERIFY(server.hasPendingConnections());
         auto *peer = server.nextPendingConnection();
         QVERIFY(peer != nullptr);
-        QTRY_VERIFY(peer->bytesAvailable() >= 24);
-        const auto registration = Protocol::ProtocolSerializer::deserializeHeader(peer->readAll().left(24));
-        QVERIFY(registration.has_value());
-        QCOMPARE(registration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto registration = childRegistration();
+        QTRY_VERIFY(peer->bytesAvailable() >= registration.size());
+        QCOMPARE(peer->readAll(), registration);
         peer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
         peer->write(packet(Protocol::MessageType::SESSION_REQUEST, 42));
         QTRY_COMPARE(started.count(), 1);
@@ -434,10 +556,9 @@ private slots:
         QTRY_VERIFY(serverA.hasPendingConnections());
         auto *peerA = serverA.nextPendingConnection();
         QVERIFY(peerA != nullptr);
-        QTRY_VERIFY(peerA->bytesAvailable() >= 24);
-        const auto registrationA = Protocol::ProtocolSerializer::deserializeHeader(peerA->readAll().left(24));
-        QVERIFY(registrationA.has_value());
-        QCOMPARE(registrationA->type, Protocol::MessageType::REGISTER_HOST);
+        const auto registrationA = childRegistration();
+        QTRY_VERIFY(peerA->bytesAvailable() >= registrationA.size());
+        QCOMPARE(peerA->readAll(), registrationA);
         peerA->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
         peerA->write(packet(Protocol::MessageType::SESSION_REQUEST, 42));
         QTRY_COMPARE(started.count(), 1);
@@ -463,10 +584,9 @@ private slots:
 
         auto *peerB = serverB.nextPendingConnection();
         QVERIFY(peerB != nullptr);
-        QTRY_VERIFY(peerB->bytesAvailable() >= 24);
-        const auto registrationB = Protocol::ProtocolSerializer::deserializeHeader(peerB->readAll().left(24));
-        QVERIFY(registrationB.has_value());
-        QCOMPARE(registrationB->type, Protocol::MessageType::REGISTER_HOST);
+        const auto registrationB = childRegistration();
+        QTRY_VERIFY(peerB->bytesAvailable() >= registrationB.size());
+        QCOMPARE(peerB->readAll(), registrationB);
         child.stop();
     }
 
@@ -482,10 +602,9 @@ private slots:
         QTRY_VERIFY(server.hasPendingConnections());
         auto *peer = server.nextPendingConnection();
         QVERIFY(peer != nullptr);
-        QTRY_VERIFY(peer->bytesAvailable() >= 24);
-        const auto registration = Protocol::ProtocolSerializer::deserializeHeader(peer->readAll().left(24));
-        QVERIFY(registration.has_value());
-        QCOMPARE(registration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto registration = childRegistration();
+        QTRY_VERIFY(peer->bytesAvailable() >= registration.size());
+        QCOMPARE(peer->readAll(), registration);
         const QByteArray malformedHeader(24, '\0');
         QCOMPARE(peer->write(malformedHeader), qint64(malformedHeader.size()));
         QTRY_COMPARE(failed.count(), 1);
@@ -500,10 +619,9 @@ private slots:
         QVERIFY(duplicateDelivered);
         auto *reconnectedPeer = server.nextPendingConnection();
         QVERIFY(reconnectedPeer != nullptr);
-        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= 24);
-        const auto newRegistration = Protocol::ProtocolSerializer::deserializeHeader(reconnectedPeer->readAll().left(24));
-        QVERIFY(newRegistration.has_value());
-        QCOMPARE(newRegistration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto newRegistration = childRegistration();
+        QTRY_VERIFY(reconnectedPeer->bytesAvailable() >= newRegistration.size());
+        QCOMPARE(reconnectedPeer->readAll(), newRegistration);
         child.stop();
     }
 
@@ -533,10 +651,9 @@ private slots:
         QTRY_VERIFY(currentServer.hasPendingConnections());
         auto *currentPeer = currentServer.nextPendingConnection();
         QVERIFY(currentPeer != nullptr);
-        QTRY_VERIFY(currentPeer->bytesAvailable() >= 24);
-        const auto registration = Protocol::ProtocolSerializer::deserializeHeader(currentPeer->readAll().left(24));
-        QVERIFY(registration.has_value());
-        QCOMPARE(registration->type, Protocol::MessageType::REGISTER_HOST);
+        const auto registration = childRegistration();
+        QTRY_VERIFY(currentPeer->bytesAvailable() >= registration.size());
+        QCOMPARE(currentPeer->readAll(), registration);
         currentPeer->write(packet(Protocol::MessageType::REGISTER_ACK, 0, QByteArray(1, '\1')));
         currentPeer->write(packet(Protocol::MessageType::SESSION_REQUEST, 84));
         QTRY_COMPARE(started.count(), 1);
@@ -623,11 +740,7 @@ private slots:
         auto *peer = server.nextPendingConnection();
         QVERIFY(peer != nullptr);
 
-        const QByteArray authPayload = Protocol::relayAuthPayload(token, agentSessionId);
-        Protocol::ProtocolHeader requestHeader(Protocol::MessageType::CONNECT_REQUEST);
-        requestHeader.payloadLength = static_cast<uint32_t>(authPayload.size());
-        const QByteArray expectedRequest =
-                Protocol::ProtocolSerializer::serializeHeader(requestHeader) + authPayload;
+        const QByteArray expectedRequest = adminRequest(token, agentSessionId);
         QTRY_VERIFY(peer->bytesAvailable() >= expectedRequest.size());
         QCOMPARE(peer->read(expectedRequest.size()), expectedRequest);
 
@@ -670,13 +783,7 @@ private slots:
         QTRY_VERIFY(server.hasPendingConnections());
         auto *peer = server.nextPendingConnection();
         QVERIFY(peer != nullptr);
-        const auto expectedRequest = [&](const QString &agent) {
-            const QByteArray payload = Protocol::relayAuthPayload(token, agent);
-            Protocol::ProtocolHeader header(Protocol::MessageType::CONNECT_REQUEST);
-            header.payloadLength = static_cast<uint32_t>(payload.size());
-            return Protocol::ProtocolSerializer::serializeHeader(header) + payload;
-        };
-        const QByteArray firstRequest = expectedRequest(agentA);
+        const QByteArray firstRequest = adminRequest(token, agentA);
         QTRY_VERIFY(peer->bytesAvailable() >= firstRequest.size());
         QCOMPARE(peer->read(firstRequest.size()), firstRequest);
         QCOMPARE(requestFailed.count(), 0);
@@ -695,7 +802,7 @@ private slots:
         QCOMPARE(peer->state(), QAbstractSocket::ConnectedState);
 
         admin.requestSession(agentB);
-        const QByteArray secondRequest = expectedRequest(agentB);
+        const QByteArray secondRequest = adminRequest(token, agentB, false);
         QTRY_VERIFY(peer->bytesAvailable() >= secondRequest.size());
         QCOMPARE(peer->read(secondRequest.size()), secondRequest);
         QCOMPARE(requestFailed.count(), 1);
@@ -791,11 +898,7 @@ private slots:
         auto *peer = server.nextPendingConnection();
         QVERIFY(peer != nullptr);
 
-        const QByteArray authPayload = Protocol::relayAuthPayload(token, agentSessionId);
-        Protocol::ProtocolHeader requestHeader(Protocol::MessageType::CONNECT_REQUEST);
-        requestHeader.payloadLength = static_cast<uint32_t>(authPayload.size());
-        const QByteArray expectedRequest =
-                Protocol::ProtocolSerializer::serializeHeader(requestHeader) + authPayload;
+        const QByteArray expectedRequest = adminRequest(token, agentSessionId);
         QTRY_VERIFY(peer->bytesAvailable() >= expectedRequest.size());
         QCOMPARE(peer->read(expectedRequest.size()), expectedRequest);
 

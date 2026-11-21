@@ -12,6 +12,7 @@ class RelayClient : public QObject
 private:
     QSslSocket* m_socket;
     bool m_tlsRequired = false;
+    quint64 m_connectionGeneration = 0;
 
 public:
     explicit RelayClient(QObject *parent = nullptr);

@@ -10,10 +10,11 @@ RdtpStreamParser::FeedResult RdtpStreamParser::feed(const QByteArray &bytes)
     m_buffer.append(bytes);
 
     FeedResult result;
-    const int headerSize = static_cast<int>(HEADER_SIZE);
+    constexpr auto headerSize = static_cast<qsizetype>(HEADER_SIZE);
+    qsizetype consumed = 0;
 
-    while (m_buffer.size() >= headerSize) {
-        const QByteArray headerBytes = m_buffer.left(headerSize);
+    while (m_buffer.size() - consumed >= headerSize) {
+        const QByteArray headerBytes = QByteArray::fromRawData(m_buffer.constData() + consumed, headerSize);
         const auto decodedHeader = ProtocolSerializer::deserializeHeader(headerBytes);
 
         if (!decodedHeader.has_value()) {
@@ -42,21 +43,23 @@ RdtpStreamParser::FeedResult RdtpStreamParser::feed(const QByteArray &bytes)
             return result;
         }
 
-        const int payloadLength = static_cast<int>(header.payloadLength);
-        const int messageSize = headerSize + payloadLength;
+        const auto payloadLength = static_cast<qsizetype>(header.payloadLength);
+        const auto messageSize = headerSize + payloadLength;
 
-        if (m_buffer.size() < messageSize) {
+        if (m_buffer.size() - consumed < messageSize) {
             break;
         }
 
         Message message {
             header,
-            m_buffer.mid(headerSize, payloadLength)
+            m_buffer.mid(consumed + headerSize, payloadLength)
         };
         result.messages.append(message);
-        m_buffer.remove(0, messageSize);
+        consumed += messageSize;
     }
 
+    if (consumed)
+        m_buffer.remove(0, consumed);
     return result;
 }
 

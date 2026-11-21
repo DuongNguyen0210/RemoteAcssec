@@ -3,12 +3,17 @@ package com.remotecontrol.relay;
 import com.remotecontrol.relay.handler.RelayServerHandler;
 import com.remotecontrol.relay.protocol.*;
 import com.remotecontrol.relay.registry.RelayRegistry;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.DefaultChannelId;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.embedded.EmbeddedChannel;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RelayForwardingTest {
+    private static final byte SCREEN_FRAME_ACK = 0x11;
+
     @Test void forwardsOnlyActivePeersInAllowedDirectionWithoutChangingPackets() {
         var registry = new RelayRegistry(session -> {});
         var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
@@ -129,5 +134,146 @@ class RelayForwardingTest {
             child.writeInbound(freshFrame);
             assertSame(freshFrame, admin.readOutbound());
         } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); }
+    }
+
+    @Test void forwardsAcknowledgementsOnlyFromTheNegotiatedActiveAdmin() {
+        var registry = new RelayRegistry();
+        var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        var admin = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        var stranger = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        try {
+            var advertise = packet(SCREEN_FRAME_ACK, 1, 0, 0, new byte[0]);
+            child.writeInbound(advertise);
+            admin.writeInbound(advertise);
+            assertTrue(registry.registerChild("child", child));
+            var session = registry.createPendingSession(admin, child, "child");
+            long id = session.getSessionId();
+            var ack = packet(SCREEN_FRAME_ACK, 0, id, 0x80000000, new byte[0]);
+            admin.writeInbound(ack);
+            assertNull(child.readOutbound());
+
+            child.writeInbound(packet(ProtocolConstants.MessageType.SESSION_ACCEPT.getValue(), 0, id, 0, new byte[0]));
+            Protocol result = admin.readOutbound();
+            assertEquals(ProtocolConstants.MessageType.CONNECT_RESULT.getValue(), result.getHeader().getType());
+            assertCapability(admin.readOutbound(), id);
+            assertCapability(child.readOutbound(), id);
+
+            child.writeInbound(ack);
+            stranger.writeInbound(ack);
+            admin.writeInbound(packet(SCREEN_FRAME_ACK, 1, id, 0, new byte[0]));
+            admin.writeInbound(packet(SCREEN_FRAME_ACK, 0, id, 1, new byte[1]));
+            assertNull(child.readOutbound());
+            assertNull(admin.readOutbound());
+
+            admin.writeInbound(ack);
+            assertSame(ack, child.readOutbound());
+        } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); stranger.finishAndReleaseAll(); }
+    }
+
+    @Test void aLegacyPeerKeepsTheOriginalSessionHandshake() {
+        var registry = new RelayRegistry();
+        var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        var admin = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        try {
+            admin.writeInbound(packet(SCREEN_FRAME_ACK, 1, 0, 0, new byte[0]));
+            assertTrue(registry.registerChild("child", child));
+            var session = registry.createPendingSession(admin, child, "child");
+            long id = session.getSessionId();
+            child.writeInbound(packet(ProtocolConstants.MessageType.SESSION_ACCEPT.getValue(), 0, id, 0, new byte[0]));
+            Protocol result = admin.readOutbound();
+            assertEquals(ProtocolConstants.MessageType.CONNECT_RESULT.getValue(), result.getHeader().getType());
+            child.writeInbound(packet(SCREEN_FRAME_ACK, 1, 0, 0, new byte[0]));
+            admin.writeInbound(packet(SCREEN_FRAME_ACK, 0, id, 1, new byte[0]));
+            assertNull(admin.readOutbound());
+            assertNull(child.readOutbound());
+        } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); }
+    }
+
+    @Test void temporaryChildBackpressureAllowsOrderedInputToDrain() {
+        var registry = new RelayRegistry();
+        var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        var admin = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        try {
+            child.config().setWriteBufferWaterMark(new WriteBufferWaterMark(64 * 1024, 256 * 1024));
+            assertTrue(registry.registerChild("child", child));
+            var session = registry.createPendingSession(admin, child, "child");
+            long id = session.getSessionId();
+            registry.acceptPendingSession(id, child);
+
+            byte[] pending = new byte[256 * 1024 + 1];
+            child.unsafe().outboundBuffer().addMessage(pending, pending.length, child.newPromise());
+            child.unsafe().outboundBuffer().addFlush();
+            assertFalse(child.isWritable());
+
+            var press = packet(ProtocolConstants.MessageType.KEY_PRESS.getValue(), 0, id, 0, new byte[4]);
+            var release = packet(ProtocolConstants.MessageType.KEY_RELEASE.getValue(), 0, id, 0, new byte[4]);
+            admin.writeInbound(press, release);
+
+            assertEquals(1, registry.activeSessionCount());
+            assertSame(pending, child.readOutbound());
+            assertSame(press, child.readOutbound());
+            assertSame(release, child.readOutbound());
+        } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); }
+    }
+
+    @Test void reservesAtMostOnePacedScreenWriteUnderBackpressure() {
+        class HoldFlush extends ChannelOutboundHandlerAdapter {
+            boolean holding;
+
+            @Override public void flush(ChannelHandlerContext ctx) {
+                if (!holding) ctx.flush();
+            }
+        }
+        var block = new HoldFlush();
+        var registry = new RelayRegistry();
+        var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry));
+        var admin = new EmbeddedChannel(DefaultChannelId.newInstance(), block, new RelayServerHandler(registry));
+        try {
+            admin.config().setWriteBufferWaterMark(new WriteBufferWaterMark(32, 64));
+            var advertise = packet(SCREEN_FRAME_ACK, 1, 0, 0, new byte[0]);
+            child.writeInbound(advertise);
+            admin.writeInbound(advertise);
+            assertTrue(registry.registerChild("child", child));
+            long id = registry.createPendingSession(admin, child, "child").getSessionId();
+            child.writeInbound(packet(ProtocolConstants.MessageType.SESSION_ACCEPT.getValue(), 0, id, 0, new byte[0]));
+            admin.readOutbound();
+            assertCapability(admin.readOutbound(), id);
+            assertCapability(child.readOutbound(), id);
+
+            byte[] pending = new byte[128];
+            admin.unsafe().outboundBuffer().addMessage(pending, pending.length, admin.newPromise());
+            admin.unsafe().outboundBuffer().addFlush();
+            assertFalse(admin.isWritable());
+            block.holding = true;
+            byte screenFrame = ProtocolConstants.MessageType.SCREEN_FRAME.getValue();
+            var first = packet(screenFrame, 0, id, 0, new byte[16]);
+            var second = packet(screenFrame, 0, id, 1, new byte[16]);
+            child.writeInbound(first, second);
+            assertNull(admin.readOutbound());
+            assertEquals(1, registry.activeSessionCount());
+
+            block.holding = false;
+            admin.flushOutbound();
+            assertSame(pending, admin.readOutbound());
+            assertSame(first, admin.readOutbound());
+            assertNull(admin.readOutbound());
+            child.writeInbound(second);
+            assertSame(second, admin.readOutbound());
+        } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); }
+    }
+
+    private static Protocol packet(byte type, int flags, long session, int sequence, byte[] payload) {
+        return new Protocol(new ProtocolHeader(ProtocolConstants.PROTOCOL_MAGIC, ProtocolConstants.PROTOCOL_VERSION,
+                type, (short) flags, payload.length, session, sequence), payload);
+    }
+
+    private static void assertCapability(Protocol capability, long session) {
+        assertNotNull(capability);
+        ProtocolHeader header = capability.getHeader();
+        assertEquals(SCREEN_FRAME_ACK, header.getType());
+        assertEquals(1, header.getFlags());
+        assertEquals(session, header.getSessionId());
+        assertEquals(0, header.getSequenceNumber());
+        assertEquals(0, capability.getPayload().length);
     }
 }
