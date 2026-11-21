@@ -3,12 +3,16 @@ package com.remotecontrol.relay.server;
 import com.remotecontrol.relay.handler.ProtocolDecoder;
 import com.remotecontrol.relay.handler.ProtocolEncoder;
 import com.remotecontrol.relay.handler.RelayServerHandler;
+import com.remotecontrol.relay.protocol.Protocol;
+import com.remotecontrol.relay.protocol.ProtocolConstants;
 import com.remotecontrol.relay.registry.RelayRegistry;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.DefaultMessageSizeEstimator;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.MessageSizeEstimator;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -19,6 +23,18 @@ import java.io.File;
 import java.net.InetSocketAddress;
 
 public class RelayServer {
+
+    // The write queue also holds packets dispatched from a peer's event loop before encoding.
+    private static final MessageSizeEstimator PACKET_SIZE_ESTIMATOR = () -> {
+        var defaultEstimator = DefaultMessageSizeEstimator.DEFAULT.newHandle();
+        return message -> {
+            if (message instanceof Protocol packet) {
+                byte[] payload = packet.getPayload();
+                return ProtocolConstants.HEADER_SIZE + (payload != null ? payload.length : 0);
+            }
+            return defaultEstimator.size(message);
+        };
+    };
 
     private final com.remotecontrol.relay.config.RelayConfig config;
 
@@ -61,6 +77,7 @@ public class RelayServer {
              .childOption(ChannelOption.SO_KEEPALIVE, true)
              .childOption(ChannelOption.TCP_NODELAY, true)
              .childOption(ChannelOption.SO_SNDBUF, 256 * 1024)
+             .childOption(ChannelOption.MESSAGE_SIZE_ESTIMATOR, PACKET_SIZE_ESTIMATOR)
              .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,
                      new io.netty.channel.WriteBufferWaterMark(64 * 1024, 256 * 1024));
 

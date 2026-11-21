@@ -52,4 +52,17 @@ class ProtocolDecoderInputLimitTest {
             assertFalse(channel.isOpen());
         } finally { channel.finishAndReleaseAll(); }
     }
+
+    @Test void rejectsScreenAcknowledgementWithPayloadFromHeader() {
+        var channel = new EmbeddedChannel(new ProtocolDecoder());
+        var header = Unpooled.buffer(24)
+                .writeInt(ProtocolConstants.PROTOCOL_MAGIC)
+                .writeByte(ProtocolConstants.PROTOCOL_VERSION)
+                .writeByte(0x11)
+                .writeShort(0).writeInt(1).writeLong(1).writeInt(1);
+        try {
+            assertThrows(DecoderException.class, () -> channel.writeInbound(header));
+            assertFalse(channel.isOpen());
+        } finally { channel.finishAndReleaseAll(); }
+    }
 }

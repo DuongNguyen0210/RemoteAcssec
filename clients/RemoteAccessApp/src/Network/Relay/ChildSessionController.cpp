@@ -6,6 +6,15 @@
 #include <QRandomGenerator>
 
 namespace {
+QByteArray controlPacket(Protocol::MessageType type, quint64 id, const QByteArray &payload = {},
+                         quint16 flags = 0) {
+    Protocol::ProtocolHeader header(type);
+    header.sessionId = id;
+    header.flags = flags;
+    header.payloadLength = static_cast<uint32_t>(payload.size());
+    return Protocol::ProtocolSerializer::serializeHeader(header) + payload;
+}
+
 bool isInput(Protocol::MessageType type) {
     using T = Protocol::MessageType;
     return type == T::MOUSE_MOVE || type == T::MOUSE_BUTTON_DOWN || type == T::MOUSE_BUTTON_UP
@@ -18,17 +27,32 @@ ChildSessionController::ChildSessionController(RelayEndpointProvider *provider, 
     m_retry.setSingleShot(true);
     m_renew.setInterval(10000);
     m_timeout.setSingleShot(true);
-    m_timeout.setInterval(10000);
+    m_timeout.setInterval(30000);
+    m_frameAckTimeout.setSingleShot(true);
+    m_frameAckTimeout.setInterval(30000);
     connect(&m_retry, &QTimer::timeout, this, &ChildSessionController::allocate);
     connect(&m_renew, &QTimer::timeout, this, &ChildSessionController::allocate);
     connect(&m_timeout, &QTimer::timeout, this, [this] { fail(QStringLiteral("Relay không phản hồi.")); });
+    connect(&m_frameAckTimeout, &QTimer::timeout, this, [this] {
+        fail(QStringLiteral("ADMIN không xác nhận khung hình."));
+    });
     connect(m_client, &RelayClient::connected, this, &ChildSessionController::connected);
     connect(m_client, &RelayClient::bytesReceived, this, &ChildSessionController::receive);
     connect(m_client, &RelayClient::disconnected, this, [this] {
-        reset(QStringLiteral("Kết nối Relay đã đóng."));
+        if (!m_connecting && !m_registered)
+            return;
+        const bool wasConnecting = m_connecting;
+        ++m_generation;
+        m_allocating = false;
+        const auto reason = QStringLiteral("Kết nối Relay đã đóng.");
+        reset(reason);
+        if (wasConnecting) emit sessionFailed(reason);
         scheduleReconnect();
     });
-    connect(m_client, &RelayClient::transportError, this, &ChildSessionController::fail);
+    connect(m_client, &RelayClient::transportError, this, [this](const QString &reason) {
+        if (m_connecting || m_registered)
+            fail(reason);
+    });
 }
 
 void ChildSessionController::start() {
@@ -71,6 +95,7 @@ void ChildSessionController::allocate() {
             return;
         }
         self->reset(QStringLiteral("Endpoint Relay đã thay đổi."));
+        if (!self || !self->m_running || self->m_generation != generation) return;
         self->m_client->DisconnectFromServer();
         self->m_retry.stop();
         self->m_endpoint = endpoint;
@@ -83,15 +108,20 @@ void ChildSessionController::allocate() {
 void ChildSessionController::connected() {
     if (!m_running) { m_client->DisconnectFromServer(); return; }
     const auto payload = Protocol::relayAuthPayload(ApiClient::instance().getToken());
-    if (payload.isEmpty() || !sendControl(Protocol::MessageType::REGISTER_HOST, 0, payload))
+    if (payload.isEmpty()) {
+        fail(QStringLiteral("Không đăng ký được với Relay."));
+        return;
+    }
+    using T = Protocol::MessageType;
+    const auto packet = controlPacket(T::SCREEN_FRAME_ACK, 0, {}, Protocol::SCREEN_FRAME_ACK_CAPABILITY_FLAG)
+            + controlPacket(T::REGISTER_HOST, 0, payload);
+    const auto generation = m_generation;
+    if (m_client->sendRawPacket(packet) != packet.size() && m_generation == generation)
         fail(QStringLiteral("Không đăng ký được với Relay."));
 }
 
 bool ChildSessionController::sendControl(Protocol::MessageType type, quint64 id, const QByteArray &payload) {
-    Protocol::ProtocolHeader header(type);
-    header.sessionId = id;
-    header.payloadLength = static_cast<uint32_t>(payload.size());
-    auto packet = Protocol::ProtocolSerializer::serializeHeader(header) + payload;
+    const auto packet = controlPacket(type, id, payload);
     return m_client->sendRawPacket(packet) == packet.size();
 }
 
@@ -101,7 +131,10 @@ void ChildSessionController::receive(const QByteArray &bytes) {
         fail(QStringLiteral("Gói tin Relay không hợp lệ.")); return;
     }
     using T = Protocol::MessageType;
+    const auto generation = m_generation;
     for (const auto &message : result.messages) {
+        if (generation != m_generation)
+            return;
         const auto &h = message.header;
         if (h.type == T::REGISTER_ACK) {
             if (!m_connecting || h.flags != 0 || h.sessionId != 0 || h.sequenceNumber != 0
@@ -124,20 +157,44 @@ void ChildSessionController::receive(const QByteArray &bytes) {
                 continue;
             }
             if (!sendControl(T::SESSION_ACCEPT, h.sessionId)) {
-                fail(QStringLiteral("Không chấp nhận được phiên.")); return;
+                if (generation == m_generation) fail(QStringLiteral("Không chấp nhận được phiên."));
+                return;
             }
             m_sessionId = h.sessionId;
+            m_screenFrameAcksEnabled = m_pendingFrameAckSession == m_sessionId;
+            m_pendingFrameAckSession = 0;
             emit sessionStarted(m_sessionId);
+        } else if (h.type == T::SCREEN_FRAME_ACK && m_registered && h.sessionId != 0
+                   && message.payload.isEmpty()) {
+            if (h.flags == Protocol::SCREEN_FRAME_ACK_CAPABILITY_FLAG && h.sequenceNumber == 0) {
+                if (m_sessionId == 0)
+                    m_pendingFrameAckSession = h.sessionId;
+                else if (h.sessionId == m_sessionId)
+                    m_screenFrameAcksEnabled = true;
+            } else if (h.flags == 0 && h.sessionId == m_sessionId
+                       && m_inFlightFrame && h.sequenceNumber == *m_inFlightFrame) {
+                m_inFlightFrame.reset();
+                m_frameAckTimeout.stop();
+            }
         } else if (h.type == T::DISCONNECT) {
             if (m_sessionId != 0 && h.sessionId == m_sessionId && h.flags == 0
                     && h.sequenceNumber == 0 && message.payload.isEmpty()) {
                 m_sessionId = 0;
+                clearFrameWindow();
                 emit sessionEnded(QStringLiteral("ADMIN đã ngắt phiên."));
             }
         } else if (isInput(h.type) && m_sessionId != 0 && h.sessionId == m_sessionId) {
             emit inputReceived(h, message.payload);
         }
     }
+}
+
+void ChildSessionController::clearFrameWindow()
+{
+    m_frameAckTimeout.stop();
+    m_inFlightFrame.reset();
+    m_pendingFrameAckSession = 0;
+    m_screenFrameAcksEnabled = false;
 }
 
 bool ChildSessionController::resetRelayState()
@@ -149,6 +206,7 @@ bool ChildSessionController::resetRelayState()
     m_parser = Protocol::RdtpStreamParser{};
     m_timeout.stop();
     m_renew.stop();
+    clearFrameWindow();
 
     return pre_active;
 }
@@ -161,11 +219,35 @@ void ChildSessionController::reset(const QString &reason) {
 void ChildSessionController::fail(const QString &reason) {
     ++m_generation;
     m_allocating = false;
-    bool isPreActive = resetRelayState(); // Lưu lại việc trước khi reset có session ACTIVE hay không, rồi dọn state Relay
+    const bool hadSession = resetRelayState();
     m_client->DisconnectFromServer();
-    if (isPreActive) emit sessionEnded(reason);
+    if (hadSession) emit sessionEnded(reason);
     else emit sessionFailed(reason);
     scheduleReconnect();
+}
+
+bool ChildSessionController::canSendScreenFrame() const
+{
+    return m_sessionId != 0 && !m_inFlightFrame && pendingBytes() == 0;
+}
+
+bool ChildSessionController::sendScreenFrame(quint32 frameId, const QList<QByteArray> &packets)
+{
+    if (packets.isEmpty() || !canSendScreenFrame())
+        return false;
+    const auto generation = m_generation;
+    for (const auto &packet : packets) {
+        if (sendScreenPacket(packet) != packet.size()) {
+            if (generation == m_generation)
+                fail(QStringLiteral("Không gửi được khung hình qua Relay."));
+            return false;
+        }
+    }
+    if (m_screenFrameAcksEnabled) {
+        m_inFlightFrame = frameId;
+        m_frameAckTimeout.start();
+    }
+    return true;
 }
 
 qint64 ChildSessionController::sendScreenPacket(const QByteArray &packet) {
@@ -181,7 +263,7 @@ qint64 ChildSessionController::pendingBytes() const { return m_client->pendingBy
 
 void ChildSessionController::scheduleReconnect()
 {
-    if (!m_running || m_retry.isActive()) return;
+    if (!m_running || m_allocating || m_connecting || m_registered || m_retry.isActive()) return;
     const int base = qMin(30000, 1500 * (1 << qMin(m_retryAttempt, 5)));
     m_retry.setInterval(qMin(30000, base + QRandomGenerator::global()->bounded(500)));
     if (m_retryAttempt < 5) ++m_retryAttempt;

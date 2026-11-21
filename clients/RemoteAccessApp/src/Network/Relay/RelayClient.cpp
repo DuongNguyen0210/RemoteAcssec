@@ -4,14 +4,8 @@
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
     m_socket = new QSslSocket(this);
-    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
-    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);
     connect(m_socket, &QTcpSocket::connected, this, &RelayClient::onConnected);
-    connect(m_socket, &QSslSocket::encrypted, this, [this] {
-        m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
-        m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);
-        emit connected();
-    });
+    connect(m_socket, &QSslSocket::encrypted, this, &RelayClient::connected);
     connect(m_socket, &QTcpSocket::disconnected, this, &RelayClient::onDisconnected);
     connect(m_socket, &QTcpSocket::readyRead, this, &RelayClient::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &RelayClient::onErrorOccurred);
@@ -27,6 +21,7 @@ void RelayClient::ConnectToServer(const QString& host, quint16 port)
                             QAbstractSocket::OperationError);
         return;
     }
+    ++m_connectionGeneration;
     const QString caPath = remoteCaFile("REMOTE_RELAY_CA_CERT");
     const QString defaultMode = TransportPolicy::isLoopback(host) && caPath.isEmpty()
         ? QStringLiteral("off") : QStringLiteral("required");
@@ -54,11 +49,13 @@ void RelayClient::ConnectToServer(const QString& host, quint16 port)
 
 void RelayClient::DisconnectFromServer()
 {
+    ++m_connectionGeneration;
     m_socket->abort();
 }
 
 void RelayClient::onConnected() {
     m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+    m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
     m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);
     if (!m_tlsRequired) emit connected();
 }
@@ -84,10 +81,18 @@ qint64 RelayClient::sendRawPacket(const QByteArray &data)
         return -1;
     if (data.isEmpty())
         return -1;
-    return m_socket->write(data);
+    const auto generation = m_connectionGeneration;
+    const qint64 written = m_socket->write(data);
+    if (written == data.size() && generation == m_connectionGeneration)
+        return written;
+    // A partially queued message cannot be followed by another RDTP header.
+    // Close this stream and let the session controller retry on a clean socket.
+    if (generation == m_connectionGeneration)
+        DisconnectFromServer();
+    return -1;
 }
 
 qint64 RelayClient::pendingBytes() const
 {
-    return m_socket->bytesToWrite();
+    return m_socket->bytesToWrite() + (m_tlsRequired ? m_socket->encryptedBytesToWrite() : 0);
 }

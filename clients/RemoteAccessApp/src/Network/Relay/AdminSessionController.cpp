@@ -2,9 +2,7 @@
 
 #include "Network/Relay/RelayClient.h"
 #include "Network/Protocol/ProtocolSerializer.h"
-#include "Network/Protocol/ScreenFramePacketizer.h"
 
-#include <QtEndian>
 #include <QDebug>
 #include <QUuid>
 #include <QTimer>
@@ -20,6 +18,9 @@
 #include <QPointer>
 #include <QSignalBlocker>
 
+namespace {
+constexpr int SESSION_SETUP_TIMEOUT_MS = 30000;
+}
 
 AdminSessionController::AdminSessionController(QObject *parent)
     : AdminSessionController(qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
@@ -65,7 +66,7 @@ void AdminSessionController::requestSession(const QString &targetAgentSessionId)
     m_requestPending = true;
 
     const auto generation = ++m_lookupGeneration;
-    QTimer::singleShot(12000, this, [this, generation] {
+    QTimer::singleShot(SESSION_SETUP_TIMEOUT_MS, this, [this, generation] {
         if (m_requestPending && m_lookupGeneration == generation)
             handleFatalRelayTermination(QStringLiteral("Hết thời gian chờ kết nối Relay."));
     });
@@ -99,16 +100,18 @@ void AdminSessionController::disconnectSession()
     Protocol::ProtocolHeader header(Protocol::MessageType::DISCONNECT);
     header.sessionId = m_activeSessionId;
     const QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
-    if (m_relayClient->sendRawPacket(packet) != packet.size()) {
-        handleFatalRelayTermination(QStringLiteral("Không thể gửi yêu cầu ngắt phiên."));
-        return;
-    }
+    if (sendPacket(packet, QStringLiteral("Không thể gửi yêu cầu ngắt phiên.")))
+        endSession(QStringLiteral("Đã ngắt kết nối."));
+}
+
+void AdminSessionController::endSession(const QString &reason)
+{
     const quint64 sessionId = m_activeSessionId;
     const QString agentId = m_activeAgentSessionId;
     m_activeSessionId = 0;
     m_activeAgentSessionId.clear();
     resetFrames();
-    emit sessionEnded(sessionId, agentId, QStringLiteral("Đã ngắt kết nối."));
+    emit sessionEnded(sessionId, agentId, reason);
 }
 
 bool AdminSessionController::sendInput(Protocol::MessageType type, const QByteArray &payload)
@@ -125,13 +128,14 @@ bool AdminSessionController::sendInput(Protocol::MessageType type, const QByteAr
     header.sessionId = m_activeSessionId;
     header.payloadLength = static_cast<quint32>(payload.size());
     const auto packet = Protocol::ProtocolSerializer::serializeHeader(header) + payload;
-    return m_relayClient->sendRawPacket(packet) == packet.size();
+    return sendPacket(packet, QStringLiteral("Không thể gửi tín hiệu điều khiển."));
 }
 
 void AdminSessionController::onRelayConnected()
 {
     m_connected = true;
     m_connecting = false;
+    m_capabilityAdvertised = false;
     m_streamParser = Protocol::RdtpStreamParser{};
     resetFrames();
 
@@ -164,16 +168,33 @@ void AdminSessionController::sendConnectRequest()
     Protocol::ProtocolHeader header(Protocol::MessageType::CONNECT_REQUEST);
     header.payloadLength = static_cast<uint32_t>(payload.size());
 
-    QByteArray packet = Protocol::ProtocolSerializer::serializeHeader(header);
+    QByteArray packet;
+    if (!m_capabilityAdvertised) {
+        Protocol::ProtocolHeader capability(Protocol::MessageType::SCREEN_FRAME_ACK);
+        capability.flags = Protocol::SCREEN_FRAME_ACK_CAPABILITY_FLAG;
+        packet = Protocol::ProtocolSerializer::serializeHeader(capability);
+        m_capabilityAdvertised = true;
+    }
+    packet.append(Protocol::ProtocolSerializer::serializeHeader(header));
     packet.append(payload);
 
-    if (m_relayClient->sendRawPacket(packet) < 0) {
-        failPendingRequest(QStringLiteral("Khong the gui CONNECT_REQUEST."));
-        return;
+    if (sendPacket(packet, QStringLiteral("Không thể gửi CONNECT_REQUEST."))) {
+        qDebug() << "[AdminSessionController] Da gui CONNECT_REQUEST cho"
+                 << m_pendingAgentSessionId;
     }
+}
 
-    qDebug() << "[AdminSessionController] Da gui CONNECT_REQUEST cho"
-             << m_pendingAgentSessionId;
+bool AdminSessionController::sendPacket(const QByteArray &packet, const QString &failureReason)
+{
+    const auto generation = m_lookupGeneration;
+    const auto written = m_relayClient->sendRawPacket(packet);
+    // A transport error may already have reset the connection synchronously.
+    if (generation != m_lookupGeneration)
+        return false;
+    if (written == packet.size())
+        return true;
+    handleFatalRelayTermination(failureReason);
+    return false;
 }
 
 void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
@@ -184,20 +205,47 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
         return;
     }
 
-    for (const Protocol::RdtpStreamParser::Message &message : result.messages) {
-        if (message.header.type == Protocol::MessageType::SCREEN_FRAME) {
-            if (m_activeSessionId == 0 || m_activeSessionId != message.header.sessionId)
-            {
-                continue;
-            }
-            const auto frame = m_frameReassembler.feed(message.payload);
-            if (frame) {
-                emit frameReceived(frame->frameId, frame->data);
-                decodeFrame(frame->frameId, frame->data);
+    using T = Protocol::MessageType;
+    const auto lookupGeneration = m_lookupGeneration;
+    for (const auto &message : result.messages) {
+        if (lookupGeneration != m_lookupGeneration)
+            return;
+
+        const auto &header = message.header;
+        const bool activeSession = m_activeSessionId && m_activeSessionId == header.sessionId;
+        if (header.type == T::SCREEN_FRAME_ACK) {
+            if (activeSession && m_capabilityAdvertised && header.flags == Protocol::SCREEN_FRAME_ACK_CAPABILITY_FLAG
+                    && header.sequenceNumber == 0 && message.payload.isEmpty()) {
+                m_frameAcknowledgmentsEnabled = true;
             }
             continue;
         }
-        if (message.header.type != Protocol::MessageType::CONNECT_RESULT)
+        if (header.type == T::DISCONNECT) {
+            if (activeSession && header.flags == 0 && header.sequenceNumber == 0 && message.payload.isEmpty())
+                endSession(QStringLiteral("Relay đã kết thúc phiên."));
+            continue;
+        }
+        if (header.type == T::SCREEN_FRAME) {
+            if (!activeSession)
+                continue;
+            const auto frame = m_frameReassembler.feed(message.payload);
+            if (!frame)
+                continue;
+            if (m_frameAcknowledgmentsEnabled) {
+                Protocol::ProtocolHeader ack(T::SCREEN_FRAME_ACK);
+                ack.sessionId = m_activeSessionId;
+                ack.sequenceNumber = frame->frameId;
+                if (!sendPacket(Protocol::ProtocolSerializer::serializeHeader(ack),
+                                QStringLiteral("Không thể xác nhận khung hình.")))
+                    return;
+            }
+            const auto frameGeneration = m_generation;
+            emit frameReceived(frame->frameId, frame->data);
+            if (frameGeneration == m_generation)
+                decodeFrame(frame->frameId, frame->data);
+            continue;
+        }
+        if (header.type != T::CONNECT_RESULT)
             continue;
 
         const bool validCommonFields = message.header.flags == 0
@@ -237,6 +285,7 @@ void AdminSessionController::onRelayBytesReceived(const QByteArray &data)
 void AdminSessionController::resetFrames()
 {
     ++m_generation;
+    m_frameAcknowledgmentsEnabled = false;
     m_frameReassembler.clear();
     m_pendingJpeg.clear();
 }
@@ -306,9 +355,13 @@ void AdminSessionController::handleFatalRelayTermination(const QString &reason)
     m_activeAgentSessionId.clear();
     m_pendingAgentSessionId.clear();
     m_activeSessionId = 0;
+    m_capabilityAdvertised = false;
     m_connected = m_connecting = m_requestPending = false;
 
-    m_relayClient->DisconnectFromServer();
+    {
+        const QSignalBlocker blocker(m_relayClient);
+        m_relayClient->DisconnectFromServer();
+    }
 
     if (tmp_requestPending)
     {
