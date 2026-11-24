@@ -3,6 +3,7 @@
 #include <QList>
 #include <QPointer>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <optional>
 #include "RelayEndpointProvider.h"
 #include "Network/Protocol/RdtpStreamParser.h"
@@ -26,6 +27,7 @@ public:
 signals:
     void relayRegistered();
     void sessionStarted(quint64 sessionId);
+    void screenFrameAcknowledged(quint64 sessionId, qint64 wireBytes, qint64 elapsedMs);
     void sessionEnded(const QString &reason);
     void inputReceived(const Protocol::ProtocolHeader &header, const QByteArray &payload);
     void sessionFailed(const QString &reason);
@@ -52,6 +54,8 @@ private:
     quint64 m_sessionId = 0;
     quint64 m_pendingFrameAckSession = 0;
     std::optional<quint32> m_inFlightFrame;
+    qint64 m_inFlightBytes = 0;
+    QElapsedTimer m_inFlightTimer;
     bool m_screenFrameAcksEnabled = false;
     bool m_running = false;
     bool m_allocating = false;
