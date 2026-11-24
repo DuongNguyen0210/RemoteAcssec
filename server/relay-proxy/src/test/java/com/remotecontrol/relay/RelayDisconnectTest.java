@@ -109,6 +109,82 @@ class RelayDisconnectTest {
         } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); }
     }
 
+    @Test void initialFailureDoesNotAuthorizeAndEachRenewalGetsAtMostOneRetry() {
+        var calls = new AtomicInteger();
+        var authorizer = new RelayAuthorizer() {
+            @Override public CompletableFuture<String> authorize(String token, String target) {
+                return switch (calls.getAndIncrement()) {
+                    case 1, 3 -> CompletableFuture.completedFuture("child");
+                    default -> CompletableFuture.failedFuture(new java.net.http.HttpTimeoutException("timeout"));
+                };
+            }
+        };
+        var registry = new RelayRegistry();
+        var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry, authorizer));
+        child.freezeTime();
+        try {
+            child.writeInbound(registerHost());
+            Protocol rejected = child.readOutbound();
+            assertNotNull(rejected);
+            assertArrayEquals(new byte[]{0}, rejected.getPayload());
+            assertEquals(0, registry.registeredChildCount());
+
+            child.writeInbound(registerHost());
+            Protocol registered = child.readOutbound();
+            assertArrayEquals(new byte[]{1}, registered.getPayload());
+            assertEquals(1, registry.registeredChildCount());
+
+            advanceLeaseTime(child, 10);
+            assertTrue(child.isActive());
+            assertEquals(3, calls.get());
+            advanceLeaseTime(child, 1);
+            assertTrue(child.isActive());
+            assertEquals(4, calls.get());
+
+            advanceLeaseTime(child, 10);
+            assertTrue(child.isActive());
+            advanceLeaseTime(child, 1);
+            assertFalse(child.isActive());
+            assertEquals(6, calls.get());
+            assertEquals(0, registry.registeredChildCount());
+        } finally { child.finishAndReleaseAll(); }
+    }
+
+    @Test void deniedOrChangedLeaseClosesWithoutRetry() {
+        for (String renewal : new String[]{null, "another-child"}) {
+            var calls = new AtomicInteger();
+            var authorizer = new RelayAuthorizer() {
+                @Override public CompletableFuture<String> authorize(String token, String target) {
+                    return CompletableFuture.completedFuture(calls.getAndIncrement() == 0 ? "child" : renewal);
+                }
+            };
+            var registry = new RelayRegistry();
+            var child = new EmbeddedChannel(DefaultChannelId.newInstance(), new RelayServerHandler(registry, authorizer));
+            child.freezeTime();
+            try {
+                child.writeInbound(registerHost());
+                Protocol registered = child.readOutbound();
+                assertArrayEquals(new byte[]{1}, registered.getPayload());
+                advanceLeaseTime(child, 10);
+                assertFalse(child.isActive());
+                advanceLeaseTime(child, 1);
+                assertEquals(2, calls.get());
+            } finally { child.finishAndReleaseAll(); }
+        }
+    }
+
+    private static Protocol registerHost() {
+        byte[] payload = new byte[]{0, 1, 'x'};
+        return new Protocol(new ProtocolHeader(ProtocolConstants.PROTOCOL_MAGIC, ProtocolConstants.PROTOCOL_VERSION,
+                ProtocolConstants.MessageType.REGISTER_HOST.getValue(), (short) 0, payload.length, 0, 0), payload);
+    }
+
+    private static void advanceLeaseTime(EmbeddedChannel channel, long seconds) {
+        channel.advanceTimeBy(seconds, TimeUnit.SECONDS);
+        channel.runScheduledPendingTasks();
+        channel.runPendingTasks();
+    }
+
     @Test void gracefulAndTransportDisconnectRaceCleansAtMostOnce() throws Exception {
         for (int i = 0; i < 20; i++) {
             var registry = new RelayRegistry(session -> {});

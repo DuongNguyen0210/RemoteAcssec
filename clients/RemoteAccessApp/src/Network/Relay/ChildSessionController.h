@@ -1,7 +1,9 @@
 #pragma once
 #include <QObject>
+#include <QList>
 #include <QPointer>
 #include <QTimer>
+#include <optional>
 #include "RelayEndpointProvider.h"
 #include "Network/Protocol/RdtpStreamParser.h"
 class RelayClient;
@@ -13,6 +15,8 @@ public:
     explicit ChildSessionController(RelayEndpointProvider *provider, QObject *parent = nullptr);
     void start();
     void stop();
+    bool canSendScreenFrame() const;
+    bool sendScreenFrame(quint32 frameId, const QList<QByteArray> &packets);
     qint64 sendScreenPacket(const QByteArray &packet);
     qint64 pendingBytes() const;
     // Compatibility seam for the unchanged ScreenStreamSender capture loop.
@@ -33,6 +37,7 @@ private:
     void fail(const QString &reason);
     void scheduleReconnect();
     bool sendControl(Protocol::MessageType type, quint64 sessionId, const QByteArray &payload = {});
+    void clearFrameWindow();
     bool resetRelayState();
 
     QPointer<RelayEndpointProvider> m_provider;
@@ -40,10 +45,14 @@ private:
     QTimer m_retry;
     QTimer m_renew;
     QTimer m_timeout;
+    QTimer m_frameAckTimeout;
     Protocol::RdtpStreamParser m_parser;
     RelayEndpoint m_endpoint;
     quint64 m_generation = 0;
     quint64 m_sessionId = 0;
+    quint64 m_pendingFrameAckSession = 0;
+    std::optional<quint32> m_inFlightFrame;
+    bool m_screenFrameAcksEnabled = false;
     bool m_running = false;
     bool m_allocating = false;
     bool m_connecting = false;

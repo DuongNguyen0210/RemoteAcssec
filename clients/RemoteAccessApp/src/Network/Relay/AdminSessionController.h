@@ -49,6 +49,8 @@ private:
     void resetFrames();
     void decodeFrame(quint32 frameId, QByteArray jpeg);
     void sendConnectRequest();
+    bool sendPacket(const QByteArray &packet, const QString &failureReason);
+    void endSession(const QString &reason);
     void failPendingRequest(const QString &reason);
     void handleFatalRelayTermination(const QString &reason);
     static bool isFatalTransportError(QAbstractSocket::SocketError socketError);
@@ -61,6 +63,8 @@ private:
     Protocol::ScreenFrameReassembler m_frameReassembler;
     quint64 m_generation = 0;
     bool m_decoding = false;
+    bool m_capabilityAdvertised = false;
+    bool m_frameAcknowledgmentsEnabled = false;
     QByteArray m_pendingJpeg;
     quint32 m_pendingFrameId = 0;
     QString m_activeAgentSessionId;

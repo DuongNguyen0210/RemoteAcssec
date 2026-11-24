@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QFutureWatcher>
 #include <QImage>
 #include <cstdint>
 
@@ -24,10 +25,9 @@ public:
     };
 
     static constexpr int STREAM_INTERVAL_MS = 100;
-    static constexpr int MINOR_CHANGE_INTERVAL_MS = 400;
-    static constexpr int KEEPALIVE_FRAME_INTERVAL_MS = 2500;
-    static constexpr qint64 MAX_PENDING_BYTES = 256 * 1024LL;
-    static constexpr qsizetype MAX_ENCODED_FRAME_BYTES = 256 * 1024;
+    static constexpr int MINOR_CHANGE_INTERVAL_MS = 250;
+    static constexpr int REFRESH_INTERVAL_MS = 1200;
+    static constexpr qsizetype MAX_WIRE_FRAME_BYTES = 256 * 1024;
 
     static FrameChange classifyFrameChange(const QImage &current, const QImage &previous);
 
@@ -39,6 +39,7 @@ signals:
 
 private slots:
     void onTick();
+    void sendEncodedFrame();
 
 private:
     QTimer      *m_timer;
@@ -47,8 +48,12 @@ private:
     uint64_t     m_currentSessionId;
     ScreenCapture m_capture;
     QImage       m_lastSentFrame;
-    EncodedScreenFrame m_lastEncodedFrame;
+    QImage       m_encodingFrame;
+    quint64      m_encodingSessionId = 0;
+    QFutureWatcher<EncodedScreenFrame> m_encoder;
     QElapsedTimer m_lastSentTimer;
+    qint64 m_nextCaptureDelayMs = 0;
+    const int m_wireBytesPerSecond;
 };
 
 #endif

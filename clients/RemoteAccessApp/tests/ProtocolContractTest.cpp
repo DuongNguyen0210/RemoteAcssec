@@ -138,6 +138,10 @@ void ProtocolContractTest::
         22U,
         4U
     ));
+    const QByteArray trailingPayload = QByteArray::fromHex("102030");
+    const QByteArray trailingPacket = makePacket(Protocol::MessageType::SCREEN_FRAME, trailingPayload, 22U, 0U);
+    constexpr auto split = static_cast<int>(Protocol::HEADER_SIZE) + 1;
+    tcpBytes.append(trailingPacket.left(split));
 
     Protocol::RdtpStreamParser parser;
     const auto result = parser.feed(tcpBytes);
@@ -159,6 +163,12 @@ void ProtocolContractTest::
     QCOMPARE(secondMessage.header.sessionId, uint64_t{22});
     QCOMPARE(secondMessage.header.sequenceNumber, uint32_t{4});
     QCOMPARE(secondMessage.payload, secondPayload);
+
+    const auto tail = parser.feed(trailingPacket.mid(split));
+    QCOMPARE(tail.error, Protocol::RdtpStreamParser::Error::None);
+    QCOMPARE(tail.messages.size(), 1);
+    QCOMPARE(tail.messages.first().header.type, Protocol::MessageType::SCREEN_FRAME);
+    QCOMPARE(tail.messages.first().payload, trailingPayload);
 }
 
 QTEST_APPLESS_MAIN(ProtocolContractTest)
