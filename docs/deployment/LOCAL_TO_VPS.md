@@ -1,5 +1,7 @@
 # Từ local đến VM server/VPS: cấu hình của RemoteAccess
 
+Để triển khai trên Ubuntu Server mới và tập dượt buổi báo cáo, dùng [bảng hướng dẫn từng bước và kịch bản demo](BAO_CAO_VPS.md). Nếu đang tập trong VM, có thể [kiểm tra IPv6 loopback](#7-kiểm-tra-ipv6-trong-vm) trước khi cấu hình DNS và TLS.
+
 ## 1. Những gì đã có và kết quả review
 
 Dự án đã tách địa chỉ khỏi mã kết nối: Compose nhận biến từ `.env`, client nhận `REMOTE_API_URL`, còn chế độ `dynamic` lấy địa chỉ relay từ API. Không cần sửa C++/Java mỗi lần đổi IP server. Hai API dùng chung PostgreSQL, Redis và JWT secret; hai relay chạy TCP độc lập. Các luồng này đã được nghiệm thu host–VM, gồm TLS relay và mất node. Chưa có nghiệm thu trên VPS Internet thực tế.
@@ -160,6 +162,31 @@ Launcher `Open-RemoteAccess.cmd` từng tạo cho Windows VM thử nghiệm đan
 Nếu login được nhưng không có màn hình: kiểm tra relay port/firewall, `ADVERTISED_HOST`, TLS/SAN và chế độ dynamic trước. Nếu không login được: kiểm tra API URL đã lưu, DNS, HTTPS proxy và API logs. Nếu danh sách thiết bị không cập nhật: kiểm tra SSE proxy và heartbeat/Redis. Không gửi `.env`, JWT hoặc private key khi chia sẻ log hỗ trợ.
 
 Nguồn chính thức: [Docker Compose interpolation](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/), [Compose precedence](https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/), [Caddy reverse_proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy), [Caddy Automatic HTTPS](https://caddyserver.com/docs/automatic-https).
+
+## 7. Kiểm tra IPv6 trong VM
+
+Bài thử dùng `::1` bên trong VM. VirtualBox có thể để NAT. Sau khi cài Docker và clone mã nguồn theo [mục chuẩn bị máy chủ](BAO_CAO_VPS.md#2-cài-máy-chủ-và-lấy-mã-nguồn), tạo `infrastructure/.env` từ `infrastructure/.env.example` nếu chưa có. Dùng `openssl rand -hex 32` ba lần để điền `POSTGRES_PASSWORD`, `JWT_SECRET` và `RELAY_NODE_TOKEN`.
+
+```dotenv
+MANAGEMENT_PUBLIC_BIND=[::1]
+MANAGEMENT_PUBLIC_PORT=8080
+RELAY_PUBLIC_BIND=[::1]
+RELAY_1_ADVERTISED_HOST=::1
+RELAY_2_ADVERTISED_HOST=::1
+```
+
+Điền các dòng trên trong `.env` và giữ các giá trị kết nối nội bộ trong mẫu. Từ thư mục gốc dự án, chạy:
+
+```sh
+sudo docker compose --env-file infrastructure/.env \
+  -f infrastructure/docker-compose.yml up -d --build --wait --wait-timeout 300
+
+curl -g -6 -i 'http://[::1]:8080/api/v1/devices'
+nc -6 -vz ::1 9091
+nc -6 -vz ::1 9092
+```
+
+API trả HTTP 401 khi thiếu token. Hai lệnh `nc` cần kết nối được. Các cổng của bài thử bind vào loopback, nên chạy cả ba lệnh ngay trong VM. Khi chuyển sang dùng Nginx HTTPS trên host, đặt lại `MANAGEMENT_PUBLIC_BIND=127.0.0.1` và làm tiếp [mục cấp TLS](BAO_CAO_VPS.md#3-cấp-tls-cho-api-và-hai-relay).
 
 ## Kiểm chứng của lượt review này
 
