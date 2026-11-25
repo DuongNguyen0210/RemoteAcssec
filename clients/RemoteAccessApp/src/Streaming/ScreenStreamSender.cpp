@@ -4,6 +4,8 @@
 #include "Network/Protocol/ScreenFramePacketizer.h"
 
 #include <QDebug>
+#include <algorithm>
+#include <limits>
 #include <QtConcurrent/QtConcurrentRun>
 #include <utility>
 
@@ -22,29 +24,42 @@ ScreenStreamSender::ScreenStreamSender(ChildSessionController *session, QObject 
     , m_session(session)
     , m_frameId(1)
     , m_currentSessionId(0)
-    , m_wireBytesPerSecond(streamBytesPerSecond())
+    , m_rate(streamBytesPerSecond())
 {
-    m_timer->setInterval(STREAM_INTERVAL_MS);
+    m_clock.start();
+    m_timer->setSingleShot(true);
+    m_timer->setTimerType(Qt::PreciseTimer);
     connect(m_timer, &QTimer::timeout, this, &ScreenStreamSender::onTick);
-    connect(&m_encoder, &QFutureWatcher<EncodedScreenFrame>::finished, this, &ScreenStreamSender::sendEncodedFrame);
-    connect(session, &ChildSessionController::sessionStarted, this, [this](quint64 id) {
-        m_currentSessionId = id;
-        m_lastSentFrame = QImage();
-        m_encodingSessionId = 0;
-        m_lastSentTimer.invalidate();
-        m_nextCaptureDelayMs = 0;
-        m_timer->start();
-    });
-    connect(session, &ChildSessionController::sessionEnded, this, [this] {
-        m_currentSessionId = 0;
-        m_lastSentFrame = QImage();
-        m_encodingSessionId = 0;
-        m_lastSentTimer.invalidate();
-        m_timer->stop();
-    });
+    connect(&m_encoder, &QFutureWatcher<EncodedScreenFrame>::finished, this, &ScreenStreamSender::encodingFinished);
+    connect(session, &ChildSessionController::sessionStarted, this, &ScreenStreamSender::resetSession);
+    connect(session, &ChildSessionController::sessionEnded, this, [this] { resetSession(0); });
+    connect(session, &ChildSessionController::screenFrameAcknowledged, this,
+            [this](quint64 id) {
+                if (id == m_currentSessionId && !m_workerActive) schedule(0);
+            });
 }
 
 ScreenStreamSender::~ScreenStreamSender() = default;
+
+void ScreenStreamSender::resetSession(quint64 sessionId)
+{
+    m_timer->stop();
+    m_currentSessionId = sessionId;
+    m_encodingSessionId = 0;
+    m_lastSentFrame = {};
+    m_encodingFrame = {};
+    m_prepared.reset();
+    m_search = {};
+    m_rate.reset();
+    m_workMs = 0;
+    if (sessionId) schedule(0);
+}
+
+void ScreenStreamSender::schedule(qint64 delayMs)
+{
+    if (m_currentSessionId)
+        m_timer->start(int(std::clamp<qint64>(delayMs, 0, std::numeric_limits<int>::max())));
+}
 
 ScreenStreamSender::FrameChange ScreenStreamSender::classifyFrameChange(const QImage &current, const QImage &previous)
 {
@@ -94,70 +109,95 @@ ScreenStreamSender::FrameChange ScreenStreamSender::classifyFrameChange(const QI
 
 void ScreenStreamSender::onTick()
 {
-    if (m_currentSessionId == 0 || !m_encodingFrame.isNull() || !m_session->canSendScreenFrame())
+    if (!m_currentSessionId || m_workerActive) return;
+    const qint64 now = m_clock.elapsed();
+    if (!m_session->canSendScreenFrame()) {
+        schedule(STREAM_INTERVAL_MS);
         return;
-
-    const qint64 elapsedSinceLastSend = m_lastSentTimer.isValid()
-            ? m_lastSentTimer.elapsed() : REFRESH_INTERVAL_MS;
-    if (elapsedSinceLastSend < m_nextCaptureDelayMs)
+    }
+    if (m_prepared) {
+        sendPreparedFrame();
         return;
+    }
 
+    // Start capture just before the send deadline. Only one JPEG can wait for it.
+    const qint64 untilCapture = m_rate.nextSendMs() - now - m_workMs;
+    if (untilCapture > 0) {
+        schedule(untilCapture);
+        return;
+    }
     const QImage frame = m_capture.capture();
     if (frame.isNull()) {
-        qWarning() << "[ScreenStreamSender] Chụp khung hình thất bại.";
+        schedule(STREAM_INTERVAL_MS);
         return;
     }
 
     const FrameChange change = classifyFrameChange(frame, m_lastSentFrame);
     const int refreshInterval = qEnvironmentVariable("PBL4_ISOLATED_X11") == QStringLiteral("1")
             ? 400 : REFRESH_INTERVAL_MS;
-    if (change == FrameChange::None && elapsedSinceLastSend < refreshInterval) {
-        return;
-    }
-    if (change == FrameChange::Minor && elapsedSinceLastSend < MINOR_CHANGE_INTERVAL_MS) {
+    const qint64 lastSend = m_rate.lastSendMs();
+    const qint64 sinceLastSend = lastSend < 0 ? refreshInterval : now - lastSend;
+    if ((change == FrameChange::None && sinceLastSend < refreshInterval)
+        || (change == FrameChange::Minor && sinceLastSend < MINOR_CHANGE_INTERVAL_MS)) {
+        schedule(STREAM_INTERVAL_MS);
         return;
     }
 
-    // Bound one burst to 200 ms of the configured rate during motion and
-    // 500 ms for a sharper refresh. A fresh capture includes quiet changes
-    // the pixel sampler may have missed.
-    const qsizetype burst = m_wireBytesPerSecond / (change == FrameChange::Significant ? 5 : 2);
     constexpr qsizetype overhead = Protocol::HEADER_SIZE + ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE;
     static_assert(MAX_WIRE_FRAME_BYTES - overhead <= ScreenFramePacketizer::maxChunkData());
-    const qsizetype jpegBudget = qMin(burst, MAX_WIRE_FRAME_BYTES) - overhead;
+    const qsizetype budget = m_rate.wireBudget() - overhead;
+    const auto state = m_search;
+    const bool probe = m_rate.canProbe(now);
+    m_captureStartMs = now;
     m_encodingFrame = frame;
     m_encodingSessionId = m_currentSessionId;
-    m_encoder.setFuture(QtConcurrent::run([frame, jpegBudget] {
-        return ScreenEncoder::encodeWithinLimit(frame, jpegBudget);
+    m_workerActive = true;
+    m_encoder.setFuture(QtConcurrent::run([frame, budget, state, probe] {
+        return ScreenEncoder::encodeWithinLimit(frame, budget, state, probe);
     }));
 }
 
-void ScreenStreamSender::sendEncodedFrame()
+void ScreenStreamSender::encodingFinished()
 {
-    const auto encoded = m_encoder.result();
-    QImage frame = std::exchange(m_encodingFrame, {});
-    if (m_encodingSessionId == 0 || m_encodingSessionId != m_currentSessionId)
+    m_workerActive = false;
+    if (m_encodingSessionId == 0 || m_encodingSessionId != m_currentSessionId) {
+        schedule(0);
         return;
-    if (encoded.jpeg.isEmpty()) {
-        qWarning() << "[ScreenStreamSender] Mã hoá JPEG thất bại.";
+    }
+    m_workMs = m_clock.elapsed() - m_captureStartMs;
+    m_prepared = m_encoder.result();
+    onTick();
+}
+
+void ScreenStreamSender::sendPreparedFrame()
+{
+    const qint64 now = m_clock.elapsed();
+    const qint64 untilSend = m_rate.nextSendMs() - now;
+    if (untilSend > 0) {
+        schedule(untilSend);
         return;
     }
 
-    const QList<QByteArray> packets =
-        ScreenFramePacketizer::packetize(encoded.jpeg, m_frameId, m_currentSessionId);
-    if (packets.isEmpty()) {
-        qWarning() << "[ScreenStreamSender] Packetize returned empty, skipping frame.";
+    auto encoded = std::move(*m_prepared);
+    m_prepared.reset();
+    QImage source = std::exchange(m_encodingFrame, {});
+    const auto packets = encoded.jpeg.isEmpty() ? QList<QByteArray>{}
+        : ScreenFramePacketizer::packetize(encoded.jpeg, m_frameId, m_currentSessionId);
+    qint64 wireBytes = 0;
+    for (const auto &packet : packets) wireBytes += packet.size();
+    if (packets.isEmpty() || wireBytes > m_rate.wireBudget()) {
+        m_search = encoded.nextState;
+        schedule(STREAM_INTERVAL_MS);
         return;
     }
-
-    qint64 frameBytes = 0;
-    for (const QByteArray &packet : packets) frameBytes += packet.size();
-    if (!m_session->sendScreenFrame(m_frameId, packets))
+    if (!m_session->sendScreenFrame(m_frameId, packets)) {
+        schedule(STREAM_INTERVAL_MS);
         return;
-
-    m_lastSentFrame = std::move(frame);
-    m_nextCaptureDelayMs = (frameBytes * 1000 + m_wireBytesPerSecond - 1) / m_wireBytesPerSecond;
-    m_lastSentTimer.start();
+    }
+    m_search = encoded.nextState;
+    m_rate.sent(now, wireBytes);
+    m_lastSentFrame = std::move(source);
     ++m_frameId;
+    schedule(m_rate.nextSendMs() - now - m_workMs);
     emit frameCaptured(encoded.size);
 }

@@ -142,6 +142,20 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
+    add_executable(AdaptiveScreenEncoderTest tests/AdaptiveScreenEncoderTest.cpp)
+    target_link_libraries(AdaptiveScreenEncoderTest PRIVATE Streaming Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME adaptive_screen_encoder COMMAND AdaptiveScreenEncoderTest)
+    set_tests_properties(adaptive_screen_encoder PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(ScreenStreamRateTest tests/ScreenStreamRateTest.cpp)
+    target_link_libraries(ScreenStreamRateTest PRIVATE Streaming Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME screen_stream_rate COMMAND ScreenStreamRateTest)
+
+    add_executable(AdaptiveStreamRelayTest tests/AdaptiveStreamRelayTest.cpp)
+    target_link_libraries(AdaptiveStreamRelayTest PRIVATE Streaming Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME adaptive_stream_relay COMMAND AdaptiveStreamRelayTest)
+    set_tests_properties(adaptive_stream_relay PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     add_executable(AdminScreenViewerTest tests/AdminScreenViewerTest.cpp)
     target_link_libraries(AdminScreenViewerTest PRIVATE Controllers Network GUI Streaming Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME admin_screen_viewer COMMAND AdminScreenViewerTest)

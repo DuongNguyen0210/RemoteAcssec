@@ -86,9 +86,19 @@ private slots:
             auto *pixels = reinterpret_cast<QRgb *>(noisy.scanLine(y));
             for (int x = 0; x < noisy.width(); ++x) pixels[x] = 0xff000000u | random.generate();
         }
+
+        const qsizetype nativeResolutionBudget = ScreenEncoder::encodeJpeg(noisy, 50).size();
+        QVERIFY(nativeResolutionBudget > 0);
+        QVERIFY(ScreenEncoder::encodeJpeg(noisy).size() > nativeResolutionBudget);
+        const auto nativeResolution = ScreenEncoder::encodeWithinLimit(noisy, nativeResolutionBudget);
+        QVERIFY(!nativeResolution.jpeg.isEmpty());
+        QVERIFY(nativeResolution.jpeg.size() <= nativeResolutionBudget);
+        QCOMPARE(nativeResolution.size, noisy.size());
+
         const auto encoded = ScreenEncoder::encodeWithinLimit(noisy, 256 * 1024);
         QVERIFY(!encoded.jpeg.isEmpty());
         QVERIFY(encoded.jpeg.size() <= 256 * 1024);
+        QVERIFY(encoded.size.width() > noisy.width() / 2);
         QVERIFY(encoded.size.width() < noisy.width());
         QCOMPARE(QImage::fromData(encoded.jpeg, "JPEG").size(), encoded.size);
     }
