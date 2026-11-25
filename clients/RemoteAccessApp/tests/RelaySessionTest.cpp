@@ -226,6 +226,7 @@ private slots:
         ChildSessionController child(&provider);
         ApiClient::instance().setToken("test-token");
         QByteArray input;
+        QSignalSpy samples(&child, &ChildSessionController::screenFrameAcknowledged);
         connect(&child, &ChildSessionController::inputReceived, this,
                 [&input](const auto &, const QByteArray &payload) { input = payload; });
 
@@ -254,6 +255,7 @@ private slots:
         peer->write(screenAck(sessionId + 1, 1) + screenAck(sessionId, 2)
                     + packet(T::KEY_PRESS, sessionId, key));
         QTRY_COMPARE_WITH_TIMEOUT(input, key, 1500);
+        QCOMPARE(samples.count(), 0);
         QVERIFY(!child.canSendScreenFrame());
         QCOMPARE(peer->bytesAvailable(), qint64(0));
 
@@ -264,6 +266,10 @@ private slots:
         QVERIFY(!child.canSendScreenFrame());
         peer->write(ack.mid(11));
         QTRY_VERIFY(child.canSendScreenFrame());
+        QCOMPARE(samples.count(), 1);
+        QCOMPARE(samples.first().at(0).toULongLong(), sessionId);
+        QCOMPARE(samples.first().at(1).toLongLong(), qint64(first.constFirst().size()));
+        QVERIFY(samples.first().at(2).toLongLong() >= 0);
         const auto latest = ScreenFramePacketizer::packetize("latest frame", 3, sessionId);
         QVERIFY(child.sendScreenFrame(3, latest));
         QTRY_COMPARE(peer->bytesAvailable(), qint64(latest.constFirst().size()));

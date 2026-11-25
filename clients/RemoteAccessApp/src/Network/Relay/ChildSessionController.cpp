@@ -175,6 +175,11 @@ void ChildSessionController::receive(const QByteArray &bytes) {
                        && m_inFlightFrame && h.sequenceNumber == *m_inFlightFrame) {
                 m_inFlightFrame.reset();
                 m_frameAckTimeout.stop();
+                const qint64 elapsedMs = m_inFlightTimer.elapsed();
+                const qint64 wireBytes = m_inFlightBytes;
+                m_inFlightTimer.invalidate();
+                m_inFlightBytes = 0;
+                emit screenFrameAcknowledged(h.sessionId, wireBytes, elapsedMs);
             }
         } else if (h.type == T::DISCONNECT) {
             if (m_sessionId != 0 && h.sessionId == m_sessionId && h.flags == 0
@@ -193,6 +198,8 @@ void ChildSessionController::clearFrameWindow()
 {
     m_frameAckTimeout.stop();
     m_inFlightFrame.reset();
+    m_inFlightTimer.invalidate();
+    m_inFlightBytes = 0;
     m_pendingFrameAckSession = 0;
     m_screenFrameAcksEnabled = false;
 }
@@ -236,15 +243,19 @@ bool ChildSessionController::sendScreenFrame(quint32 frameId, const QList<QByteA
     if (packets.isEmpty() || !canSendScreenFrame())
         return false;
     const auto generation = m_generation;
+    qint64 wireBytes = 0;
     for (const auto &packet : packets) {
         if (sendScreenPacket(packet) != packet.size()) {
             if (generation == m_generation)
                 fail(QStringLiteral("Không gửi được khung hình qua Relay."));
             return false;
         }
+        wireBytes += packet.size();
     }
     if (m_screenFrameAcksEnabled) {
         m_inFlightFrame = frameId;
+        m_inFlightBytes = wireBytes;
+        m_inFlightTimer.start();
         m_frameAckTimeout.start();
     }
     return true;
