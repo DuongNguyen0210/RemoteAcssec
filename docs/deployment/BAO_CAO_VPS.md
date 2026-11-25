@@ -1,5 +1,7 @@
 # Bảng triển khai VPS và chạy demo PBL4
 
+Nếu server dùng IPv6 công cộng, thực hiện các bước cài đặt trong [hướng dẫn dành cho Ubuntu và IPv6](UBUNTU_SERVER_IPV6.md). Khi tập dượt theo mục 7 dưới đây, dùng lệnh `remoteaccess-compose` thay cho `pbl4`.
+
 **Đề tài:** Xây dựng hệ thống điều khiển máy tính từ xa phân tán ứng dụng kiến trúc Relay Proxy và Load Balancing.
 
 **Mốc đạt để lên báo cáo:** máy ADMIN ở Wi-Fi và máy CHILD ở mạng khác (chẳng hạn 4G) đăng nhập qua HTTPS. Khi CHILD bấm **Bật chia sẻ**, ADMIN nhìn thấy màn hình và gõ được vào trình soạn thảo của CHILD. Khi CHILD bấm **Dừng chia sẻ**, phiên điều khiển kết thúc. Muốn chứng minh phân tải relay trực tiếp, chuẩn bị thêm một CHILD hoặc VM với tài khoản riêng.

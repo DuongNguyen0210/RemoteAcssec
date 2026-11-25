@@ -1,5 +1,7 @@
 # Từ local đến VM server/VPS: cấu hình của RemoteAccess
 
+Để cài từ đầu trên Ubuntu Server qua IPv6 công cộng, xem [hướng dẫn cài đặt, TLS và chạy hai client](UBUNTU_SERVER_IPV6.md).
+
 Để triển khai trên Ubuntu Server mới và tập dượt buổi báo cáo, dùng [bảng hướng dẫn từng bước và kịch bản demo](BAO_CAO_VPS.md). Nếu đang tập trong VM, có thể [kiểm tra IPv6 loopback](#7-kiểm-tra-ipv6-trong-vm) trước khi cấu hình DNS và TLS.
 
 ## 1. Những gì đã có và kết quả review
