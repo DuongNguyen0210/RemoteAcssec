@@ -99,14 +99,23 @@ Thumbs.db
 # =========================
 .codegraph/
 
-# Local deployment secrets
-infrastructure/.env
+# Local deployment configuration and private keys
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.key
+*.pem
+*.p12
+*.pfx
 /dist/
 *.autosave
 
 # =========================
 # Planning & Tasks (Local only)
 # =========================
+/docs/
+/.ai-handoff.md
 tasks/
 *plan*.md
 *todo*.md
