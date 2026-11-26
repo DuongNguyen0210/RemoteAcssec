@@ -18,6 +18,9 @@ ChildStatusWindow::ChildStatusWindow(QWidget *parent) : QWidget(parent)
                      .setFlag(Qt::WindowCloseButtonHint)
                      .setFlag(Qt::WindowMinimizeButtonHint, false)
                      .setFlag(Qt::WindowMaximizeButtonHint, false));
+    // Qt's Windows backend adds the native maximize button for an unrestricted
+    // window. A finite maximum keeps it disabled and still allows normal resizing.
+    setMaximumSize(QWIDGETSIZE_MAX - 1, QWIDGETSIZE_MAX - 1);
 #endif
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_StyledBackground);
