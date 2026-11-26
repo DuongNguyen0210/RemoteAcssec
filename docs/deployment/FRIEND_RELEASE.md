@@ -4,7 +4,7 @@ Cập nhật: 20/11/2026. Mốc mã đã kiểm tra trên Windows VM: `4b61ed21d
 
 ## Đích cần đạt
 
-Một VM Ubuntu ở Singapore chạy PostgreSQL, Redis, hai Management API, hai Relay và Nginx. API đi qua HTTPS 443; hai Relay dùng TLS trên TCP 9091/9092. Cùng một bản app Windows cho ADMIN và CHILD, đã kèm DLL Qt và có địa chỉ server trong `Open-RemoteAccess.cmd`. Bạn bè giải nén cả thư mục, mở file này, đăng nhập và bật chia sẻ khi muốn.
+Một VM Ubuntu ở Singapore chạy PostgreSQL, Redis, hai Management API, hai Relay và Nginx. API đi qua HTTPS 443; hai Relay dùng TLS trên TCP 9091/9092. Cùng một bản app Windows cho ADMIN và CHILD, đã kèm DLL Qt và có địa chỉ server trong `.env` cạnh EXE. Bạn bè giải nén cả thư mục, mở `RemoteAccessApp.exe`, đăng nhập và bật chia sẻ khi muốn.
 
 Không gửi `infrastructure/.env`, khóa TLS riêng, khóa SSH riêng, mật khẩu ADMIN hoặc token vào gói Windows. Client cần chứng chỉ công khai hợp lệ; không dùng `REMOTE_ALLOW_HTTP=1` hay `REMOTE_RELAY_TLS=off` trên Internet.
 
@@ -31,7 +31,7 @@ Giá và tồn kho có thể thay đổi khi đặt. Giá OVHcloud niêm yết t
 | 6. Bí mật và TLS | Người triển khai | Tạo ba secret độc lập cho JWT, relay và PostgreSQL trong `infrastructure/.env`; cấp chứng chỉ Let's Encrypt cho DNS, gắn cert/key cho cả hai relay. | `docker compose ... config --quiet` đạt; chứng chỉ có SAN khớp DNS; không có secret trong Git/gói client. |
 | 7. Server | Người triển khai | Chạy Compose với `docker-compose.yml` và `docker-compose.tls.yml`; cài [mẫu Nginx công khai](../../infrastructure/vps/nginx-site.conf.template) chuyển HTTPS 443 tới HTTP loopback 8080. Cập nhật mẫu trên VPS đang dùng bản cũ để mở đăng ký ADMIN có giới hạn theo IP. | 7 container healthy/running; API HTTPS và relay TLS 9091/9092 truy cập được từ ngoài. |
 | 8. Tài khoản | Người dùng | Chọn **Đăng ký ngay** trên màn hình đăng nhập. Đăng nhập bằng tài khoản cha mới, sau đó tạo tài khoản CHILD của mình trong app. | ADMIN/CHILD đăng nhập được; mật khẩu lưu bằng PBKDF2. |
-| 9. Gói Windows | Người triển khai | Build từ cùng commit; chạy `clients/RemoteAccessApp/package_windows.ps1` với tên DNS thật. | ZIP có EXE, DLL Qt, `platforms/qwindows.dll`, `tls/qschannelbackend.dll` và launcher HTTPS/dynamic/TLS. |
+| 9. Gói Windows | Người triển khai | Build từ cùng commit theo [hướng dẫn client](CLIENT_RELEASE.md). | ZIP có EXE, DLL Qt, plugin Windows, Schannel và `.env`. |
 | 10. Nghiệm thu | Chủ dự án cùng bạn bè | Thử hai máy Windows ở hai mạng khác nhau: CHILD bật chia sẻ, ADMIN xem và điều khiển, CHILD dừng chia sẻ, kết nối lại. | Thử thực tế đạt, không lỗi chứng chỉ; sau đó mới gửi ZIP cho người dùng khác. |
 | 11. Vận hành | Chủ dự án | Giữ bản sao DB, `.env` và khóa TLS ở nơi riêng; theo dõi dung lượng, RAM, log, hạn chứng chỉ. | Có bản sao khôi phục được và biết commit đang chạy. |
 
@@ -70,22 +70,11 @@ docker compose --env-file infrastructure/.env \
 
 Mẫu `infrastructure/vps/nginx-site.conf.template` dành cho Nginx **trên VM**. Thay `__DOMAIN__` bằng tên Duck DNS thật, cài nó vào `/etc/nginx/sites-available/`, bật site, chạy `nginx -t` rồi cấp HTTPS bằng Certbot `--nginx --redirect`. Mẫu giữ SSE không bị buffer, chặn `/internal/` và giới hạn đăng ký ADMIN theo địa chỉ kết nối vào proxy (6 yêu cầu/phút, burst 4). Nginx Compose bổ sung giới hạn tổng 60 yêu cầu/phút, burst 10. Cả hai trả HTTP 429 khi vượt giới hạn. Nếu VPS đang dùng cấu hình cũ trả 404 cho đăng ký, cập nhật tuyến đăng ký trên site HTTPS đang hoạt động rồi chạy `nginx -t` và reload. Sau khi cấp chứng chỉ, chuyển khóa relay sang PKCS#8 cho UID 10001 và thiết lập hook gia hạn trước khi chạy Compose.
 
-## Đóng gói Windows sau khi có DNS thật
+## Đóng gói Windows và Linux
 
-Trên Windows VM đã build client, mở PowerShell; thay `ten-ban.duckdns.org` và đường dẫn Qt/build bằng đường dẫn thực tế:
+Dùng [hướng dẫn phát hành client](CLIENT_RELEASE.md) để tạo `dist/RemoteAccessWin.zip` và `dist/RemoteAccessLinux.zip`. Cấu hình server ở `.env` của từng gói. Người nhận Windows chạy EXE trực tiếp và người nhận Linux dùng launcher trong phiên X11.
 
-```powershell
-& .\clients\RemoteAccessApp\package_windows.ps1 `
-  -Domain ten-ban.duckdns.org `
-  -Executable C:\path\to\build\RemoteAccessApp.exe `
-  -QtBin C:\path\to\Qt\bin `
-  -MingwBin C:\path\to\Qt\Tools\mingw1310_64\bin `
-  -OutputDirectory C:\path\to\RemoteAccess-friends
-```
-
-Gửi `RemoteAccess-friends.zip`, không gửi riêng EXE. Launcher trong ZIP đặt `REMOTE_API_URL=https://...`, `REMOTE_RELAY_MODE=dynamic`, `REMOTE_RELAY_TLS=required`. Người nhận giải nén rồi mở `Open-RemoteAccess.cmd`. Windows có thể cảnh báo với ứng dụng chưa ký số; giải pháp phát hành lâu dài là ký mã bằng chứng chỉ code signing. Không hướng dẫn người nhận bỏ qua cảnh báo TLS.
-
-## Trạng thái hiện tại
+## Mốc kiểm thử Windows trước đây
 
 | Đã kiểm chứng | Còn thiếu trước khi phát cho bạn bè |
 |---|---|

@@ -1,4 +1,5 @@
 #include "AdminSessionController.h"
+#include "Utils/ClientConfig.h"
 
 #include "Network/Relay/RelayClient.h"
 #include "Network/Protocol/ProtocolSerializer.h"
@@ -23,7 +24,7 @@ constexpr int SESSION_SETUP_TIMEOUT_MS = 30000;
 }
 
 AdminSessionController::AdminSessionController(QObject *parent)
-    : AdminSessionController(qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
+    : AdminSessionController(ClientConfig::value("REMOTE_RELAY_MODE", "static") == "dynamic"
             ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider())
             : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider()), parent) {}
 

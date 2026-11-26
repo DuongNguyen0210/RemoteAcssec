@@ -46,3 +46,6 @@ Thumbs.db
 
 # QT
 /.qt/
+
+# Local client deployment settings
+/.env

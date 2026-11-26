@@ -1,6 +1,7 @@
 #include "RelayClient.h"
 #include "../TransportPolicy.h"
 #include "Network/Http/TlsConfiguration.h"
+#include "Utils/ClientConfig.h"
 
 RelayClient::RelayClient(QObject *parent) : QObject(parent) {
     m_socket = new QSslSocket(this);
@@ -23,11 +24,11 @@ void RelayClient::ConnectToServer(const QString& host, quint16 port)
     }
     ++m_connectionGeneration;
     const QString caPath = remoteCaFile("REMOTE_RELAY_CA_CERT");
-    const QString defaultMode = TransportPolicy::isLoopback(host) && caPath.isEmpty()
-        ? QStringLiteral("off") : QStringLiteral("required");
-    const QString mode = qEnvironmentVariable("REMOTE_RELAY_TLS", defaultMode);
-    if (mode != QStringLiteral("required") && (mode != QStringLiteral("off") || !caPath.isEmpty())) {
-        emit transportError(QStringLiteral("Kiểm tra REMOTE_RELAY_TLS. Dùng required khi đã cấu hình chứng chỉ CA."),
+    const bool allowPlaintext = !TransportPolicy::requiresTls && caPath.isEmpty();
+    const char *defaultMode = allowPlaintext && TransportPolicy::isLoopback(host) ? "off" : "required";
+    const QString mode = ClientConfig::value("REMOTE_RELAY_TLS", defaultMode);
+    if (mode != QStringLiteral("required") && (mode != QStringLiteral("off") || !allowPlaintext)) {
+        emit transportError(QStringLiteral("Kiểm tra REMOTE_RELAY_TLS. Kết nối này yêu cầu TLS."),
                             QAbstractSocket::SslHandshakeFailedError);
         return;
     }
@@ -43,7 +44,6 @@ void RelayClient::ConnectToServer(const QString& host, quint16 port)
         return;
     }
     m_socket->setSslConfiguration(configuration);
-    m_socket->setPeerVerifyMode(QSslSocket::VerifyPeer);
     m_socket->connectToHostEncrypted(host, port);
 }
 

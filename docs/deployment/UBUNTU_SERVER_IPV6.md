@@ -505,6 +505,8 @@ unset admin_name admin_pass
 
 `jq` mã hóa ký tự trong mật khẩu thành chuỗi JSON đúng. `curl --data-binary @-` đọc JSON đó từ stdin và gửi POST. HTTP **201** nghĩa là tạo thành công. **409** nghĩa là tên đó đã có. **400** cần xem thông báo JSON để sửa dữ liệu nhập.
 
+Để phát cho người dùng Windows và Linux, xem [hướng dẫn đóng gói client](CLIENT_RELEASE.md). Gói phát hành đọc `.env` cạnh chương trình. Các khối bên dưới cũng dùng được khi chạy từ một bản build phát triển.
+
 **Windows ADMIN và CHILD.** Dùng cùng phiên bản EXE. Nếu đã có cả bộ app, chuyển thẳng sang đoạn launcher. Nếu cần build, mở terminal Qt 6 MinGW 64 bit, chuẩn bị CMake, Ninja, Qt SVG và Linguist. Từ repo cùng commit đã ghi trên Ubuntu, dùng các lệnh CMD sau.
 
 ```bat

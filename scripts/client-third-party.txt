@@ -1,0 +1,19 @@
+RemoteAccessApp uses the dynamically linked Qt runtime and Qt plugins. Qt is
+copyright The Qt Company Ltd. and other contributors. Open-source license and
+source information for the installed Qt release is available at:
+  https://doc.qt.io/qt-6/licensing.html
+  https://doc.qt.io/qt-6/lgpl.html
+  https://download.qt.io/archive/qt/
+The shared libraries and plugins in this bundle can be replaced with
+ABI-compatible builds.
+
+The Windows package includes the MinGW-w64 / GCC compiler runtime:
+  https://www.mingw-w64.org/
+  https://gcc.gnu.org/onlinedocs/libstdc++/manual/license.html
+  https://www.gnu.org/licenses/gcc-exception-3.1.html
+
+The Linux package includes libraries from its build distribution, including
+OpenSSL for TLS and X.Org libraries for X11:
+  https://openssl-library.org/source/
+  https://www.x.org/releases/individual/lib/
+  https://packages.ubuntu.com/

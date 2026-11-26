@@ -3,6 +3,7 @@
 #include <QUrl>
 #include <QNetworkRequest>
 #include "TlsConfiguration.h"
+#include "Utils/ClientConfig.h"
 #include <QHash>
 
 ApiClient& ApiClient::instance()
@@ -83,7 +84,7 @@ ApiParsedResponse ApiClient::parseReply(QNetworkReply *reply)
 ApiClient::ApiClient(QObject *parent) 
     : QObject(parent), m_networkManager(new QNetworkAccessManager(this))
 {
-    setBaseUrl(qEnvironmentVariable("REMOTE_API_URL", "http://localhost:9090"));
+    setBaseUrl(ClientConfig::value("REMOTE_API_URL", "http://localhost:9090"));
 }
 
 ApiClient::~ApiClient()

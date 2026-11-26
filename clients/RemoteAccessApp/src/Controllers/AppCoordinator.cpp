@@ -1,4 +1,5 @@
 #include "AppCoordinator.h"
+#include "Utils/ClientConfig.h"
 
 #include "AuthController.h"
 #include "Network/Http/LoginSessionMonitor.h"
@@ -133,7 +134,7 @@ void AppCoordinator::createChildWorkspace()
 
     if (m_screenStreamSender) return;
 
-    RelayEndpointProvider *provider = qEnvironmentVariable("REMOTE_RELAY_MODE", "static") == "dynamic"
+    RelayEndpointProvider *provider = ClientConfig::value("REMOTE_RELAY_MODE", "static") == "dynamic"
             ? static_cast<RelayEndpointProvider *>(new DynamicRelayEndpointProvider(this))
             : static_cast<RelayEndpointProvider *>(new StaticRelayEndpointProvider(this));
     auto *session = new ChildSessionController(provider, this);

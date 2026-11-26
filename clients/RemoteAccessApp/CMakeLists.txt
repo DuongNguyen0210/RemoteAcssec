@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(RemoteAccessApp VERSION 0.1 LANGUAGES CXX)
 
+option(REMOTEACCESS_REQUIRE_TLS "Disallow unencrypted API and relay transports in distribution builds" OFF)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -33,12 +35,19 @@ add_subdirectory(src/Network)
 add_subdirectory(src/GUI)
 add_subdirectory(src/Controllers)
 
+if(REMOTEACCESS_REQUIRE_TLS)
+    target_compile_definitions(Network PUBLIC REMOTEACCESS_REQUIRE_TLS)
+endif()
+
 add_executable(${PROJECT_NAME}
     src/Main.cpp
     project.qrc
     "${PBL4_TRANSLATION_QRC}"
 )
 add_dependencies(${PROJECT_NAME} Pbl4Translations)
+if(WIN32 AND REMOTEACCESS_REQUIRE_TLS)
+    set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -71,6 +80,9 @@ if(BUILD_TESTING AND ENABLE_X11_INPUT_INTEGRATION AND CMAKE_SYSTEM_NAME STREQUAL
 endif()
 if(BUILD_TESTING)
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(ClientConfigTest tests/ClientConfigTest.cpp)
+    target_link_libraries(ClientConfigTest PRIVATE Utils Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME client_config COMMAND ClientConfigTest)
     add_executable(AccountDeviceFlowTest tests/AccountDeviceFlowTest.cpp project.qrc "${PBL4_TRANSLATION_QRC}")
     add_dependencies(AccountDeviceFlowTest Pbl4Translations)
     target_link_libraries(AccountDeviceFlowTest PRIVATE

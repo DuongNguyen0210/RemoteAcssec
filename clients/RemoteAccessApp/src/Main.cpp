@@ -3,6 +3,7 @@
 #include <QTranslator>
 #include <QLocale>
 #include "Controllers/AppCoordinator.h"
+#include "Utils/ClientConfig.h"
 
 int main(int argc, char *argv[])
 {
@@ -13,6 +14,7 @@ int main(int argc, char *argv[])
 #endif
 
     QApplication app(argc, argv);
+    ClientConfig::loadFromDirectory(QCoreApplication::applicationDirPath());
     QLocale::setDefault(QLocale(QLocale::Vietnamese, QLocale::Vietnam));
     QTranslator inputTranslation;
     if (inputTranslation.load(":/translations/qt_vi.qm")) app.installTranslator(&inputTranslation);
