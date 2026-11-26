@@ -1,4 +1,6 @@
 #include "ChildStatusWindow.h"
+#include <QEvent>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QStyle>
@@ -8,6 +10,15 @@ ChildStatusWindow::ChildStatusWindow(QWidget *parent) : QWidget(parent)
 {
     setObjectName(QStringLiteral("childStatusWindow"));
     setWindowTitle(QStringLiteral("RemoteAccess — máy được điều khiển"));
+#ifdef Q_OS_WIN
+    // Native caption buttons can wait for mouse release on the same thread
+    // that must read that release from the relay.
+    setWindowFlags(windowFlags().setFlag(Qt::CustomizeWindowHint)
+                     .setFlag(Qt::WindowTitleHint).setFlag(Qt::WindowSystemMenuHint)
+                     .setFlag(Qt::WindowCloseButtonHint)
+                     .setFlag(Qt::WindowMinimizeButtonHint, false)
+                     .setFlag(Qt::WindowMaximizeButtonHint, false));
+#endif
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_StyledBackground);
     setMinimumWidth(420);
@@ -28,7 +39,31 @@ ChildStatusWindow::ChildStatusWindow(QWidget *parent) : QWidget(parent)
     layout->addWidget(m_status);
     layout->addWidget(m_toggle);
     connect(m_toggle, &QPushButton::clicked, this, &ChildStatusWindow::sharingToggleRequested);
+#ifdef Q_OS_WIN
+    auto *windowActions = new QHBoxLayout;
+    auto *minimize = new QPushButton(QStringLiteral("Thu nhỏ"), this);
+    minimize->setObjectName(QStringLiteral("childMinimizeButton"));
+    m_windowSizeButton = new QPushButton(QStringLiteral("Phóng to"), this);
+    m_windowSizeButton->setObjectName(QStringLiteral("childWindowSizeButton"));
+    windowActions->addStretch();
+    windowActions->addWidget(minimize);
+    windowActions->addWidget(m_windowSizeButton);
+    layout->addLayout(windowActions);
+    connect(minimize, &QPushButton::clicked, this, &QWidget::showMinimized);
+    connect(m_windowSizeButton, &QPushButton::clicked, this, [this] {
+        if (isMaximized()) showNormal();
+        else showMaximized();
+    });
+#endif
 }
+
+#ifdef Q_OS_WIN
+void ChildStatusWindow::changeEvent(QEvent *event) {
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::WindowStateChange && m_windowSizeButton)
+        m_windowSizeButton->setText(isMaximized() ? QStringLiteral("Khôi phục") : QStringLiteral("Phóng to"));
+}
+#endif
 
 void ChildStatusWindow::showRelayReady() {
     m_status->setText(QStringLiteral("Sẵn sàng nhận phiên điều khiển không giám sát."));

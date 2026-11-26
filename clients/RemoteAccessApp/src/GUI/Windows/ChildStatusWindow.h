@@ -16,7 +16,14 @@ public:
     void showSharingEnabled(bool enabled);
 signals:
     void sharingToggleRequested();
+#ifdef Q_OS_WIN
+protected:
+    void changeEvent(QEvent *event) override;
+#endif
 private:
+#ifdef Q_OS_WIN
+    QPushButton *m_windowSizeButton = nullptr;
+#endif
     QLabel *m_status;
     QPushButton *m_toggle;
 };

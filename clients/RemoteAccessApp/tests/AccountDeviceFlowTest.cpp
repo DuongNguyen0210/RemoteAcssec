@@ -1073,6 +1073,23 @@ private slots:
             QCOMPARE(stop->text(), QStringLiteral("Dừng chia sẻ"));
             emit session->relayRegistered();
             QVERIFY(status->text().contains(QStringLiteral("Sẵn sàng nhận phiên")));
+#ifdef Q_OS_WIN
+            QVERIFY(!window->windowFlags().testFlag(Qt::WindowMinimizeButtonHint));
+            QVERIFY(!window->windowFlags().testFlag(Qt::WindowMaximizeButtonHint));
+            auto *minimize = window->findChild<QPushButton *>("childMinimizeButton");
+            auto *resize = window->findChild<QPushButton *>("childWindowSizeButton");
+            QVERIFY(minimize && resize);
+            resize->click();
+            QTRY_VERIFY(window->isMaximized());
+            QCOMPARE(resize->text(), QStringLiteral("Khôi phục"));
+            resize->click();
+            QTRY_VERIFY(!window->isMaximized());
+            minimize->click();
+            QTRY_VERIFY(window->isMinimized());
+            window->showNormal();
+            QVERIFY(heartbeat->isRunning());
+            QCOMPARE(stop->text(), QStringLiteral("Dừng chia sẻ"));
+#endif
             if (!screenshotDir.isEmpty()) window->grab().save(screenshotDir + "/child-sharing-on.png");
             stop->click();
             QVERIFY(status->text().contains(QStringLiteral("Đã dừng chia sẻ")));
