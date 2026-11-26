@@ -30,7 +30,7 @@ ScreenStreamSender::ScreenStreamSender(ChildSessionController *session, QObject 
     m_timer->setSingleShot(true);
     m_timer->setTimerType(Qt::PreciseTimer);
     connect(m_timer, &QTimer::timeout, this, &ScreenStreamSender::onTick);
-    connect(&m_encoder, &QFutureWatcher<EncodedScreenFrame>::finished, this, &ScreenStreamSender::encodingFinished);
+    connect(&m_encoder, &QFutureWatcherBase::finished, this, &ScreenStreamSender::encodingFinished);
     connect(session, &ChildSessionController::sessionStarted, this, &ScreenStreamSender::resetSession);
     connect(session, &ChildSessionController::sessionEnded, this, [this] { resetSession(0); });
     connect(session, &ChildSessionController::screenFrameAcknowledged, this,
@@ -132,17 +132,10 @@ void ScreenStreamSender::onTick()
         return;
     }
 
-    const FrameChange change = classifyFrameChange(frame, m_lastSentFrame);
     const int refreshInterval = qEnvironmentVariable("PBL4_ISOLATED_X11") == QStringLiteral("1")
             ? 400 : REFRESH_INTERVAL_MS;
     const qint64 lastSend = m_rate.lastSendMs();
     const qint64 sinceLastSend = lastSend < 0 ? refreshInterval : now - lastSend;
-    if ((change == FrameChange::None && sinceLastSend < refreshInterval)
-        || (change == FrameChange::Minor && sinceLastSend < MINOR_CHANGE_INTERVAL_MS)) {
-        schedule(STREAM_INTERVAL_MS);
-        return;
-    }
-
     constexpr qsizetype overhead = Protocol::HEADER_SIZE + ScreenFramePacketizer::SCREEN_FRAME_METADATA_SIZE;
     static_assert(MAX_WIRE_FRAME_BYTES - overhead <= ScreenFramePacketizer::maxChunkData());
     const qsizetype budget = m_rate.wireBudget() - overhead;
@@ -152,7 +145,13 @@ void ScreenStreamSender::onTick()
     m_encodingFrame = frame;
     m_encodingSessionId = m_currentSessionId;
     m_workerActive = true;
-    m_encoder.setFuture(QtConcurrent::run([frame, budget, state, probe] {
+    m_encoder.setFuture(QtConcurrent::run([frame, previous = m_lastSentFrame, budget, state, probe,
+                                           sinceLastSend, refreshInterval]() -> std::optional<EncodedScreenFrame> {
+        // Scanning a high-resolution desktop competes with input handling on the GUI thread.
+        const auto change = classifyFrameChange(frame, previous);
+        if ((change == FrameChange::None && sinceLastSend < refreshInterval)
+            || (change == FrameChange::Minor && sinceLastSend < MINOR_CHANGE_INTERVAL_MS))
+            return std::nullopt;
         return ScreenEncoder::encodeWithinLimit(frame, budget, state, probe);
     }));
 }
@@ -164,8 +163,13 @@ void ScreenStreamSender::encodingFinished()
         schedule(0);
         return;
     }
-    m_workMs = m_clock.elapsed() - m_captureStartMs;
     m_prepared = m_encoder.result();
+    if (!m_prepared) {
+        m_encodingFrame = {};
+        schedule(STREAM_INTERVAL_MS);
+        return;
+    }
+    m_workMs = m_clock.elapsed() - m_captureStartMs;
     onTick();
 }
 

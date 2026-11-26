@@ -56,7 +56,7 @@ private:
     QImage       m_lastSentFrame;
     QImage       m_encodingFrame;
     quint64      m_encodingSessionId = 0;
-    QFutureWatcher<EncodedScreenFrame> m_encoder;
+    QFutureWatcher<std::optional<EncodedScreenFrame>> m_encoder;
     ScreenStreamRate m_rate;
     ScreenEncodeState m_search;
     std::optional<EncodedScreenFrame> m_prepared;

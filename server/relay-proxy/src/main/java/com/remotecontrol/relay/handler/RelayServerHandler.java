@@ -131,6 +131,9 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
     }
 
     private void forwardControl(ChannelHandlerContext ctx, Channel target, Protocol msg) {
+        // Moves are replaceable. Button events carry their own coordinates.
+        if (msg.getHeader().getType() == ProtocolConstants.MessageType.MOUSE_MOVE.getValue()
+                && !target.isWritable()) return;
         // Keep input transitions and ACKs ordered in Netty's queue across temporary unwritability.
         var watermark = target.config().getWriteBufferWaterMark();
         long writableThreshold = (long) watermark.high() - watermark.low() + MAX_CONTROL_RESERVE_BYTES;
@@ -223,6 +226,9 @@ public class RelayServerHandler extends SimpleChannelInboundHandler<Protocol> {
                 if (failure != null && !retry) {
                     scheduleLeaseCheck(ctx, credentials, agentId, generation, true);
                 } else if (failure != null || !agentId.equals(authorized)) {
+                    System.err.println(failure != null
+                            ? "[RelayServer] Closing connection after authorization service failed on retry"
+                            : "[RelayServer] Closing connection after session authorization expired or was revoked");
                     ctx.close();
                 } else {
                     startLease(ctx, credentials, agentId);

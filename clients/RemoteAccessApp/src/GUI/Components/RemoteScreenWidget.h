@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QImage>
 #include <QElapsedTimer>
+#include <QTimer>
 #include "Network/Protocol/ProtocolConstants.h"
 #include <QSet>
 
@@ -37,6 +38,9 @@ protected:
     void focusOutEvent(QFocusEvent *event) override;
 
 private:
+    void flushMouseMove();
+    QTimer m_mouseMoveTimer;
+    QByteArray m_pendingMouseMove;
     QImage m_currentFrame;
     int m_frameCount = 0;
     int m_currentFps = 0;

@@ -221,12 +221,14 @@ class RelayForwardingTest {
 
             var press = packet(ProtocolConstants.MessageType.KEY_PRESS.getValue(), 0, id, 0, new byte[4]);
             var release = packet(ProtocolConstants.MessageType.KEY_RELEASE.getValue(), 0, id, 0, new byte[4]);
-            admin.writeInbound(press, release);
+            var move = packet(ProtocolConstants.MessageType.MOUSE_MOVE.getValue(), 0, id, 0, new byte[8]);
+            admin.writeInbound(move, press, release);
 
             assertEquals(1, registry.activeSessionCount());
             assertSame(pending, child.readOutbound());
             assertSame(press, child.readOutbound());
             assertSame(release, child.readOutbound());
+            assertNull(child.readOutbound());
         } finally { admin.finishAndReleaseAll(); child.finishAndReleaseAll(); }
     }
 

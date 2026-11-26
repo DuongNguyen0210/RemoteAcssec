@@ -79,6 +79,35 @@ class AdminScreenViewerTest : public QObject {
                 && reply->error() == QNetworkReply::NoError;
     }
 private slots:
+    void dragCoalescesMovesAndPreservesTheReleasePosition() {
+        using T = Protocol::MessageType;
+        RemoteScreenWidget view;
+        view.resize(320, 240);
+        QImage frame(320, 240, QImage::Format_RGB32);
+        frame.fill(Qt::black);
+        view.updateFrame(frame);
+        QList<QPair<T, QByteArray>> events;
+        connect(&view, &RemoteScreenWidget::remoteInput, &view,
+                [&](T type, const QByteArray &payload) { events.append({type, payload}); });
+
+        QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, QPoint(20, 30));
+        for (int x = 30; x <= 120; ++x) {
+            QMouseEvent move(QEvent::MouseMove, QPointF(x, 60), QPointF(x, 60),
+                             Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(&view, &move);
+        }
+        QCOMPARE(events.size(), 1);
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, QPoint(130, 70));
+        QCOMPARE(events.size(), 3);
+        QVERIFY(events.at(0).first == T::MOUSE_BUTTON_DOWN);
+        QVERIFY(events.at(1).first == T::MOUSE_MOVE);
+        QVERIFY(events.at(2).first == T::MOUSE_BUTTON_UP);
+        QCOMPARE(events.at(1).second, RemoteInputPacket::withFrame(
+                     RemoteInputPacket::position(120, 60), frame.size()));
+        QCOMPARE(events.at(2).second, RemoteInputPacket::withFrame(
+                     RemoteInputPacket::button(130, 70, 1), frame.size()));
+    }
+
     void boundsEncodedFramesWithoutDroppingLargeScreens() {
         QImage noisy(1600, 1200, QImage::Format_RGB32);
         QRandomGenerator random(42);

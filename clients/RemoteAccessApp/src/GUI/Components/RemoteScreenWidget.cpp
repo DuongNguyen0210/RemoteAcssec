@@ -14,6 +14,10 @@ RemoteScreenWidget::RemoteScreenWidget(QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
     m_fpsTimer.start();
+    m_mouseMoveTimer.setSingleShot(true);
+    m_mouseMoveTimer.setTimerType(Qt::PreciseTimer);
+    m_mouseMoveTimer.setInterval(16);
+    connect(&m_mouseMoveTimer, &QTimer::timeout, this, &RemoteScreenWidget::flushMouseMove);
 }
 
 bool RemoteScreenWidget::remotePosition(const QPoint &point, quint32 &x, quint32 &y) const {
@@ -32,8 +36,15 @@ void RemoteScreenWidget::mouseMoveEvent(QMouseEvent *event) {
     quint32 x, y;
     if (remotePosition(event->pos(), x, y)) {
         m_lastX = x; m_lastY = y; m_lastFrameSize = m_currentFrame.size();
-        emit remoteInput(Protocol::MessageType::MOUSE_MOVE, RemoteInputPacket::withFrame(RemoteInputPacket::position(x, y), m_currentFrame.size()));
+        m_pendingMouseMove = RemoteInputPacket::withFrame(RemoteInputPacket::position(x, y), m_currentFrame.size());
+        if (!m_mouseMoveTimer.isActive()) m_mouseMoveTimer.start();
     }
+}
+
+void RemoteScreenWidget::flushMouseMove() {
+    m_mouseMoveTimer.stop();
+    const auto payload = std::exchange(m_pendingMouseMove, QByteArray{});
+    if (!payload.isEmpty()) emit remoteInput(Protocol::MessageType::MOUSE_MOVE, payload);
 }
 
 void RemoteScreenWidget::mousePressEvent(QMouseEvent *event) {
@@ -41,6 +52,7 @@ void RemoteScreenWidget::mousePressEvent(QMouseEvent *event) {
     quint32 x, y;
     const quint8 button = event->button() == Qt::LeftButton ? 1 : event->button() == Qt::RightButton ? 2 : event->button() == Qt::MiddleButton ? 3 : 0;
     if (button && remotePosition(event->pos(), x, y)) {
+        flushMouseMove();
         m_lastX = x; m_lastY = y; m_lastFrameSize = m_currentFrame.size();
         m_pressedButtons.insert(button);
         emit remoteInput(Protocol::MessageType::MOUSE_BUTTON_DOWN, RemoteInputPacket::withFrame(RemoteInputPacket::button(x, y, button), m_currentFrame.size()));
@@ -51,6 +63,7 @@ void RemoteScreenWidget::mouseReleaseEvent(QMouseEvent *event) {
     quint32 x, y;
     const quint8 button = event->button() == Qt::LeftButton ? 1 : event->button() == Qt::RightButton ? 2 : event->button() == Qt::MiddleButton ? 3 : 0;
     if (!button || !m_pressedButtons.remove(button)) return;
+    flushMouseMove();
     if (remotePosition(event->pos(), x, y)) { m_lastX = x; m_lastY = y; m_lastFrameSize = m_currentFrame.size(); }
     emit remoteInput(Protocol::MessageType::MOUSE_BUTTON_UP, RemoteInputPacket::withFrame(RemoteInputPacket::button(m_lastX, m_lastY, button), m_lastFrameSize));
 }
@@ -62,22 +75,29 @@ void RemoteScreenWidget::wheelEvent(QWheelEvent *event) {
 #else
     const QPoint point = event->pos();
 #endif
-    if (remotePosition(point, x, y)) emit remoteInput(Protocol::MessageType::MOUSE_WHEEL, RemoteInputPacket::withFrame(RemoteInputPacket::wheel(x, y, event->angleDelta().y()), m_currentFrame.size()));
+    if (remotePosition(point, x, y)) {
+        flushMouseMove();
+        emit remoteInput(Protocol::MessageType::MOUSE_WHEEL, RemoteInputPacket::withFrame(RemoteInputPacket::wheel(x, y, event->angleDelta().y()), m_currentFrame.size()));
+    }
 }
 
 void RemoteScreenWidget::keyPressEvent(QKeyEvent *event) {
     if (!m_currentFrame.isNull() && !event->isAutoRepeat()) {
+        flushMouseMove();
         m_pressedKeys.insert(event->key());
         emit remoteInput(Protocol::MessageType::KEY_PRESS, RemoteInputPacket::key(quint32(event->key())));
     }
 }
 
 void RemoteScreenWidget::keyReleaseEvent(QKeyEvent *event) {
-    if (!event->isAutoRepeat() && m_pressedKeys.remove(event->key()))
+    if (!event->isAutoRepeat() && m_pressedKeys.remove(event->key())) {
+        flushMouseMove();
         emit remoteInput(Protocol::MessageType::KEY_RELEASE, RemoteInputPacket::key(quint32(event->key())));
+    }
 }
 
 void RemoteScreenWidget::focusOutEvent(QFocusEvent *event) {
+    flushMouseMove();
     for (quint8 button : std::as_const(m_pressedButtons))
         emit remoteInput(Protocol::MessageType::MOUSE_BUTTON_UP, RemoteInputPacket::withFrame(RemoteInputPacket::button(m_lastX, m_lastY, button), m_lastFrameSize));
     m_pressedButtons.clear();
@@ -113,6 +133,8 @@ void RemoteScreenWidget::updateFrame(const QImage &image)
 
 void RemoteScreenWidget::clearFrame()
 {
+    m_mouseMoveTimer.stop();
+    m_pendingMouseMove.clear();
     m_currentFrame = QImage();
     m_frameCount = 0;
     m_currentFps = 0;
